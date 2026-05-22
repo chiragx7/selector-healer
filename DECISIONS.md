@@ -158,3 +158,30 @@ Format: append-only, newest at the bottom of each day's section. Never rewrite h
 ### Deduplication key for candidates
 **Choice:** Candidates are deduplicated by `${tagName}:${id}:${data-testid}:${text.slice(0,30)}`.
 **Why:** The same element can match multiple selectors (e.g., by id and by role). The composite key catches duplicates while being fast to compute. The 30-char text prefix avoids key explosion for long text nodes.
+
+## 2026-05-22 — Phase 5: CLI
+
+### CLI framework: `commander`
+**Choice:** `commander` for the `selector-healer` binary.
+**Why:** The most widely used Node CLI framework, stable API, first-class TypeScript types, subcommand support. Lightweight enough that it doesn't inflate the dependency tree.
+**Alternatives considered:** `yargs` (heavier, more opinionated), `citty` (unjs flavor, less mature for complex subcommands).
+
+### Config loading: `cosmiconfig`
+**Choice:** `cosmiconfig` searches for `selector-healer.config.{ts,js,mjs,cjs}`, `.selector-healerrc`, `.selector-healerrc.json`, and `package.json`.
+**Why:** Decided in Phase 1. Users get flexible config placement without any custom code.
+
+### AST rewrite via `recast` + `@babel/parser`
+**Choice:** The `--fix` flag uses `recast` with `@babel/parser` to parse and reprint source, preserving formatting.
+**Why:** Spec mandates "AST only" for source modification. recast preserves comments and whitespace in untouched regions, which is critical when rewriting test files that humans maintain.
+
+### HTML report: self-contained single file
+**Choice:** `report` command generates a single HTML file with inline CSS, no external assets.
+**Why:** Decided in Phase 1. Double-click-to-open, works offline, can be emailed or committed.
+
+### Exit codes: broken = 1, multi + --fail-on-warning = 1
+**Choice:** `verify` exits 1 if any selector is broken. `--fail-on-warning` makes multiple-matches also exit 1.
+**Why:** CI pipelines key off exit codes. Broken selectors are always failures. Ambiguous selectors are warnings by default — strict mode opts in via flag.
+
+### No `console.log` in CLI — `process.stdout.write` + `picocolors`
+**Choice:** CLI output uses `process.stdout.write` with `picocolors` for coloring. No `console.log`.
+**Why:** `console.log` adds a newline and goes through internal Node buffering that can interfere with piped output. `process.stdout.write` gives us exact control. pino is used only in the core library; the CLI formats its own output.
