@@ -33,6 +33,9 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 
+# Playwright test results
+test-results/
+
 # Selector Healer runtime artifacts.
 # `.selector-healer/fingerprints.json` IS committed (the baseline).
 .selector-healer/report.html

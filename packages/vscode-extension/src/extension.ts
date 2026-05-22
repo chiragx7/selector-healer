@@ -6,7 +6,7 @@ import {
   parseTestFile,
   verifySelectors,
 } from '@selector-healer/core';
-import type { HealSuggestion, HealerConfig } from '@selector-healer/core';
+import type { HealerConfig } from '@selector-healer/core';
 import * as vscode from 'vscode';
 import {
   SelectorHealerCodeActionProvider,
@@ -20,17 +20,25 @@ import {
   updateDiagnosticsFromResults,
 } from './diagnostics.js';
 import { createStatusBarItem, setIdle, setResults, setRunning } from './status-bar.js';
+import { SelectorTreeProvider } from './tree-view.js';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let statusBarItem: vscode.StatusBarItem;
 let outputChannel: vscode.OutputChannel;
+let treeProvider: SelectorTreeProvider;
 
 export function activate(context: vscode.ExtensionContext): void {
   diagnosticCollection = createDiagnosticCollection();
   statusBarItem = createStatusBarItem();
   outputChannel = vscode.window.createOutputChannel('Selector Healer');
+  treeProvider = new SelectorTreeProvider();
 
-  context.subscriptions.push(diagnosticCollection, statusBarItem, outputChannel);
+  const treeView = vscode.window.createTreeView('selectorHealerExplorer', {
+    treeDataProvider: treeProvider,
+    showCollapseAll: true,
+  });
+
+  context.subscriptions.push(diagnosticCollection, statusBarItem, outputChannel, treeView);
 
   const tsSelector: vscode.DocumentSelector = [
     { language: 'typescript', scheme: 'file' },
@@ -49,6 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.verify', () => runVerify()),
     vscode.commands.registerCommand('selectorHealer.capture', () => runCapture()),
     vscode.commands.registerCommand('selectorHealer.applyAllFixes', () => applyAllFixes()),
+    vscode.commands.registerCommand('selectorHealer.refresh', () => runVerify()),
   );
 
   context.subscriptions.push(
@@ -156,6 +165,7 @@ async function runVerify(): Promise<void> {
 
     const suggestionMap = new Map<string, string>();
     const allSuggestions: StoredSuggestion[] = [];
+    const suggestionsByKey = new Map<string, StoredSuggestion[]>();
 
     if (broken.length > 0) {
       const healResults = await healSelectors(broken, { config, projectRoot: root });
@@ -167,8 +177,11 @@ async function runVerify(): Promise<void> {
 
           const sel = broken.find((r) => r.selector.id === h.selectorId)?.selector;
           if (sel) {
+            const key = `${sel.filePath}:${sel.line}`;
+            const keyList = suggestionsByKey.get(key) ?? [];
+
             for (const c of h.candidates) {
-              allSuggestions.push({
+              const stored: StoredSuggestion = {
                 selectorId: h.selectorId,
                 filePath: sel.filePath,
                 line: sel.line,
@@ -176,8 +189,12 @@ async function runVerify(): Promise<void> {
                 rawValue: sel.rawValue,
                 replacementCode: c.replacementCode,
                 confidence: c.confidence,
-              });
+              };
+              allSuggestions.push(stored);
+              keyList.push(stored);
             }
+
+            suggestionsByKey.set(key, keyList);
           }
         }
       }
@@ -186,6 +203,9 @@ async function runVerify(): Promise<void> {
     storeSuggestions(allSuggestions);
     updateDiagnosticsFromResults(diagnosticCollection, results, suggestionMap);
     setResults(statusBarItem, ok, broken.length, results.length);
+
+    // Update the sidebar tree view
+    treeProvider.refresh(results, suggestionsByKey);
 
     outputChannel.appendLine(
       `Verification complete: ${ok} ok, ${broken.length} broken, ${results.length} total`,
