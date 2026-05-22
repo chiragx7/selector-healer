@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Test coverage and caches
+coverage/
+.vitest-cache/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code harness state (per-project)
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Selector Healer runtime artifacts.
+# `.selector-healer/fingerprints.json` IS committed (the baseline).
+.selector-healer/report.html
+.selector-healer/screenshots/

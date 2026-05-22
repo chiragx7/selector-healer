@@ -1,0 +1,23 @@
+{
+  "name": "@selector-healer/cli",
+  "version": "0.0.1",
+  "description": "CLI for Selector Healer.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "selector-healer": "./dist/index.js"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@selector-healer/core": "workspace:*"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "sample-playwright-project",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Demo fixture for Selector Healer. Filled in during Phase 5.",
+  "type": "module"
+}

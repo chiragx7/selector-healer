@@ -1,0 +1,41 @@
+{
+  "name": "selector-healer-vscode",
+  "displayName": "Selector Healer",
+  "description": "Highlights broken Playwright selectors and offers AST-based quick fixes.",
+  "version": "0.0.1",
+  "publisher": "selector-healer",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.93.0",
+    "node": ">=20.0.0"
+  },
+  "categories": ["Linters", "Testing"],
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "workspaceContains:selector-healer.config.ts"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "selectorHealer.verify", "title": "Selector Healer: Verify Now" },
+      { "command": "selectorHealer.capture", "title": "Selector Healer: Capture Baseline" },
+      {
+        "command": "selectorHealer.applyAllFixes",
+        "title": "Selector Healer: Apply All High-Confidence Fixes"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@selector-healer/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.93.0"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "selector-healer",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Local-first tool to detect and fix broken Playwright test selectors.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "corepack pnpm -r run build",
+    "test": "corepack pnpm -r run test",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "typecheck": "corepack pnpm -r run typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^20.17.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}
