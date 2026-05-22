@@ -2,6 +2,19 @@
   "name": "sample-playwright-project",
   "version": "0.0.0",
   "private": true,
-  "description": "Demo fixture for Selector Healer. Filled in during Phase 5.",
-  "type": "module"
+  "description": "Demo fixture for Selector Healer — shows capture, verify, and --fix in action.",
+  "type": "module",
+  "scripts": {
+    "server": "node server.js",
+    "test": "npx playwright test",
+    "demo:capture": "npx selector-healer capture",
+    "demo:verify": "npx selector-healer verify",
+    "demo:fix": "npx selector-healer verify --fix",
+    "demo:report": "npx selector-healer report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@selector-healer/cli": "workspace:*",
+    "@selector-healer/core": "workspace:*"
+  }
 }

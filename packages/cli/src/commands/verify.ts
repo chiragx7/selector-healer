@@ -1,10 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { healSelectors, parseDirectory, verifySelectors } from '@selector-healer/core';
-import type { HealSuggestion, HealerConfig } from '@selector-healer/core';
+import type { HealSuggestion, HealerConfig, VerificationResult } from '@selector-healer/core';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { loadConfig } from '../config.js';
-import { applyFix } from '../fix.js';
+import type { FixEntry } from '../fix.js';
+import { applyFixesToSource } from '../fix.js';
 import { formatSuggestions, formatVerifyResults } from '../format.js';
 
 export function registerVerify(program: Command): void {
@@ -56,7 +57,7 @@ export function registerVerify(program: Command): void {
         process.stdout.write(formatSuggestions(suggestions));
 
         if (opts.fix) {
-          await applyFixes(suggestions, config.confidenceThreshold?.autoApply ?? 0.8);
+          applyFixes(broken, suggestions, config.confidenceThreshold?.autoApply ?? 0.8);
         }
       }
 
@@ -68,25 +69,35 @@ export function registerVerify(program: Command): void {
     });
 }
 
-async function applyFixes(suggestions: HealSuggestion[], threshold: number): Promise<void> {
-  let applied = 0;
-  const byFile = new Map<string, Array<{ line: number; replacementCode: string }>>();
+function applyFixes(
+  broken: VerificationResult[],
+  suggestions: HealSuggestion[],
+  threshold: number,
+): void {
+  const selectorMap = new Map(broken.map((r) => [r.selector.id, r.selector]));
+
+  const byFile = new Map<string, FixEntry[]>();
+  let count = 0;
 
   for (const s of suggestions) {
     const top = s.candidates[0];
     if (!top || top.confidence < threshold) continue;
 
-    const fp = top.matchedFingerprint;
-    const filePath = fp.pageUrl;
-    if (!filePath) continue;
+    const selector = selectorMap.get(s.selectorId);
+    if (!selector) continue;
 
-    const list = byFile.get(filePath) ?? [];
-    list.push({ line: 0, replacementCode: top.replacementCode });
-    byFile.set(filePath, list);
-    applied++;
+    const list = byFile.get(selector.filePath) ?? [];
+    list.push({
+      line: selector.line,
+      column: selector.column,
+      rawValue: selector.rawValue,
+      replacementCode: top.replacementCode,
+    });
+    byFile.set(selector.filePath, list);
+    count++;
   }
 
-  if (applied === 0) {
+  if (count === 0) {
     process.stdout.write(`  ${pc.dim('No suggestions above auto-apply threshold')}\n`);
     return;
   }
@@ -94,7 +105,7 @@ async function applyFixes(suggestions: HealSuggestion[], threshold: number): Pro
   for (const [filePath, fixes] of byFile) {
     try {
       const source = readFileSync(filePath, 'utf8');
-      const patched = applyFix(source, fixes);
+      const patched = applyFixesToSource(source, fixes);
       writeFileSync(filePath, patched, 'utf8');
       process.stdout.write(`  ${pc.green('Fixed')} ${filePath} (${fixes.length} selectors)\n`);
     } catch (e) {
@@ -104,5 +115,5 @@ async function applyFixes(suggestions: HealSuggestion[], threshold: number): Pro
     }
   }
 
-  process.stdout.write(`\n  ${pc.green(`${applied} fix(es) applied`)}\n\n`);
+  process.stdout.write(`\n  ${pc.green(`${count} fix(es) applied`)}\n\n`);
 }
