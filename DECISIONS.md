@@ -185,3 +185,25 @@ Format: append-only, newest at the bottom of each day's section. Never rewrite h
 ### No `console.log` in CLI — `process.stdout.write` + `picocolors`
 **Choice:** CLI output uses `process.stdout.write` with `picocolors` for coloring. No `console.log`.
 **Why:** `console.log` adds a newline and goes through internal Node buffering that can interfere with piped output. `process.stdout.write` gives us exact control. pino is used only in the core library; the CLI formats its own output.
+
+## 2026-05-22 — Phase 6: VS Code Extension
+
+### Extension uses ESM (NodeNext module system)
+**Choice:** The extension tsconfig inherits `"module": "NodeNext"` from the base config, matching the core package.
+**Why:** `@selector-healer/core` is an ESM package (`"type": "module"`). Using CommonJS for the extension would require dynamic import hacks or a bundler to load ESM deps. Since VS Code 1.93+ supports ESM extensions, using NodeNext is the cleanest path.
+
+### Diagnostics: parse on save, verify on command
+**Choice:** On file save/open, the extension parses the file for selectors and shows "no baseline" info diagnostics. Full Playwright-based verification only runs when the user triggers "Verify Now".
+**Why:** Running Playwright on every save would be slow and disruptive. Parsing is fast (AST-only, no network). The full verify/heal flow is an explicit action the user controls.
+
+### Code actions: QuickFix per broken selector
+**Choice:** Each broken selector diagnostic offers one or more QuickFix code actions with the healer's ranked replacement suggestions. The highest-confidence suggestion is marked `isPreferred`.
+**Why:** VS Code's QuickFix UI is the standard pattern for "here's what's wrong, here's how to fix it." Users can Ctrl+. on a squiggled selector and pick a fix. Preferred actions also work with `editor.codeActionsOnSave`.
+
+### Status bar item: left-aligned, click to verify
+**Choice:** A status bar item shows selector health (idle, running, results) and triggers verify on click.
+**Why:** Gives constant visibility into selector health without requiring the user to open a panel. The click shortcut makes the verify command discoverable.
+
+### Config loading: dynamic import of cosmiconfig
+**Choice:** The extension loads cosmiconfig via dynamic `import('cosmiconfig')` in the config-loading function rather than a top-level import.
+**Why:** Cosmiconfig is only needed when running verify/capture commands, not on every file parse. Lazy loading keeps activation fast.

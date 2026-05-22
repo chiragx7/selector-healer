@@ -90,6 +90,9 @@ importers:
       '@selector-healer/core':
         specifier: workspace:*
         version: link:../core
+      cosmiconfig:
+        specifier: ^9.0.1
+        version: 9.0.1(typescript@5.9.3)
     devDependencies:
       '@types/vscode':
         specifier: ^1.93.0

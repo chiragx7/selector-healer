@@ -19,8 +19,14 @@
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
-      { "command": "selectorHealer.verify", "title": "Selector Healer: Verify Now" },
-      { "command": "selectorHealer.capture", "title": "Selector Healer: Capture Baseline" },
+      {
+        "command": "selectorHealer.verify",
+        "title": "Selector Healer: Verify Now"
+      },
+      {
+        "command": "selectorHealer.capture",
+        "title": "Selector Healer: Capture Baseline"
+      },
       {
         "command": "selectorHealer.applyAllFixes",
         "title": "Selector Healer: Apply All High-Confidence Fixes"
@@ -33,7 +39,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@selector-healer/core": "workspace:*"
+    "@selector-healer/core": "workspace:*",
+    "cosmiconfig": "^9.0.1"
   },
   "devDependencies": {
     "@types/vscode": "^1.93.0"
