@@ -132,3 +132,29 @@ Format: append-only, newest at the bottom of each day's section. Never rewrite h
 ### Verifier treats "matched but changed" as `ok`
 **Choice:** If a selector matches exactly one element on the live page, the verification status is `ok` regardless of whether the fingerprint comparison shows structural differences.
 **Why:** The selector works — it found the element. Structural drift is informational for the healer, not a failure. A selector that still resolves is not "broken."
+
+## 2026-05-22 — Phase 4: Healer
+
+### Scoring rule weights: fixed table summing to 1.0
+**Choice:** Seven scoring rules with fixed weights: data-testid (0.35), id (0.20), role (0.15), tag (0.10), text (0.10), parent structure (0.05), sibling position (0.05).
+**Why:** Matches the spec's weight table exactly. data-testid and id are the strongest identity signals; structural attributes like parent chain and sibling index provide weak but useful disambiguation. Weights are normalized so the total confidence is a true [0, 1] score.
+
+### Candidate scanning via Playwright locator API
+**Choice:** `scanCandidates` uses `page.locator(selector)` + `.nth(i)` + `.evaluate((node) => ...)` instead of `page.evaluate(() => document.querySelectorAll(...))`.
+**Why:** Running `document.querySelectorAll` inside `page.evaluate` requires DOM types (`Element`, `NodeListOf`, `HTMLElement`) which aren't available in a Node TypeScript compilation without the `dom` lib. The locator-based approach keeps all type-sensitive code in the browser context where Playwright infers the types.
+
+### Custom `escapeCssId` instead of `CSS.escape`
+**Choice:** A local `escapeCssId(id)` function replaces non-word/non-hyphen characters with backslash escapes.
+**Why:** `CSS.escape()` is a browser API unavailable in Node. The function is only used for building CSS `#id` selectors from stored fingerprint data, which is already sanitized at capture time.
+
+### Max 3 candidates, min 0.2 confidence
+**Choice:** `healSelectors` returns at most 3 candidates per broken selector, filtered to confidence ≥ 0.2.
+**Why:** Spec mandates "top three ranked by confidence." The 0.2 floor avoids returning noise — a 15% match on just tag name + sibling index isn't actionable.
+
+### Replacement code generation priority
+**Choice:** `buildReplacementCode` generates Playwright API calls in priority order: `getByTestId` > `getByRole(role, {name})` > `locator('#id')` > `getByText` > `locator('tag.class')` > `locator('tag')`.
+**Why:** Follows Playwright's own recommended selector hierarchy. Test IDs are the most stable, roles are semantically meaningful, and bare tag selectors are the last resort.
+
+### Deduplication key for candidates
+**Choice:** Candidates are deduplicated by `${tagName}:${id}:${data-testid}:${text.slice(0,30)}`.
+**Why:** The same element can match multiple selectors (e.g., by id and by role). The composite key catches duplicates while being fast to compute. The 30-char text prefix avoids key explosion for long text nodes.
