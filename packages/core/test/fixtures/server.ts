@@ -30,6 +30,29 @@ const DASHBOARD_PAGE = `<!DOCTYPE html>
 </body>
 </html>`;
 
+const AUTH_GATED_PAGE = `<!DOCTYPE html>
+<html>
+<head><title>Auth Gate</title></head>
+<body>
+  <div id="root" role="main" class="app">
+    <div id="login-gate">
+      <input id="token" type="text" placeholder="Enter token" data-testid="token-input" />
+      <button id="unlock" type="button" data-testid="unlock-btn">Unlock</button>
+    </div>
+    <div id="protected" style="display:none">
+      <h1 data-testid="secret-content" class="secret">Secret Dashboard</h1>
+      <p class="auth-info" role="status">Authenticated content visible</p>
+    </div>
+  </div>
+  <script>
+    document.getElementById('unlock').addEventListener('click', function() {
+      document.getElementById('protected').style.display = 'block';
+      document.getElementById('login-gate').style.display = 'none';
+    });
+  </script>
+</body>
+</html>`;
+
 const MUTATED_LOGIN_PAGE = `<!DOCTYPE html>
 <html>
 <head><title>Login</title></head>
@@ -59,6 +82,8 @@ export function startFixtureServer(
         res.end(loginHtml);
       } else if (req.url === '/dashboard') {
         res.end(DASHBOARD_PAGE);
+      } else if (req.url === '/auth-gate') {
+        res.end(AUTH_GATED_PAGE);
       } else {
         res.statusCode = 404;
         res.end('<h1>Not Found</h1>');

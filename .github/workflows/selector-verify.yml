@@ -1,0 +1,80 @@
+# Selector Healer — Verify on Pull Request
+#
+# Copy this workflow into your own project's .github/workflows/ directory.
+# Prerequisites:
+#   1. selector-healer init (creates config file)
+#   2. selector-healer capture (creates .selector-healer/fingerprints.json)
+#   3. Both committed to your repository
+#
+# This workflow:
+#   - Runs the fast `check` command (no browser) on every push/PR
+#   - Runs the full `verify` command (with Playwright) to catch broken selectors
+#   - Blocks merge if any selector is broken
+
+name: Selector Verify
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'tests/**'
+      - 'src/**'
+      - '.selector-healer/**'
+      - 'playwright.config.*'
+
+concurrency:
+  group: selector-verify-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Fast selector check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Selector drift check
+        run: npx selector-healer check --strict
+
+  verify:
+    name: Full selector verification
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify selectors against live DOM
+        run: npx selector-healer verify --fail-on-warning
+
+      - name: Generate report on failure
+        if: failure()
+        run: |
+          npx selector-healer report --output selector-report.html
+          echo "::warning::Broken selectors detected. See the uploaded report."
+
+      - name: Upload verification report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selector-healer-report
+          path: selector-report.html
+          retention-days: 14

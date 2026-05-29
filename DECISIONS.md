@@ -207,3 +207,78 @@ Format: append-only, newest at the bottom of each day's section. Never rewrite h
 ### Config loading: dynamic import of cosmiconfig
 **Choice:** The extension loads cosmiconfig via dynamic `import('cosmiconfig')` in the config-loading function rather than a top-level import.
 **Why:** Cosmiconfig is only needed when running verify/capture commands, not on every file parse. Lazy loading keeps activation fast.
+
+## 2026-05-22 — Post-MVP: Chrome Extension (DevTools Panel)
+
+### WebSocket library: `ws`
+**Choice:** `ws` for the CLI `serve` command's WebSocket server.
+**Why:** The de facto standard WebSocket library for Node.js. Zero native dependencies, production-proven (used by Socket.IO, webpack-dev-server, Vite). Node's built-in `WebSocket` (experimental in 21+) only provides a client, not a server — `ws` provides `WebSocketServer`. `@types/ws` ships peer types.
+**Alternatives considered:** `µWebSockets.js` (faster, but native binary addon — violates local-first zero-native-dep preference), raw HTTP upgrade handling (reinventing a well-solved problem).
+
+### Chrome extension architecture: Manifest V3 + DevTools panel
+**Choice:** Manifest V3 with a DevTools panel (not popup or sidebar) that opens in Chrome DevTools.
+**Why:** DevTools panel sits alongside Elements/Console — the natural home for a selector debugging tool. The panel communicates with a background service worker that maintains the WebSocket connection to the CLI server. Content scripts run in every frame to evaluate selectors against the live DOM.
+**Alternatives considered:** Sidebar panel (less visible, requires manual open), popup (tiny, closes on click-away), standalone web page (disconnected from DevTools context).
+
+### Content script selector evaluation: vanilla JS reimplementation
+**Choice:** The content script reimplements Playwright's selector matching logic (getByRole, getByTestId, getByLabel, getByText, locator) in plain JavaScript with an implicit ARIA role map.
+**Why:** Playwright's Node.js API cannot run inside a browser content script. The reimplementation covers the same selector types the parser extracts. The implicit ARIA role map (18 roles) mirrors the ARIA in HTML spec so `getByRole('button')` finds `<button>`, `<input type="submit">`, `<summary>`, and `[role="button"]`.
+**Trade-off:** Not a perfect Playwright parity (no `:has-text()`, no chained locators, no iframe piercing). Sufficient for MVP-level selector health checking.
+
+### Shadow DOM for highlight overlays
+**Choice:** Element highlight overlays use a closed Shadow DOM host.
+**Why:** Isolates overlay styles from the inspected page's CSS. Prevents the page's stylesheets from affecting the highlight appearance and vice versa. Closed mode prevents the page from accessing/modifying the overlays.
+
+### WebSocket auto-reconnect with exponential backoff
+**Choice:** The background service worker reconnects on WebSocket close with exponential backoff (1s base, 30s max).
+**Why:** The CLI server may restart during development. Auto-reconnect with backoff avoids connection storms while ensuring the extension recovers quickly.
+
+## 2026-05-22 — Post-MVP: CI/CD Integration
+
+### `check` command: fast pre-commit gate without a browser
+**Choice:** New `selector-healer check` command that compares parsed selectors against stored fingerprints. No Playwright, no browser — pure AST parsing + JSON comparison.
+**Why:** Pre-commit hooks must be fast (<2s). Running Playwright in a pre-commit hook would add 10-30s per commit, which developers would bypass with `--no-verify`. The `check` command detects selector drift (new uncaptured, orphaned baselines) in milliseconds.
+**Trade-off:** Cannot detect "selector exists but element changed" — that requires the full `verify` with a browser. The `check` gates commits; the full `verify` gates merges in CI.
+
+### CI strategy: two-tier verification
+**Choice:** CI runs `check` first (fast, no browser), then `verify` (full, with Playwright) as a separate job that depends on the first.
+**Why:** `check` fails fast for obvious drift (new selectors without baselines). `verify` catches the harder cases (selector still parses but element moved/changed). Running both in sequence gives fast feedback + thorough coverage.
+
+### Pre-commit hook: only runs on staged test files
+**Choice:** The pre-commit script checks `git diff --cached --name-only` for `*.spec.*` and `*.test.*` files. Skips entirely if no test files are staged.
+**Why:** Developers committing only non-test files (docs, configs) shouldn't wait for selector checks. The hook is zero-overhead for non-test commits.
+
+### Reusable workflow template
+**Choice:** A standalone `selector-verify.yml` workflow template alongside the project's own `ci.yml`.
+**Why:** Users can copy the template into their own projects. It includes path filtering (only runs on test/selector changes), concurrency management, failure artifact upload, and the two-tier check+verify pattern.
+
+### Multi-page auth support: `PageConfig` with setup hooks
+**Choice:** Added `PageConfig` interface with `url`, `name`, and `setup?: (page: unknown) => Promise<void>` to `HealerConfig.pages`. Capture, verify, and heal all use a two-phase strategy: Phase 1 runs default URL grouping; Phase 2 retries uncaptured/broken/unhealed selectors on each configured page, running its `setup` hook first.
+**Why:** Many real-world apps require authentication or multi-step interactions before selectors become visible (dashboard after login, error states after invalid submission). Without this, those selectors are permanently reported as broken/uncaptured. The setup hook pattern lets users express any page-state prerequisite as a Playwright script.
+**Alternatives considered:** (1) Relying solely on `globalSetup` — insufficient because different pages may need different auth flows or form states. (2) Embedding login credentials in contextHints — mixes concerns and doesn't generalize to non-auth interactions. (3) Separate capture/verify commands per page — poor UX, user has to run multiple commands.
+
+### Smarter confidence scoring: graduated multi-signal comparison
+**Choice:** Rewrote the scoring engine from binary match/no-match rules to graduated scoring where each rule returns a quality value in `[0, 1]`. Added Levenshtein fuzzy text matching, Jaccard class overlap, deep parent chain comparison (up to 3 ancestors with proximity decay), sibling proximity (±1 = 50%), aria/accessibility attribute matching, and semantic attribute coverage. Rules that are "not applicable" (return -1) are excluded from the weight denominator to avoid false penalties.
+**Why:** Binary rules produced crude 35%/55%/70% confidence plateaus with no middle ground. Real DOM mutations are often partial — a class changes, text gets slightly modified, an element shifts by one sibling. Graduated scoring differentiates "almost the same element" from "vaguely similar tag" much more reliably, reducing false positives in heal suggestions.
+**Alternatives considered:** (1) ML-based scoring — overkill for the local-first constraint, adds model dependency. (2) TF-IDF on attribute values — too complex for element-level comparison. (3) Keep binary rules + more rules — plateau problem persists.
+
+## 2026-05-25 — Framework Adapters (Cypress, WebdriverIO, TestCafe)
+
+### Architecture: framework-specific extractors + shared verification engine
+**Choice:** Each framework gets its own parser extractor (`extractCypressSelectors`, `extractWebdriverIOSelectors`, `extractTestCafeSelectors`) while fingerprinting, verification, and scoring remain Playwright-based and framework-agnostic.
+**Why:** The parser needs framework-specific AST knowledge (different method names, chaining patterns, context-tracking calls). But DOM fingerprints are universal — an element's tag, attributes, text, and parent chain are the same regardless of which framework's test first selected it. Keeping verification in Playwright means one browser engine does all DOM work, avoiding the complexity of integrating three different browser automation libraries.
+**Trade-off:** Users testing with Cypress/WDIO/TestCafe still need Playwright installed as a dev dependency for the healer to verify selectors. Acceptable because Selector Healer is a dev tool, not a runtime dependency.
+
+### Framework detection: AST-based with path-based fallback
+**Choice:** Auto-detect framework from `import`/`require` statements in the file's AST. Falls back to path conventions (`.cy.ts` → Cypress, `.wdio.ts` → WebdriverIO, `.testcafe.ts` → TestCafe). Explicit `framework` override in config takes highest priority.
+**Why:** Import-based detection is the most reliable signal — if a file imports `@wdio/globals`, it's WebdriverIO regardless of its filename. Path-based fallback handles files where imports are ambient (Cypress's `cy` global doesn't require an import). Config override handles edge cases and mixed-framework monorepos.
+**Alternatives considered:** (1) Only path-based — misses files with non-standard naming. (2) Only config-based — requires user to explicitly set framework, worse DX. (3) Content heuristics (look for `cy.`, `$()`, `Selector()` in source) — fragile, false positives from similarly-named functions.
+
+### Heal output: framework-specific replacement code generator
+**Choice:** `generateReplacementCode(fingerprint, framework)` produces idiomatic replacement code for each framework. Playwright: `page.getByTestId(...)`. Cypress: `cy.get('[data-testid="..."]')`. WebdriverIO: `$('[data-testid="..."]')`. TestCafe: `Selector('[data-testid="..."]')`.
+**Why:** Heal suggestions must be directly pasteable into the user's test file. Outputting Playwright syntax into a Cypress file would be worse than unhelpful. Each framework has its own idioms for the same concepts (text matching, role queries, test-id attributes).
+**Alternatives considered:** (1) Output only CSS selectors universally — loses framework-specific semantic APIs (Cypress `cy.contains`, WDIO `aria/`, TestCafe `.withText()`). (2) Let users convert manually — defeats the purpose of auto-healing.
+
+### `SelectorUsage.framework` field: optional, backward-compatible
+**Choice:** Added `framework?: Framework` to `SelectorUsage` (defaults to `'playwright'` when omitted). The `HealerConfig` also accepts an optional `framework` field.
+**Why:** Backward-compatible with all existing tests and fingerprints. Existing Playwright-only workflows continue working unchanged. The framework field flows through to the healer so it knows which syntax to output.

@@ -3,7 +3,11 @@ import _traverse from '@babel/traverse';
 import type { NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import { logger } from '../logger.js';
-import type { SelectorType, SelectorUsage } from '../types.js';
+import type { Framework, SelectorType, SelectorUsage } from '../types.js';
+import { extractCypressSelectors } from './frameworks/cypress.js';
+import { detectFramework } from './frameworks/detect.js';
+import { extractTestCafeSelectors } from './frameworks/testcafe.js';
+import { extractWebdriverIOSelectors } from './frameworks/webdriverio.js';
 import { makeSelectorId } from './selector-id.js';
 
 // CJS/ESM interop — @babel/traverse ships CJS; under NodeNext the default
@@ -159,4 +163,41 @@ function extractLiteralValue(node: t.Expression | t.PatternLike): unknown {
   if (t.isObjectExpression(node)) return extractObjectLiteral(node);
   if (t.isRegExpLiteral(node)) return `/${node.pattern}/${node.flags}`;
   return undefined;
+}
+
+/**
+ * Extract selector usages from an AST, dispatching to the appropriate
+ * framework-specific extractor based on auto-detection or explicit override.
+ *
+ * @param ast - Parsed Babel AST.
+ * @param filePath - Absolute path to the source file.
+ * @param framework - Explicit framework override. If omitted, auto-detected from imports.
+ * @returns Array of extracted selector usages.
+ *
+ * @example
+ * ```ts
+ * // Auto-detect framework from imports
+ * const selectors = extractSelectorsMultiFramework(ast, filePath);
+ *
+ * // Force Cypress extraction
+ * const selectors = extractSelectorsMultiFramework(ast, filePath, 'cypress');
+ * ```
+ */
+export function extractSelectorsMultiFramework(
+  ast: ParseResult<t.File>,
+  filePath: string,
+  framework?: Framework,
+): SelectorUsage[] {
+  const detected = framework ?? detectFramework(ast);
+
+  switch (detected) {
+    case 'cypress':
+      return extractCypressSelectors(ast, filePath);
+    case 'webdriverio':
+      return extractWebdriverIOSelectors(ast, filePath);
+    case 'testcafe':
+      return extractTestCafeSelectors(ast, filePath);
+    default:
+      return extractSelectors(ast, filePath);
+  }
 }

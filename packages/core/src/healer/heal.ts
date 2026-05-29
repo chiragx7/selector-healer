@@ -3,6 +3,7 @@ import { loadFingerprints } from '../fingerprint/store.js';
 import { logger } from '../logger.js';
 import type {
   DomFingerprint,
+  Framework,
   HealCandidate,
   HealSuggestion,
   HealerConfig,
@@ -10,6 +11,7 @@ import type {
   VerificationResult,
 } from '../types.js';
 import { scanCandidates } from './candidates.js';
+import { generateReplacementCode } from './replacement-code.js';
 import { scoreCandidate } from './scoring.js';
 
 export interface HealOptions {
@@ -76,6 +78,9 @@ export async function healSelectors(
     try {
       page = await context.newPage();
       await page.goto(url, { timeout: config.timeout ?? 30_000, waitUntil: 'domcontentloaded' });
+      // SPA settle: candidate scanning reads the DOM, so let client-rendered apps
+      // finish rendering before we look for replacement elements. Non-fatal on timeout.
+      await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
     } catch (e) {
       logger.warn({ url, error: String(e) }, 'Page load failed during healing');
       for (const result of group) {
@@ -106,6 +111,94 @@ export async function healSelectors(
     await page.close();
   }
 
+  // Phase 2: Retry selectors with no candidates on configured pages (auth, interactions)
+  if (config.pages && config.pages.length > 0) {
+    const healedIds = new Set<string>();
+    for (const s of suggestions) {
+      if (s.candidates.length > 0) {
+        healedIds.add(s.selectorId);
+      }
+    }
+
+    const unhealed = toHeal.filter((r) => !healedIds.has(r.selector.id));
+
+    if (unhealed.length > 0) {
+      logger.info(
+        { count: unhealed.length, pages: config.pages.length },
+        'Retrying unhealed selectors on configured pages',
+      );
+
+      for (const pageConfig of config.pages) {
+        const remaining = unhealed.filter((r) => !healedIds.has(r.selector.id));
+        if (remaining.length === 0) break;
+
+        let page: Page;
+        try {
+          page = await context.newPage();
+          const resolvedUrl = resolveConfigPageUrl(pageConfig.url, config);
+
+          if (pageConfig.setup) {
+            await pageConfig.setup(page);
+          } else {
+            await page.goto(resolvedUrl, {
+              timeout: config.timeout ?? 30_000,
+              waitUntil: 'domcontentloaded',
+            });
+          }
+          await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+
+          const currentUrl = page.url();
+          logger.info(
+            {
+              page: pageConfig.name ?? pageConfig.url,
+              url: currentUrl,
+              selectors: remaining.length,
+            },
+            'Healing on configured page',
+          );
+
+          for (const result of remaining) {
+            const stored = result.storedFingerprint ?? fingerprints.get(result.selector.id);
+            if (!stored) continue;
+
+            try {
+              const suggestion = await healSingleSelector(
+                page,
+                result.selector,
+                stored,
+                currentUrl,
+                config,
+              );
+              if (suggestion.candidates.length > 0) {
+                const existingIdx = suggestions.findIndex(
+                  (s) => s.selectorId === result.selector.id,
+                );
+                if (existingIdx >= 0) {
+                  suggestions[existingIdx] = suggestion;
+                } else {
+                  suggestions.push(suggestion);
+                }
+                healedIds.add(result.selector.id);
+              }
+            } catch {
+              // Silently skip — other pages may heal this selector
+            }
+          }
+
+          await page.close();
+        } catch (e) {
+          logger.warn(
+            {
+              page: pageConfig.name ?? pageConfig.url,
+              error: e instanceof Error ? e.message : String(e),
+            },
+            'Failed to set up configured page for healing',
+          );
+        }
+      }
+    }
+  }
+
   await context.close();
   await browser.close();
 
@@ -122,12 +215,13 @@ async function healSingleSelector(
   const candidates = await scanCandidates(page, stored, pageUrl);
 
   const minConfidence = config.confidenceThreshold?.suggest ?? MIN_SUGGEST_CONFIDENCE;
+  const framework: Framework = selector.framework ?? config.framework ?? 'playwright';
 
   const scored: HealCandidate[] = candidates
     .map((candidateFp) => {
       const { confidence, reasoning } = scoreCandidate(stored, candidateFp);
       return {
-        replacementCode: buildReplacementCode(selector, candidateFp),
+        replacementCode: generateReplacementCode(candidateFp, framework),
         confidence,
         reasoning,
         matchedFingerprint: candidateFp,
@@ -140,50 +234,19 @@ async function healSingleSelector(
   return { selectorId: selector.id, candidates: scored };
 }
 
-function buildReplacementCode(selector: SelectorUsage, candidate: DomFingerprint): string {
-  const testId = candidate.attributes['data-testid'] ?? candidate.attributes['data-test-id'];
-  if (testId) {
-    return `getByTestId('${testId}')`;
-  }
-
-  const role = candidate.attributes.role;
-  if (role && candidate.textContent.length > 0) {
-    const name = candidate.textContent.slice(0, 50);
-    return `getByRole('${role}', { name: '${escapeQuotes(name)}' })`;
-  }
-  if (role) {
-    return `getByRole('${role}')`;
-  }
-
-  if (candidate.attributes.id) {
-    return `locator('#${candidate.attributes.id}')`;
-  }
-
-  if (candidate.textContent.length > 0 && candidate.textContent.length <= 50) {
-    return `getByText('${escapeQuotes(candidate.textContent)}')`;
-  }
-
-  const cls = candidate.attributes.class;
-  if (cls) {
-    const first = cls.split(/\s+/).filter(Boolean)[0];
-    if (first) {
-      return `locator('${candidate.tagName}.${first}')`;
-    }
-  }
-
-  return `locator('${candidate.tagName}')`;
-}
-
-function escapeQuotes(s: string): string {
-  return s.replace(/'/g, "\\'");
-}
-
 function resolvePageUrl(selector: SelectorUsage, config: HealerConfig): string | undefined {
   const hint = selector.contextHint;
   if (!hint) return undefined;
   if (hint.startsWith('http://') || hint.startsWith('https://')) return hint;
   const base = config.baseUrl.replace(/\/$/, '');
   const path = hint.startsWith('/') ? hint : `/${hint}`;
+  return `${base}${path}`;
+}
+
+function resolveConfigPageUrl(url: string, config: HealerConfig): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = config.baseUrl.replace(/\/$/, '');
+  const path = url.startsWith('/') ? url : `/${url}`;
   return `${base}${path}`;
 }
 

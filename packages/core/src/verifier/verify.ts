@@ -83,6 +83,9 @@ export async function verifySelectors(
     try {
       page = await context.newPage();
       await page.goto(url, { timeout: config.timeout ?? 30_000, waitUntil: 'domcontentloaded' });
+      // SPA settle: count() does not auto-wait, so let client-rendered apps finish
+      // rendering before we count matches. Non-fatal if networkidle never fires.
+      await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
     } catch (e) {
       for (const { selector, stored } of group) {
         results.push({
@@ -114,6 +117,83 @@ export async function verifySelectors(
     await page.close();
   }
 
+  // Phase 2: Retry non-ok selectors on configured pages (auth, interactions)
+  if (config.pages && config.pages.length > 0) {
+    const verifiedIds = new Set<string>();
+    for (const r of results) {
+      if (r.status === 'ok') {
+        verifiedIds.add(r.selector.id);
+      }
+    }
+
+    const unverified = withBaseline.filter(({ selector }) => !verifiedIds.has(selector.id));
+
+    if (unverified.length > 0) {
+      logger.info(
+        { count: unverified.length, pages: config.pages.length },
+        'Retrying unverified selectors on configured pages',
+      );
+
+      for (const pageConfig of config.pages) {
+        const remaining = unverified.filter(({ selector }) => !verifiedIds.has(selector.id));
+        if (remaining.length === 0) break;
+
+        let page: Page;
+        try {
+          page = await context.newPage();
+          const resolvedUrl = resolveConfigPageUrl(pageConfig.url, config);
+
+          if (pageConfig.setup) {
+            await pageConfig.setup(page);
+          } else {
+            await page.goto(resolvedUrl, {
+              timeout: config.timeout ?? 30_000,
+              waitUntil: 'domcontentloaded',
+            });
+          }
+          await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+
+          const currentUrl = page.url();
+          logger.info(
+            {
+              page: pageConfig.name ?? pageConfig.url,
+              url: currentUrl,
+              selectors: remaining.length,
+            },
+            'Verifying on configured page',
+          );
+
+          for (const { selector, stored } of remaining) {
+            try {
+              const result = await verifySingleSelector(page, selector, stored, currentUrl);
+              if (result.status === 'ok') {
+                const existingIdx = results.findIndex((r) => r.selector.id === selector.id);
+                if (existingIdx >= 0) {
+                  results[existingIdx] = result;
+                } else {
+                  results.push(result);
+                }
+                verifiedIds.add(selector.id);
+              }
+            } catch {
+              // Silently skip — other pages may verify this selector
+            }
+          }
+
+          await page.close();
+        } catch (e) {
+          logger.warn(
+            {
+              page: pageConfig.name ?? pageConfig.url,
+              error: e instanceof Error ? e.message : String(e),
+            },
+            'Failed to set up configured page for verification',
+          );
+        }
+      }
+    }
+  }
+
   await context.close();
   await browser.close();
 
@@ -127,6 +207,14 @@ async function verifySingleSelector(
   pageUrl: string,
 ): Promise<VerificationResult> {
   const locator = buildLocator(page, selector);
+
+  // count() does not auto-wait; on a slow SPA give THIS element up to 5s to
+  // attach before reporting it broken. Bounded and non-fatal.
+  await locator
+    .first()
+    .waitFor({ state: 'attached', timeout: 5_000 })
+    .catch(() => {});
+
   const count = await locator.count();
 
   if (count === 0) {
@@ -226,6 +314,13 @@ function resolvePageUrl(selector: SelectorUsage, config: HealerConfig): string |
   }
   const base = config.baseUrl.replace(/\/$/, '');
   const path = hint.startsWith('/') ? hint : `/${hint}`;
+  return `${base}${path}`;
+}
+
+function resolveConfigPageUrl(url: string, config: HealerConfig): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = config.baseUrl.replace(/\/$/, '');
+  const path = url.startsWith('/') ? url : `/${url}`;
   return `${base}${path}`;
 }
 

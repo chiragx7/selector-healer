@@ -15,6 +15,15 @@ export interface CaptureError {
   message: string;
 }
 
+/** Live progress event emitted per selector during capture. */
+export interface CaptureProgressEvent {
+  selectorId: string;
+  status: 'capturing' | 'captured' | 'missed';
+}
+
+/** Optional callback to observe capture progress in real time. */
+export type CaptureProgress = (event: CaptureProgressEvent) => void;
+
 interface PlaywrightModule {
   chromium: { launch(opts?: Record<string, unknown>): Promise<Browser> };
   firefox: { launch(opts?: Record<string, unknown>): Promise<Browser> };
@@ -44,6 +53,13 @@ async function captureElementFingerprint(
   pageUrl: string,
 ): Promise<DomFingerprint | undefined> {
   const locator = buildLocator(page, selector);
+
+  // count() does not auto-wait; on a slow SPA give THIS element up to 5s to
+  // attach before deciding it's absent. Bounded and non-fatal.
+  await locator
+    .first()
+    .waitFor({ state: 'attached', timeout: 5_000 })
+    .catch(() => {});
 
   const count = await locator.count();
   if (count === 0) {
@@ -143,6 +159,7 @@ export async function captureFingerprints(
   selectors: SelectorUsage[],
   config: HealerConfig,
   projectRoot: string,
+  onProgress?: CaptureProgress,
 ): Promise<CaptureResult> {
   const pw = await loadPlaywright();
   const browser = await launchBrowser(pw, config);
@@ -160,7 +177,9 @@ export async function captureFingerprints(
   const errors: CaptureError[] = [];
   let captured = 0;
   let skipped = 0;
+  const capturedIds = new Set<string>();
 
+  // Phase 1: Capture on default pages (grouped by contextHint URL)
   const byUrl = groupByUrl(selectors, config);
 
   for (const [url, group] of byUrl) {
@@ -168,6 +187,9 @@ export async function captureFingerprints(
     try {
       page = await context.newPage();
       await page.goto(url, { timeout: config.timeout ?? 30_000, waitUntil: 'domcontentloaded' });
+      // SPA settle: count()/locator reads don't auto-wait, so give client-rendered
+      // apps (Angular/React/Vue) time to render before snapshotting. Non-fatal on timeout.
+      await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
     } catch (e) {
       for (const sel of group) {
         errors.push({
@@ -181,13 +203,14 @@ export async function captureFingerprints(
     }
 
     for (const sel of group) {
+      onProgress?.({ selectorId: sel.id, status: 'capturing' });
       try {
         const fp = await captureElementFingerprint(page, sel, url);
         if (fp) {
           fingerprints.set(sel.id, fp);
           captured++;
-        } else {
-          skipped++;
+          capturedIds.add(sel.id);
+          onProgress?.({ selectorId: sel.id, status: 'captured' });
         }
       } catch (e) {
         errors.push({
@@ -195,11 +218,86 @@ export async function captureFingerprints(
           rawValue: sel.rawValue,
           message: `Capture failed: ${e instanceof Error ? e.message : String(e)}`,
         });
-        skipped++;
       }
     }
 
     await page.close();
+  }
+
+  // Phase 2: Retry uncaptured selectors on configured pages (auth, interactions)
+  if (config.pages && config.pages.length > 0) {
+    const uncaptured = selectors.filter((s) => !capturedIds.has(s.id));
+
+    if (uncaptured.length > 0) {
+      logger.info(
+        { count: uncaptured.length, pages: config.pages.length },
+        'Retrying uncaptured selectors on configured pages',
+      );
+
+      for (const pageConfig of config.pages) {
+        const remaining = uncaptured.filter((s) => !capturedIds.has(s.id));
+        if (remaining.length === 0) break;
+
+        let page: Page;
+        try {
+          page = await context.newPage();
+          const resolvedUrl = resolveConfigPageUrl(pageConfig.url, config);
+
+          if (pageConfig.setup) {
+            await pageConfig.setup(page);
+          } else {
+            await page.goto(resolvedUrl, {
+              timeout: config.timeout ?? 30_000,
+              waitUntil: 'domcontentloaded',
+            });
+          }
+          await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+
+          const currentUrl = page.url();
+          logger.info(
+            {
+              page: pageConfig.name ?? pageConfig.url,
+              url: currentUrl,
+              selectors: remaining.length,
+            },
+            'Evaluating on configured page',
+          );
+
+          for (const sel of remaining) {
+            onProgress?.({ selectorId: sel.id, status: 'capturing' });
+            try {
+              const fp = await captureElementFingerprint(page, sel, currentUrl);
+              if (fp) {
+                fingerprints.set(sel.id, fp);
+                captured++;
+                capturedIds.add(sel.id);
+                onProgress?.({ selectorId: sel.id, status: 'captured' });
+              }
+            } catch {
+              // Silently skip — other pages may capture this selector
+            }
+          }
+
+          await page.close();
+        } catch (e) {
+          logger.warn(
+            {
+              page: pageConfig.name ?? pageConfig.url,
+              error: e instanceof Error ? e.message : String(e),
+            },
+            'Failed to set up configured page',
+          );
+        }
+      }
+    }
+  }
+
+  // Count remaining uncaptured as skipped (includes errored selectors)
+  skipped = selectors.length - captured;
+
+  // Emit a final "missed" for anything that never captured.
+  for (const sel of selectors) {
+    if (!capturedIds.has(sel.id)) onProgress?.({ selectorId: sel.id, status: 'missed' });
   }
 
   await context.close();
@@ -211,6 +309,13 @@ export async function captureFingerprints(
   }
 
   return { captured, skipped, errors };
+}
+
+function resolveConfigPageUrl(url: string, config: HealerConfig): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = config.baseUrl.replace(/\/$/, '');
+  const path = url.startsWith('/') ? url : `/${url}`;
+  return `${base}${path}`;
 }
 
 function groupByUrl(

@@ -1,5 +1,10 @@
 /**
- * Which Playwright selector API surfaced this usage.
+ * Supported test frameworks for selector extraction and heal output.
+ */
+export type Framework = 'playwright' | 'cypress' | 'webdriverio' | 'testcafe';
+
+/**
+ * Which selector API surfaced this usage.
  */
 export type SelectorType =
   | 'css'
@@ -36,7 +41,7 @@ export interface SelectorUsage {
   line: number;
   /** 1-indexed column of the selector call. */
   column: number;
-  /** Which Playwright selector API surfaced this usage. */
+  /** Which selector API surfaced this usage. */
   selectorType: SelectorType;
   /** The literal string passed to the selector. */
   rawValue: string;
@@ -44,6 +49,8 @@ export interface SelectorUsage {
   options?: Record<string, unknown>;
   /** URL hinted by a preceding `page.goto()` in the same test block, if any. */
   contextHint?: string;
+  /** Which test framework this selector belongs to. Defaults to `'playwright'`. */
+  framework?: Framework;
 }
 
 /**
@@ -124,6 +131,40 @@ export interface HealSuggestion {
 }
 
 /**
+ * Defines a page state to visit during capture/verify. Each page can have
+ * a setup hook for authentication, form filling, or other interactions
+ * needed to reach the target state.
+ *
+ * @example
+ * {
+ *   name: 'Dashboard (after login)',
+ *   url: '/dashboard',
+ *   setup: async (page) => {
+ *     await page.goto('http://localhost:3456/');
+ *     await page.getByLabel('Email').fill('user@example.com');
+ *     await page.getByLabel('Password').fill('password123');
+ *     await page.getByRole('button', { name: 'Log in' }).click();
+ *     await page.waitForURL('** /dashboard');
+ *   },
+ * }
+ */
+export interface PageConfig {
+  /** URL path (resolved against baseUrl) or full URL. Used to match selectors by contextHint. */
+  url: string;
+  /** Human-readable name for CLI output. */
+  name?: string;
+  /**
+   * Setup script that runs on a fresh Playwright Page instance.
+   * Must navigate to the target URL or perform interactions that reach the page state.
+   * If omitted, the page navigates directly to `url`.
+   * Typed as `unknown` to keep types.ts free of a Playwright import; narrowed at runtime.
+   *
+   * @param page - Playwright Page instance
+   */
+  setup?: (page: unknown) => Promise<void>;
+}
+
+/**
  * User-supplied configuration loaded from `selector-healer.config.ts`.
  *
  * @example
@@ -140,6 +181,8 @@ export interface HealerConfig {
   testGlob?: string;
   baseUrl: string;
   fallbackRoutes?: string[];
+  /** Test framework to use for parsing and heal output. Auto-detected if omitted. */
+  framework?: Framework;
   browser?: 'chromium' | 'firefox' | 'webkit';
   headless?: boolean;
   timeout?: number;
@@ -153,4 +196,11 @@ export interface HealerConfig {
    * `types.ts` free of a Playwright import; the verifier narrows it.
    */
   globalSetup?: (context: unknown) => Promise<void>;
+  /**
+   * Pages to visit during capture/verify. Each page can have a setup hook
+   * for auth, navigation, or interactions needed to reach the target state.
+   * Selectors are tried on all pages; uncaptured selectors from the default
+   * page are retried on configured pages.
+   */
+  pages?: PageConfig[];
 }

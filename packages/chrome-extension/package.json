@@ -1,0 +1,7 @@
+{
+  "name": "@selector-healer/chrome-extension",
+  "version": "0.0.1",
+  "description": "Chrome DevTools panel for detecting broken Playwright selectors against the live DOM.",
+  "private": true,
+  "license": "MIT"
+}
