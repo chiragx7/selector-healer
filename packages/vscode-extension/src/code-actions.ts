@@ -39,7 +39,7 @@ export function clearSuggestions(): void {
  * // Given line: `  await page.getByRole('button', { name: 'Log in' }).click();`
  * // rawValueCol pointing at 'b' in 'button' → returns range covering `getByRole('button', { name: 'Log in' })`
  */
-function findCallExpressionRange(
+export function findCallExpressionRange(
   lineText: string,
   rawValueCol: number,
 ): { start: number; end: number } | undefined {

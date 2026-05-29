@@ -1,26 +1,46 @@
 {
   "name": "selector-healer-vscode",
   "displayName": "Selector Healer",
-  "description": "Detect broken Playwright selectors, get healing suggestions, and apply AST-based quick fixes — all inside VS Code.",
-  "version": "0.0.1",
-  "publisher": "selector-healer",
-  "private": true,
-  "type": "module",
+  "description": "Detect broken test selectors, get AI-powered healing suggestions, and apply AST-based quick fixes — supports Playwright, Cypress, WebdriverIO, and TestCafe.",
+  "version": "0.1.0",
+  "publisher": "YOUR_PUBLISHER_ID",
   "license": "MIT",
   "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/user/selector-healer"
+    "url": "https://github.com/YOUR_USERNAME/selector-healer"
   },
+  "bugs": {
+    "url": "https://github.com/YOUR_USERNAME/selector-healer/issues"
+  },
+  "homepage": "https://github.com/YOUR_USERNAME/selector-healer#readme",
   "engines": {
     "vscode": "^1.93.0",
     "node": ">=20.0.0"
   },
-  "categories": ["Linters", "Testing"],
-  "keywords": ["playwright", "selector", "testing", "e2e", "locator", "healer", "auto-fix"],
+  "categories": ["Linters", "Testing", "Other"],
+  "keywords": [
+    "playwright",
+    "cypress",
+    "webdriverio",
+    "testcafe",
+    "selector",
+    "testing",
+    "e2e",
+    "locator",
+    "healer",
+    "auto-fix",
+    "self-healing"
+  ],
   "activationEvents": [
     "onLanguage:typescript",
     "onLanguage:typescriptreact",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
     "workspaceContains:selector-healer.config.ts"
   ],
   "main": "./dist/extension.js",
@@ -36,6 +56,11 @@
     },
     "views": {
       "selector-healer": [
+        {
+          "id": "selectorHealerDashboard",
+          "name": "Health",
+          "type": "webview"
+        },
         {
           "id": "selectorHealerExplorer",
           "name": "Selectors",
@@ -66,8 +91,22 @@
       },
       {
         "command": "selectorHealer.refresh",
-        "title": "Refresh",
+        "title": "Selector Healer: Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "selectorHealer.applyFixFromTree",
+        "title": "Apply Fix",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "selectorHealer.focusDashboard",
+        "title": "Selector Healer: Open Dashboard",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "selectorHealer.showMenu",
+        "title": "Selector Healer: Menu"
       }
     ],
     "menus": {
@@ -87,22 +126,48 @@
           "when": "view == selectorHealerExplorer",
           "group": "navigation@3"
         }
+      ],
+      "view/item/context": [
+        {
+          "command": "selectorHealer.applyFixFromTree",
+          "when": "view == selectorHealerExplorer && viewItem == healerBroken",
+          "group": "inline"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "selectorHealer.applyFixFromTree",
+          "when": "false"
+        },
+        {
+          "command": "selectorHealer.showMenu",
+          "when": "false"
+        }
       ]
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests",
+    "bundle": "node esbuild.mjs --production",
+    "watch": "node esbuild.mjs",
+    "test": "vitest run",
+    "test:integration": "tsc -p test/integration/tsconfig.json && node test/integration/out/run-tests.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "package": "vsce package --no-dependencies",
-    "vscode:prepublish": "tsc -p tsconfig.json"
+    "package": "pnpm run bundle && vsce package --no-dependencies",
+    "publish": "pnpm run bundle && vsce publish --no-dependencies",
+    "vscode:prepublish": "node esbuild.mjs --production"
   },
   "dependencies": {
     "@selector-healer/core": "workspace:*",
-    "cosmiconfig": "^9.0.1"
+    "cosmiconfig": "^9.0.1",
+    "playwright": "^1.52.0"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/vscode": "^1.93.0",
-    "@vscode/vsce": "^3.2.0"
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.28.0",
+    "mocha": "^11.7.6"
   }
 }

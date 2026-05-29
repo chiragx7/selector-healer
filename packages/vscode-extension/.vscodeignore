@@ -1,0 +1,17 @@
+.vscode/**
+src/**
+test/**
+vitest.config.ts
+scripts/**
+tsconfig.json
+esbuild.mjs
+**/*.ts
+**/*.map
+**/*.d.ts
+**/node_modules/**
+.gitignore
+dist/code-actions.*
+dist/diagnostics.*
+dist/status-bar.*
+dist/tree-view.*
+dist/extension.d.ts*

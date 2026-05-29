@@ -1,0 +1,140 @@
+import type { VerificationResult } from '@selector-healer/core';
+import * as vscode from 'vscode';
+import type { StoredSuggestion } from './code-actions.js';
+
+/** Lifecycle phase of the most recent verification run. */
+export type RunPhase = 'idle' | 'running' | 'done';
+
+/** Aggregate counts derived from a set of verification results. */
+export interface StatusCounts {
+  ok: number;
+  broken: number;
+  multi: number;
+  skipped: number;
+  failed: number;
+  total: number;
+  /** Percentage of *verifiable* selectors (ok / (ok+broken+multi)) that are healthy. */
+  healthPct: number;
+}
+
+/** Immutable snapshot of everything the UI surfaces render. */
+export interface HealerSnapshot {
+  phase: RunPhase;
+  results: VerificationResult[];
+  /** Heal suggestions keyed by `${filePath}:${line}`. */
+  suggestionsByKey: Map<string, StoredSuggestion[]>;
+  /** Epoch ms of the last completed run, if any. */
+  lastRunAt?: number;
+  /** Optional transient message (e.g. what the running phase is doing). */
+  message?: string;
+}
+
+function emptySnapshot(): HealerSnapshot {
+  return { phase: 'idle', results: [], suggestionsByKey: new Map() };
+}
+
+/**
+ * Compute status counts and a health percentage from verification results.
+ * Skipped/failed selectors are excluded from the health denominator since
+ * they were not actually checked against the live DOM.
+ *
+ * @param results - verification results to summarise
+ * @returns aggregate counts plus a 0–100 health percentage
+ *
+ * @example
+ * const { healthPct } = countResults(results); // e.g. 90
+ */
+export function countResults(results: VerificationResult[]): StatusCounts {
+  let ok = 0;
+  let broken = 0;
+  let multi = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const r of results) {
+    switch (r.status) {
+      case 'ok':
+        ok++;
+        break;
+      case 'broken':
+        broken++;
+        break;
+      case 'multiple-matches':
+        multi++;
+        break;
+      case 'skipped':
+        skipped++;
+        break;
+      case 'page-load-failed':
+        failed++;
+        break;
+    }
+  }
+
+  const total = results.length;
+  const verifiable = ok + broken + multi;
+  const healthPct = verifiable > 0 ? Math.round((ok / verifiable) * 100) : total === 0 ? 0 : 100;
+
+  return { ok, broken, multi, skipped, failed, total, healthPct };
+}
+
+/**
+ * Central, observable state for the extension. Every UI surface (dashboard
+ * webview, CodeLens, gutter decorations, tree view, status bar) subscribes to
+ * {@link HealerStateStore.onDidChange} and renders from {@link HealerStateStore.snapshot}.
+ */
+class HealerStateStore {
+  private current: HealerSnapshot = emptySnapshot();
+  private readonly emitter = new vscode.EventEmitter<HealerSnapshot>();
+
+  /** Fires whenever the snapshot changes. */
+  readonly onDidChange = this.emitter.event;
+
+  /** The latest immutable snapshot. */
+  get snapshot(): HealerSnapshot {
+    return this.current;
+  }
+
+  /** Mark a verification run as in-progress. */
+  setRunning(message?: string): void {
+    this.current = { ...this.current, phase: 'running', message };
+    this.emitter.fire(this.current);
+  }
+
+  /** Publish completed verification results + heal suggestions. */
+  setResults(
+    results: VerificationResult[],
+    suggestionsByKey: Map<string, StoredSuggestion[]>,
+  ): void {
+    this.current = {
+      phase: 'done',
+      results,
+      suggestionsByKey,
+      lastRunAt: Date.now(),
+    };
+    this.emitter.fire(this.current);
+  }
+
+  /** Clear all state back to idle. */
+  reset(): void {
+    this.current = emptySnapshot();
+    this.emitter.fire(this.current);
+  }
+
+  /** Counts for the current snapshot. */
+  counts(): StatusCounts {
+    return countResults(this.current.results);
+  }
+
+  /** Ranked suggestions for a given file + 1-indexed line. */
+  suggestionsFor(filePath: string, line: number): StoredSuggestion[] {
+    return this.current.suggestionsByKey.get(`${filePath}:${line}`) ?? [];
+  }
+
+  dispose(): void {
+    this.emitter.dispose();
+  }
+}
+
+/** Singleton state store shared by all UI surfaces. */
+export const healerState = new HealerStateStore();
