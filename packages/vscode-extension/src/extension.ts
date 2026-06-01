@@ -6,7 +6,7 @@ import {
   parseTestFile,
   verifySelectors,
 } from '@selector-healer/core';
-import type { HealerConfig } from '@selector-healer/core';
+import type { HealerConfig, SelectorUsage } from '@selector-healer/core';
 import * as vscode from 'vscode';
 import { applySuggestion } from './apply.js';
 import {
@@ -59,7 +59,11 @@ export function activate(context: vscode.ExtensionContext): void {
     diagnosticCollection,
     statusBarItem,
     outputChannel,
-    vscode.window.registerWebviewViewProvider(DashboardViewProvider.viewType, dashboard),
+    vscode.window.registerWebviewViewProvider(DashboardViewProvider.viewType, dashboard, {
+      // Keep the panel's DOM + state alive when the view is hidden, so switching
+      // away and back doesn't blank the Verify/Capture tabs.
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
     vscode.window.createTreeView('selectorHealerExplorer', {
       treeDataProvider: treeProvider,
       showCollapseAll: true,
@@ -315,7 +319,7 @@ async function applyAndReverify(s: StoredSuggestion): Promise<void> {
   const applied = await applySuggestion(s);
   if (applied) {
     vscode.window.showInformationMessage(`Selector Healer: applied ${s.replacementCode}`);
-    await runVerify();
+    await verifyTargeted([s]);
   } else {
     vscode.window.showErrorMessage('Selector Healer: could not apply the fix.');
   }
@@ -339,15 +343,93 @@ async function applyAllFixes(): Promise<void> {
     return;
   }
 
-  let applied = 0;
+  const applied: StoredSuggestion[] = [];
   for (const s of toApply) {
-    if (await applySuggestion(s)) applied++;
+    if (await applySuggestion(s)) applied.push(s);
   }
 
   vscode.window.showInformationMessage(
-    `Selector Healer: applied ${applied} fix${applied > 1 ? 'es' : ''}.`,
+    `Selector Healer: applied ${applied.length} fix${applied.length > 1 ? 'es' : ''}.`,
   );
-  await runVerify();
+  if (applied.length > 0) await verifyTargeted(applied);
+}
+
+/**
+ * Re-verify ONLY the selectors that were just fixed — not the whole suite.
+ * Re-parses each affected file, locates the (now-edited) selector at the fixed
+ * line, checks it against the live DOM by match count (no baseline required),
+ * and merges that single result into state. Falls back to a full verify if the
+ * fixed selectors can't be re-located.
+ */
+async function verifyTargeted(suggestions: StoredSuggestion[]): Promise<void> {
+  const root = getWorkspaceRoot();
+  if (!root) return;
+
+  const config = await loadConfig();
+  if (!config) return;
+
+  const targets: SelectorUsage[] = [];
+  const parsedByFile = new Map<string, SelectorUsage[]>();
+  for (const s of suggestions) {
+    let sels = parsedByFile.get(s.filePath);
+    if (!sels) {
+      const parsed = parseTestFile(s.filePath);
+      if (parsed.isErr()) continue;
+      sels = parsed.value;
+      parsedByFile.set(s.filePath, sels);
+    }
+    const sel = sels.find((u) => u.line === s.line);
+    if (sel) targets.push(sel);
+  }
+
+  if (targets.length === 0) {
+    // Couldn't re-locate the fixed selectors — fall back to a full verify.
+    await runVerify();
+    return;
+  }
+
+  const label =
+    targets.length === 1
+      ? 'Verifying the fixed selector…'
+      : `Verifying ${targets.length} fixed selectors…`;
+  healerState.setRunning(label);
+  outputChannel.appendLine(`[${time()}] ${label}`);
+
+  try {
+    const results = await verifySelectors(targets, {
+      config,
+      projectRoot: root,
+      requireBaseline: false,
+    });
+    healerState.mergeResults(results);
+
+    const snap = healerState.snapshot;
+    updateDiagnosticsFromResults(
+      diagnosticCollection,
+      snap.results,
+      topSuggestionById(snap.suggestionsByKey),
+    );
+
+    const okNow = results.filter((r) => r.status === 'ok').length;
+    outputChannel.appendLine(`[${time()}] Re-verify done — ${okNow}/${results.length} now OK`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    outputChannel.appendLine(`[${time()}] Re-verify error: ${msg}`);
+    vscode.window.showErrorMessage(`Selector Healer re-verify failed: ${msg}`);
+    // Restore the prior results (setRunning left the phase running).
+    const snap = healerState.snapshot;
+    healerState.setResults(snap.results, snap.suggestionsByKey);
+  }
+}
+
+/** Map of selector id → top replacement code, for diagnostic messages. */
+function topSuggestionById(byKey: Map<string, StoredSuggestion[]>): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const list of byKey.values()) {
+    const top = list[0];
+    if (top) map.set(top.selectorId, top.replacementCode);
+  }
+  return map;
 }
 
 async function showMenu(): Promise<void> {

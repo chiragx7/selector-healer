@@ -1,6 +1,6 @@
 import type { VerificationResult } from '@selector-healer/core';
 import * as vscode from 'vscode';
-import { applySuggestion, revealSelector } from './apply.js';
+import { revealSelector } from './apply.js';
 import type { StoredSuggestion } from './code-actions.js';
 import { type HealerSnapshot, countResults, healerState } from './state.js';
 
@@ -19,7 +19,7 @@ interface DashItem {
 }
 
 interface DashMessage {
-  type: 'verify' | 'capture' | 'applyAll' | 'open' | 'apply';
+  type: 'verify' | 'capture' | 'applyAll' | 'open' | 'apply' | 'ready';
   filePath?: string;
   line?: number;
   column?: number;
@@ -77,6 +77,13 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
 
     view.webview.onDidReceiveMessage(async (msg: DashMessage) => {
       switch (msg.type) {
+        case 'ready':
+          // The webview's script has loaded and is listening — (re)send state.
+          // Fires on first open and after any reload, avoiding the post-before-
+          // listener race that left the tabs blank.
+          this.postState(false);
+          if (this.hasCapture) this.postCapture(false);
+          break;
         case 'verify':
           await vscode.commands.executeCommand('selectorHealer.verify');
           break;
@@ -102,8 +109,8 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
               replacementCode: msg.replacementCode,
               confidence: 1,
             };
-            const ok = await applySuggestion(s);
-            if (ok) await vscode.commands.executeCommand('selectorHealer.verify');
+            // Apply + re-verify ONLY this selector (not the whole suite).
+            await vscode.commands.executeCommand('selectorHealer.applyFixAt', s);
           }
           break;
       }
@@ -432,4 +439,8 @@ window.addEventListener('message', (e) => {
     if (activeTab === 'capture') captureFinishDom(m.captured, m.total);
   }
 });
+
+// Tell the extension our message listener is live so it can (re)send the last
+// results — fixes the Verify/Capture tabs going blank after hide + reopen.
+vscode.postMessage({ type: 'ready' });
 `;

@@ -115,6 +115,45 @@ class HealerStateStore {
     this.emitter.fire(this.current);
   }
 
+  /**
+   * Merge freshly re-verified results for a few selectors into the current
+   * snapshot — replacing the prior result at each `file:line` without re-running
+   * the whole suite. Suggestions for selectors that are no longer broken are
+   * dropped. Used for the targeted re-verify after a fix is applied.
+   *
+   * @param updated - results for just the re-checked selectors
+   */
+  mergeResults(updated: VerificationResult[]): void {
+    const byKey = new Map<string, VerificationResult>();
+    for (const r of updated) {
+      byKey.set(`${r.selector.filePath}:${r.selector.line}`, r);
+    }
+
+    const merged = this.current.results.map((r) => {
+      const key = `${r.selector.filePath}:${r.selector.line}`;
+      const replacement = byKey.get(key);
+      if (replacement) byKey.delete(key);
+      return replacement ?? r;
+    });
+    // Any updated rows that didn't match an existing result are appended.
+    for (const r of byKey.values()) merged.push(r);
+
+    const suggestionsByKey = new Map(this.current.suggestionsByKey);
+    for (const r of updated) {
+      if (r.status !== 'broken') {
+        suggestionsByKey.delete(`${r.selector.filePath}:${r.selector.line}`);
+      }
+    }
+
+    this.current = {
+      phase: 'done',
+      results: merged,
+      suggestionsByKey,
+      lastRunAt: Date.now(),
+    };
+    this.emitter.fire(this.current);
+  }
+
   /** Clear all state back to idle. */
   reset(): void {
     this.current = emptySnapshot();
