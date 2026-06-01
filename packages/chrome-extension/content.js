@@ -306,6 +306,379 @@ function clearHighlight() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  In-browser healer (scan candidates → score → suggest replacements) */
+/*  Ported from @selector-healer/core so the panel can heal without    */
+/*  a headless browser — the content script already has the live DOM.  */
+/* ------------------------------------------------------------------ */
+
+/** Snapshot a DOM element's structural identity (matches core's fingerprint). */
+function captureFingerprint(node) {
+  const attributes = {};
+  for (const attr of node.attributes) attributes[attr.name] = attr.value;
+
+  const parentChain = [];
+  let current = node.parentElement;
+  for (let i = 0; i < 5 && current; i++) {
+    const role = current.getAttribute('role');
+    parentChain.unshift({
+      tagName: current.tagName.toLowerCase(),
+      ...(current.id ? { id: current.id } : {}),
+      classes: [...current.classList],
+      ...(role ? { role } : {}),
+    });
+    current = current.parentElement;
+  }
+
+  let siblingIndex = 0;
+  if (node.parentElement) {
+    const siblings = [...node.parentElement.children].filter((c) => c.tagName === node.tagName);
+    siblingIndex = siblings.indexOf(node);
+  }
+
+  return {
+    tagName: node.tagName.toLowerCase(),
+    attributes,
+    textContent: (node.textContent || '').trim().slice(0, 200),
+    parentChain,
+    siblingIndex,
+  };
+}
+
+function cssEscapeId(id) {
+  return String(id).replace(/([^\w-])/g, '\\$1');
+}
+
+function splitClasses(value) {
+  return (value || '').split(/\s+/).filter(Boolean);
+}
+
+function buildCandidateSelectors(stored) {
+  const selectors = [];
+  const a = stored.attributes || {};
+  const testId = a['data-testid'] ?? a['data-test-id'];
+  if (testId) selectors.push(`[data-testid="${testId}"]`, `[data-test-id="${testId}"]`);
+  if (a.id) selectors.push(`#${cssEscapeId(a.id)}`);
+  if (a.role) selectors.push(`[role="${a.role}"]`);
+  selectors.push(stored.tagName);
+  const classes = splitClasses(a.class);
+  if (classes.length > 0) selectors.push(`${stored.tagName}.${classes.slice(0, 3).join('.')}`);
+  return selectors;
+}
+
+function scanCandidates(stored) {
+  const raw = [];
+  for (const sel of buildCandidateSelectors(stored)) {
+    if (raw.length >= 20) break;
+    let els;
+    try {
+      els = document.querySelectorAll(sel);
+    } catch {
+      continue;
+    }
+    for (const el of els) {
+      if (raw.length >= 20) break;
+      raw.push(captureFingerprint(el));
+    }
+  }
+
+  const seen = new Set();
+  return raw.filter((s) => {
+    const key = `${s.tagName}:${s.attributes.id || ''}:${s.attributes['data-testid'] || ''}:${s.textContent.slice(0, 30)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/* ---- scoring (faithful port of core/healer/scoring.ts) ---- */
+
+const SCORING_RULES = [
+  {
+    weight: 0.3,
+    score: (s, c) => {
+      const sId = s.attributes['data-testid'] ?? s.attributes['data-test-id'];
+      if (sId === undefined) return -1;
+      const cId = c.attributes['data-testid'] ?? c.attributes['data-test-id'];
+      if (cId === undefined) return 0;
+      return sId === cId ? 1 : 0;
+    },
+  },
+  {
+    weight: 0.15,
+    score: (s, c) => {
+      if (!s.attributes.id) return -1;
+      if (!c.attributes.id) return 0;
+      return s.attributes.id === c.attributes.id ? 1 : 0;
+    },
+  },
+  {
+    weight: 0.1,
+    score: (s, c) => {
+      if (!s.attributes.role) return -1;
+      if (!c.attributes.role) return 0;
+      return s.attributes.role === c.attributes.role ? 1 : 0;
+    },
+  },
+  { weight: 0.08, score: (s, c) => (s.tagName === c.tagName ? 1 : 0) },
+  { weight: 0.1, score: (s, c) => textSimilarity(s.textContent, c.textContent) },
+  {
+    weight: 0.07,
+    score: (s, c) => jaccard(splitClasses(s.attributes.class), splitClasses(c.attributes.class)),
+  },
+  {
+    weight: 0.05,
+    score: (s, c) => {
+      const keys = ['aria-label', 'aria-labelledby', 'aria-describedby', 'name', 'placeholder'];
+      let matches = 0;
+      let checked = 0;
+      for (const k of keys) {
+        if (s.attributes[k] === undefined) continue;
+        checked++;
+        if (s.attributes[k] === c.attributes[k]) matches++;
+      }
+      return checked > 0 ? matches / checked : -1;
+    },
+  },
+  { weight: 0.08, score: (s, c) => parentChainSimilarity(s.parentChain, c.parentChain) },
+  {
+    weight: 0.04,
+    score: (s, c) => {
+      if (s.siblingIndex === c.siblingIndex) return 1;
+      const diff = Math.abs(s.siblingIndex - c.siblingIndex);
+      if (diff === 1) return 0.5;
+      if (diff <= 3) return 0.2;
+      return 0;
+    },
+  },
+  { weight: 0.03, score: (s, c) => attributeCoverage(s.attributes, c.attributes) },
+];
+
+function scoreCandidate(stored, candidate) {
+  let weightedSum = 0;
+  let applicableWeight = 0;
+  for (const rule of SCORING_RULES) {
+    const raw = rule.score(stored, candidate);
+    if (raw < 0) continue;
+    const quality = Math.min(1, Math.max(0, raw));
+    applicableWeight += rule.weight;
+    weightedSum += quality * rule.weight;
+  }
+  const confidence = applicableWeight > 0 ? weightedSum / applicableWeight : 0;
+  return Math.min(1, Math.max(0, confidence));
+}
+
+function jaccard(a, b) {
+  if (a.length === 0 && b.length === 0) return 0;
+  const setA = new Set(a);
+  const setB = new Set(b);
+  let intersection = 0;
+  for (const item of setA) if (setB.has(item)) intersection++;
+  const union = new Set([...a, ...b]).size;
+  return union > 0 ? intersection / union : 0;
+}
+
+function textSimilarity(a, b) {
+  if (!a.length || !b.length) return 0;
+  const la = a.toLowerCase();
+  const lb = b.toLowerCase();
+  if (la === lb) return 1;
+  if (lb.includes(la) || la.includes(lb)) return 0.8;
+  const sim = normLevenshtein(la, lb);
+  return sim >= 0.5 ? sim : 0;
+}
+
+function normLevenshtein(a, b) {
+  if (a === b) return 1;
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  const m = a.length;
+  const n = b.length;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  let curr = new Array(n + 1);
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min((prev[j] ?? 0) + 1, (curr[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return 1 - (prev[n] ?? maxLen) / maxLen;
+}
+
+function parentChainSimilarity(sChain, cChain) {
+  if (!sChain.length || !cChain.length) return 0;
+  const maxDepth = Math.min(sChain.length, cChain.length, 3);
+  let score = 0;
+  let totalWeight = 0;
+  for (let i = 0; i < maxDepth; i++) {
+    const sA = sChain[sChain.length - 1 - i];
+    const cA = cChain[cChain.length - 1 - i];
+    if (!sA || !cA) break;
+    const depthWeight = 1 / (i + 1);
+    totalWeight += depthWeight;
+    let ancestorScore = 0;
+    if (sA.tagName === cA.tagName) ancestorScore += 0.4;
+    if (sA.id && sA.id === cA.id) ancestorScore += 0.3;
+    if (sA.role && sA.role === cA.role) ancestorScore += 0.2;
+    ancestorScore += jaccard(sA.classes || [], cA.classes || []) * 0.1;
+    score += depthWeight * Math.min(1, ancestorScore);
+  }
+  return totalWeight > 0 ? score / totalWeight : 0;
+}
+
+function attributeCoverage(stored, candidate) {
+  const skip = new Set(['class', 'id', 'style', 'data-testid', 'data-test-id', 'role']);
+  const keys = Object.keys(stored).filter((k) => !skip.has(k));
+  if (keys.length === 0) return -1;
+  let matches = 0;
+  for (const k of keys) if (candidate[k] === stored[k]) matches++;
+  return matches / keys.length;
+}
+
+/* ---- replacement code (faithful port of core/healer/replacement-code.ts) ---- */
+
+function escapeQuote(str) {
+  return String(str).replace(/'/g, "\\'");
+}
+
+function buildCssSelector(fp) {
+  let sel = fp.tagName;
+  if (fp.attributes.id) return `${sel}#${cssEscapeId(fp.attributes.id)}`;
+  const classes = splitClasses(fp.attributes.class);
+  if (classes.length > 0) sel += `.${classes.slice(0, 2).join('.')}`;
+  return sel;
+}
+
+// ARIA roles whose accessible name comes from the element's own text content.
+const NAME_FROM_CONTENT_ROLES = new Set([
+  'button',
+  'link',
+  'heading',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'option',
+  'tab',
+  'treeitem',
+  'switch',
+]);
+
+function implicitRole(fp) {
+  const tag = fp.tagName.toLowerCase();
+  const type = (fp.attributes.type || '').toLowerCase();
+  switch (tag) {
+    case 'button':
+    case 'summary':
+      return 'button';
+    case 'a':
+    case 'area':
+      return fp.attributes.href !== undefined ? 'link' : undefined;
+    case 'nav':
+      return 'navigation';
+    case 'main':
+      return 'main';
+    case 'select':
+      return 'combobox';
+    case 'textarea':
+      return 'textbox';
+    case 'ul':
+    case 'ol':
+      return 'list';
+    case 'li':
+      return 'listitem';
+    case 'table':
+      return 'table';
+    case 'dialog':
+      return 'dialog';
+    case 'h1':
+    case 'h2':
+    case 'h3':
+    case 'h4':
+    case 'h5':
+    case 'h6':
+      return 'heading';
+    case 'img':
+      return fp.attributes.alt !== undefined ? 'img' : undefined;
+    case 'input':
+      if (type === 'button' || type === 'submit' || type === 'reset') return 'button';
+      if (type === 'checkbox') return 'checkbox';
+      if (type === 'radio') return 'radio';
+      if (type === '' || type === 'text' || type === 'email' || type === 'tel' || type === 'url') {
+        return 'textbox';
+      }
+      if (type === 'search') return 'searchbox';
+      return undefined;
+    default:
+      return undefined;
+  }
+}
+
+function accessibleName(fp) {
+  const ariaLabel = (fp.attributes['aria-label'] || '').trim();
+  if (ariaLabel) return ariaLabel;
+  const text = (fp.textContent || '').trim();
+  if (text && text.length <= 50) return text;
+  return undefined;
+}
+
+function generateReplacementCode(fp, framework) {
+  const a = fp.attributes;
+  const testId = a['data-testid'] ?? a['data-test-id'];
+  if (framework === 'cypress') {
+    if (testId) return `cy.get('[data-testid="${escapeQuote(testId)}"]')`;
+    if (a.id) return `cy.get('#${cssEscapeId(a.id)}')`;
+    if (a.role) return `cy.get('[role="${escapeQuote(a.role)}"]')`;
+    if (fp.textContent && fp.textContent.length <= 50)
+      return `cy.contains('${escapeQuote(fp.textContent)}')`;
+    return `cy.get('${buildCssSelector(fp)}')`;
+  }
+  if (framework === 'webdriverio') {
+    if (testId) return `$('[data-testid="${escapeQuote(testId)}"]')`;
+    if (a['aria-label']) return `$('aria/${escapeQuote(a['aria-label'])}')`;
+    if (a.id) return `$('#${cssEscapeId(a.id)}')`;
+    if (a.role) return `$('[role="${escapeQuote(a.role)}"]')`;
+    return `$('${buildCssSelector(fp)}')`;
+  }
+  if (framework === 'testcafe') {
+    if (testId) return `Selector('[data-testid="${escapeQuote(testId)}"]')`;
+    if (a.id) return `Selector('#${cssEscapeId(a.id)}')`;
+    if (a.role) return `Selector('[role="${escapeQuote(a.role)}"]')`;
+    if (fp.textContent && fp.textContent.length <= 50)
+      return `Selector('${fp.tagName}').withText('${escapeQuote(fp.textContent)}')`;
+    return `Selector('${buildCssSelector(fp)}')`;
+  }
+  // playwright (default)
+  if (testId) return `page.getByTestId('${escapeQuote(testId)}')`;
+  const role = a.role ?? implicitRole(fp);
+  const name = accessibleName(fp);
+  if (role && name && (a.role !== undefined || NAME_FROM_CONTENT_ROLES.has(role))) {
+    return `page.getByRole('${role}', { name: '${escapeQuote(name)}' })`;
+  }
+  if (a['aria-label']) return `page.getByLabel('${escapeQuote(a['aria-label'])}')`;
+  if (a.placeholder) return `page.getByPlaceholder('${escapeQuote(a.placeholder)}')`;
+  if (fp.textContent && fp.textContent.length <= 50)
+    return `page.getByText('${escapeQuote(fp.textContent)}')`;
+  if (a.role) return `page.getByRole('${a.role}')`;
+  if (a.id) return `page.locator('#${cssEscapeId(a.id)}')`;
+  return `page.locator('${buildCssSelector(fp)}')`;
+}
+
+/** Top-3 ranked replacement suggestions for a stored fingerprint. */
+function healSelector(stored, framework) {
+  if (!stored) return [];
+  const fw = framework || 'playwright';
+  return scanCandidates(stored)
+    .map((fp) => ({
+      replacementCode: generateReplacementCode(fp, fw),
+      confidence: scoreCandidate(stored, fp),
+    }))
+    .filter((c) => c.confidence >= 0.2)
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 3);
+}
+
+/* ------------------------------------------------------------------ */
 /*  Message Handler (guarded against duplicate registration)           */
 /* ------------------------------------------------------------------ */
 
@@ -351,6 +724,12 @@ if (self.__selectorHealerLoaded) {
     if (msg.type === 'clearHighlight') {
       clearHighlight();
       sendResponse({ type: 'ok' });
+      return true;
+    }
+
+    if (msg.type === 'heal') {
+      const suggestions = healSelector(msg.fingerprint, msg.framework || 'playwright');
+      sendResponse({ type: 'healResult', selectorId: msg.selector.id, suggestions });
       return true;
     }
 

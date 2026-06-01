@@ -14,6 +14,10 @@ let reconnectAttempt = 0;
 let reconnectTimer = null;
 let cachedSelectors = [];
 let cachedFingerprints = {};
+/** Last server URL used, so we can reconnect when a panel reopens. */
+let lastWsUrl = DEFAULT_WS_URL;
+/** True once a socket has opened — gates auto-reconnect to genuine drops. */
+let everConnected = false;
 /** Tracks tabs where we have already injected the content script */
 const injectedTabs = new Set();
 /** Tracks in-flight injection promises to avoid duplicate inject calls */
@@ -48,7 +52,19 @@ chrome.runtime.onConnect.addListener((port) => {
 
   port.onDisconnect.addListener(() => {
     panelPort = null;
+    // No panel is watching — stop reconnect attempts (and the error spam) and
+    // drop the socket until a panel opens again.
+    clearTimeout(reconnectTimer);
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      ws.close();
+    }
+    ws = null;
   });
+
+  // Attempt a connection now that a panel is open (uses the last-known URL).
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    connectWebSocket(lastWsUrl);
+  }
 });
 
 function sendToPanel(msg) {
@@ -109,6 +125,31 @@ async function handlePanelMessage(msg) {
         { type: 'highlight', selector: msg.selector },
         (response) => {
           if (chrome.runtime.lastError) return;
+          if (response) sendToPanel(response);
+        },
+      );
+      break;
+    }
+
+    case 'heal': {
+      const ready = await ensureContentScript(msg.tabId);
+      if (!ready) {
+        sendToPanel({ type: 'healResult', selectorId: msg.selector?.id, suggestions: [] });
+        break;
+      }
+      chrome.tabs.sendMessage(
+        msg.tabId,
+        {
+          type: 'heal',
+          selector: msg.selector,
+          fingerprint: msg.fingerprint,
+          framework: msg.framework,
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            sendToPanel({ type: 'healResult', selectorId: msg.selector?.id, suggestions: [] });
+            return;
+          }
           if (response) sendToPanel(response);
         },
       );
@@ -190,7 +231,13 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 /*  WebSocket Connection                                               */
 /* ------------------------------------------------------------------ */
 
-function connectWebSocket(url) {
+function connectWebSocket(url, { retry = false } = {}) {
+  lastWsUrl = url;
+  if (!retry) {
+    everConnected = false;
+    reconnectAttempt = 0;
+  }
+
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
     ws.close();
   }
@@ -200,12 +247,13 @@ function connectWebSocket(url) {
   try {
     ws = new WebSocket(url);
   } catch {
+    // Invalid URL — surface as disconnected, never loop on it.
     sendToPanel({ type: 'ws:status', connected: false });
-    scheduleReconnect(url);
     return;
   }
 
   ws.onopen = () => {
+    everConnected = true;
     reconnectAttempt = 0;
     sendToPanel({ type: 'ws:status', connected: true });
     chrome.storage.local.set({ wsUrl: url });
@@ -222,7 +270,10 @@ function connectWebSocket(url) {
 
   ws.onclose = () => {
     sendToPanel({ type: 'ws:status', connected: false });
-    scheduleReconnect(url);
+    // Only auto-retry after a socket had actually opened (i.e. the server
+    // restarted). A failed *initial* connect does not loop — the user starts
+    // the server and clicks Connect, so there's at most one refused-connection.
+    if (everConnected) scheduleReconnect(url);
   };
 
   ws.onerror = () => {
@@ -231,9 +282,12 @@ function connectWebSocket(url) {
 }
 
 function scheduleReconnect(url) {
+  // Only keep retrying while a panel is open — avoids ERR_CONNECTION_REFUSED
+  // spam in the background when the CLI server simply isn't running.
+  if (!panelPort) return;
   const delay = RECONNECT_DELAYS[Math.min(reconnectAttempt, RECONNECT_DELAYS.length - 1)];
   reconnectAttempt++;
-  reconnectTimer = setTimeout(() => connectWebSocket(url), delay);
+  reconnectTimer = setTimeout(() => connectWebSocket(url, { retry: true }), delay);
 }
 
 function handleServerMessage(msg) {
@@ -258,10 +312,9 @@ function handleServerMessage(msg) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Auto-connect on service worker startup                             */
+/*  Remember the last server URL (used when a panel opens)             */
 /* ------------------------------------------------------------------ */
 
 chrome.storage.local.get('wsUrl', (result) => {
-  const url = result.wsUrl || DEFAULT_WS_URL;
-  connectWebSocket(url);
+  if (result.wsUrl) lastWsUrl = result.wsUrl;
 });
