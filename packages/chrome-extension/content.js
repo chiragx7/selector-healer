@@ -682,9 +682,16 @@ function healSelector(stored, framework) {
 /*  Message Handler (guarded against duplicate registration)           */
 /* ------------------------------------------------------------------ */
 
-if (self.__selectorHealerLoaded) {
-  // Script already loaded in this world — skip re-registration
-} else {
+const alreadyRegistered = typeof self !== 'undefined' && self.__selectorHealerLoaded;
+// Register only in a real content-script context (browser has `self` + `chrome`).
+// In a Node/test context these are absent, so the pure functions below can be
+// imported without trying to wire up Chrome messaging.
+if (
+  !alreadyRegistered &&
+  typeof self !== 'undefined' &&
+  typeof chrome !== 'undefined' &&
+  chrome.runtime?.onMessage
+) {
   self.__selectorHealerLoaded = true;
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -736,3 +743,24 @@ if (self.__selectorHealerLoaded) {
     return false;
   });
 } // end of __selectorHealerLoaded guard
+
+/* ------------------------------------------------------------------ */
+/*  Test-only exports — a no-op in the browser (content scripts have    */
+/*  no CommonJS `module`). Lets unit tests import the pure healer logic. */
+/* ------------------------------------------------------------------ */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    evaluateSelector,
+    healSelector,
+    scanCandidates,
+    captureFingerprint,
+    scoreCandidate,
+    generateReplacementCode,
+    implicitRole,
+    accessibleName,
+    buildCandidateSelectors,
+    textSimilarity,
+    normLevenshtein,
+    jaccard,
+  };
+}
