@@ -185,7 +185,7 @@ async function collectScoredCandidates(
 }
 
 /** Highest confidence among a selector's accumulated candidates (0 if none). */
-function bestConfidence(candidates: HealCandidate[] | undefined): number {
+export function bestConfidence(candidates: HealCandidate[] | undefined): number {
   let best = 0;
   if (candidates) {
     for (const c of candidates) {
@@ -196,7 +196,7 @@ function bestConfidence(candidates: HealCandidate[] | undefined): number {
 }
 
 /** Collapse duplicate replacement codes, keeping the highest-confidence one. */
-function dedupeByCode(candidates: HealCandidate[]): HealCandidate[] {
+export function dedupeByCode(candidates: HealCandidate[]): HealCandidate[] {
   const byCode = new Map<string, HealCandidate>();
   for (const c of candidates) {
     const existing = byCode.get(c.replacementCode);
