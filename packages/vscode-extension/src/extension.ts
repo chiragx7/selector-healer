@@ -1,9 +1,13 @@
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   captureFingerprints,
+  detectProjectConfig,
   healSelectors,
   loadFingerprints,
   parseDirectory,
   parseTestFile,
+  renderConfigFile,
   verifySelectors,
 } from '@selector-healer/core';
 import type { HealerConfig, SelectorUsage } from '@selector-healer/core';
@@ -96,6 +100,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('selectorHealer.init', () => runInit()),
     vscode.commands.registerCommand('selectorHealer.verify', () => runVerify()),
     vscode.commands.registerCommand('selectorHealer.capture', () => runCapture()),
     vscode.commands.registerCommand('selectorHealer.applyAllFixes', () => applyAllFixes()),
@@ -187,6 +192,70 @@ async function loadConfig(): Promise<HealerConfig | undefined> {
   const { resolve } = await import('node:path');
   config.testDir = resolve(root, config.testDir);
   return config;
+}
+
+const CONFIG_FILES = [
+  'selector-healer.config.ts',
+  'selector-healer.config.js',
+  'selector-healer.config.mjs',
+  'selector-healer.config.cjs',
+];
+
+/**
+ * Scaffold a config by auto-detecting the project's framework, base URL, and
+ * test directory (shared with the CLI's `init`). Opens the generated file and
+ * flags any low-confidence fields for review.
+ */
+async function runInit(): Promise<void> {
+  const root = getWorkspaceRoot();
+  if (!root) {
+    vscode.window.showErrorMessage('Selector Healer: open a project folder first.');
+    return;
+  }
+
+  const existing = CONFIG_FILES.find((f) => existsSync(join(root, f)));
+  if (existing) {
+    const open = 'Open config';
+    const choice = await vscode.window.showInformationMessage(
+      `Selector Healer: ${existing} already exists.`,
+      open,
+    );
+    if (choice === open) {
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(join(root, existing)));
+      await vscode.window.showTextDocument(doc);
+    }
+    return;
+  }
+
+  const detection = detectProjectConfig(root);
+  const { filename, content } = renderConfigFile(detection);
+
+  const storeDir = join(root, '.selector-healer');
+  if (!existsSync(storeDir)) mkdirSync(storeDir, { recursive: true });
+  const configPath = join(root, filename);
+  writeFileSync(configPath, content, 'utf8');
+  outputChannel.appendLine(
+    `[${time()}] Created ${filename} — framework=${detection.framework}, baseUrl=${detection.baseUrl} (${detection.baseUrlSource}), testDir=${detection.testDir} (${detection.testDirSource})`,
+  );
+
+  const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(configPath));
+  await vscode.window.showTextDocument(doc);
+
+  const review: string[] = [];
+  if (detection.frameworkConfidence !== 'detected') review.push('framework');
+  if (!detection.baseUrlConfident) review.push('baseUrl');
+  if (!detection.testDirConfident) review.push('testDir');
+
+  const summary = `${detection.framework} · ${detection.baseUrl} · ${detection.testDir}`;
+  if (review.length > 0) {
+    vscode.window.showWarningMessage(
+      `Selector Healer: created ${filename} (${summary}). Please review: ${review.join(', ')}.`,
+    );
+  } else {
+    vscode.window.showInformationMessage(
+      `Selector Healer: created ${filename} (${summary}). Run Capture next.`,
+    );
+  }
 }
 
 async function runVerify(): Promise<void> {

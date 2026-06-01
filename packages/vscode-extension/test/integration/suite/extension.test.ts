@@ -43,6 +43,14 @@ suite('Extension Integration Tests', () => {
   });
 
   suite('Commands', () => {
+    test('selectorHealer.init command is registered', async () => {
+      const commands = await vscode.commands.getCommands(true);
+      assert.ok(
+        commands.includes('selectorHealer.init'),
+        'Create Config (init) command should be registered',
+      );
+    });
+
     test('selectorHealer.verify command is registered', async () => {
       const commands = await vscode.commands.getCommands(true);
       assert.ok(commands.includes('selectorHealer.verify'), 'Verify command should be registered');

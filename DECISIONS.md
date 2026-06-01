@@ -282,3 +282,18 @@ Format: append-only, newest at the bottom of each day's section. Never rewrite h
 ### `SelectorUsage.framework` field: optional, backward-compatible
 **Choice:** Added `framework?: Framework` to `SelectorUsage` (defaults to `'playwright'` when omitted). The `HealerConfig` also accepts an optional `framework` field.
 **Why:** Backward-compatible with all existing tests and fingerprints. Existing Playwright-only workflows continue working unchanged. The framework field flows through to the healer so it knows which syntax to output.
+
+## 2026-06-01 — Smart `init` (auto-detected config scaffolding)
+
+### Shared detection engine in `core` (used by CLI `init` and VS Code "Create Config")
+**Choice:** `detectProjectConfig(cwd)` and `renderConfigFile(detection)` live in `@selector-healer/core` (`src/init/`). Both the CLI's `init` command and the VS Code "Create Config" welcome action call them.
+**Why:** Avoids duplicating detection logic across the CLI and the extension (the extension can't depend on the CLI; both already depend on core). One implementation, one set of tests, identical behavior everywhere.
+
+### Detect from `package.json`, framework configs, and `.env` — never copy secrets
+**Choice:** Framework is inferred from deps + the presence of a framework config file; `baseUrl` from the framework config (`baseURL`/`baseUrl`, parsed via Babel AST, including no-substitution template literals) then `.env*` URL-shaped keys; `testDir` from the config's `testDir`/`specPattern` (must exist on disk) then a scan of common directories. Every field carries a confidence flag. Only a URL-shaped `baseUrl` is ever read from `.env` — credentials are never copied; the generated auth example reads them from `process.env`.
+**Why:** A ready-to-run config beats a blank skeleton, but guessing must be transparent (TODOs on low-confidence fields) and safe (no secrets leaking into a committed file). AST parsing (not regex) honors the repo's "no regex on source" rule and handles comments/formatting robustly.
+**Alternatives considered:** (1) Evaluating/`require`-ing the user's config to read values — unsafe (side effects) and fails on `.ts` without a loader. (2) Regex extraction — brittle, picks up commented values. (3) Interactive prompts — adds a prompt dependency and breaks non-interactive/CI use.
+
+### Generated config is `.cjs`
+**Choice:** `init` always writes `selector-healer.config.cjs` (with a JSDoc `@type` for editor hints). On `--force`, any other-extension config is removed so the `.cjs` is the single source cosmiconfig loads.
+**Why:** A `.ts` config silently fails to load in projects without a TypeScript loader (the exact trap a real user hit). `.cjs` loads everywhere — ESM or CJS projects, with or without a transpiler — making first-run reliable. Removing a stale `.ts` on `--force` avoids cosmiconfig preferring it over the freshly generated `.cjs`.

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -47,21 +47,31 @@ describe('CLI', () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain('Created');
       expect(existsSync(join(tmp, '.selector-healer'))).toBe(true);
-      expect(existsSync(join(tmp, 'selector-healer.config.ts'))).toBe(true);
+      expect(existsSync(join(tmp, 'selector-healer.config.cjs'))).toBe(true);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
   });
 
-  it('init --force overwrites existing config', () => {
+  it('init skips when a config already exists, regenerates with --force', () => {
     const tmp = join(tmpdir(), `sh-cli-${Date.now()}`);
     mkdirSync(tmp, { recursive: true });
 
     try {
+      const configPath = join(tmp, 'selector-healer.config.cjs');
       run(['init'], tmp);
-      writeFileSync(join(tmp, 'selector-healer.config.ts'), 'custom', 'utf8');
-      const { exitCode } = run(['init', '--force'], tmp);
-      expect(exitCode).toBe(0);
+      writeFileSync(configPath, '// custom edit', 'utf8');
+
+      // Without --force, the existing config is preserved.
+      const skipped = run(['init'], tmp);
+      expect(skipped.exitCode).toBe(0);
+      expect(skipped.stdout).toContain('Skipped');
+      expect(readFileSync(configPath, 'utf8')).toBe('// custom edit');
+
+      // With --force, it is regenerated.
+      const forced = run(['init', '--force'], tmp);
+      expect(forced.exitCode).toBe(0);
+      expect(readFileSync(configPath, 'utf8')).toContain('module.exports');
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }

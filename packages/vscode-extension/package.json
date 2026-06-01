@@ -71,10 +71,15 @@
     "viewsWelcome": [
       {
         "view": "selectorHealerExplorer",
-        "contents": "No verification results yet.\n[Verify Now](command:selectorHealer.verify)\n[Capture Baseline](command:selectorHealer.capture)"
+        "contents": "New here? Create a config — it auto-detects your framework, base URL, and test directory:\n[Create Config](command:selectorHealer.init)\n\nAlready set up?\n[Verify Now](command:selectorHealer.verify)\n[Capture Baseline](command:selectorHealer.capture)"
       }
     ],
     "commands": [
+      {
+        "command": "selectorHealer.init",
+        "title": "Selector Healer: Create Config",
+        "icon": "$(new-file)"
+      },
       {
         "command": "selectorHealer.verify",
         "title": "Selector Healer: Verify Now",

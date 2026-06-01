@@ -27,3 +27,5 @@ export {
   bestSelectorType,
 } from './healer/index.js';
 export type { HealOptions, ScoreResult, ScoringRule, RuleScore } from './healer/index.js';
+export { detectProjectConfig, renderConfigFile } from './init/index.js';
+export type { ProjectDetection, GeneratedConfig } from './init/index.js';
