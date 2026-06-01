@@ -1,7 +1,8 @@
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Page } from 'playwright';
 import { buildLocator } from '../fingerprint/capture.js';
 import { loadFingerprints } from '../fingerprint/store.js';
 import { logger } from '../logger.js';
+import { launchBrowser, loadPlaywright } from '../playwright-loader.js';
 import type {
   DomFingerprint,
   HealerConfig,
@@ -14,12 +15,6 @@ import { compareFingerprints } from './compare.js';
 export interface VerifyOptions {
   config: HealerConfig;
   projectRoot: string;
-}
-
-interface PlaywrightModule {
-  chromium: { launch(opts?: Record<string, unknown>): Promise<Browser> };
-  firefox: { launch(opts?: Record<string, unknown>): Promise<Browser> };
-  webkit: { launch(opts?: Record<string, unknown>): Promise<Browser> };
 }
 
 export async function verifySelectors(
@@ -66,7 +61,7 @@ export async function verifySelectors(
     return skippedResults;
   }
 
-  const pw = await loadPlaywright();
+  const pw = await loadPlaywright(projectRoot);
   const browser = await launchBrowser(pw, config);
   const context = await browser.newContext();
 
@@ -341,17 +336,4 @@ function groupByUrl(
   }
 
   return map;
-}
-
-async function loadPlaywright(): Promise<PlaywrightModule> {
-  try {
-    return await import('playwright');
-  } catch {
-    throw new Error('playwright is not installed. Install it with: npm install -D playwright');
-  }
-}
-
-async function launchBrowser(pw: PlaywrightModule, config: HealerConfig): Promise<Browser> {
-  const browserType = config.browser ?? 'chromium';
-  return pw[browserType].launch({ headless: config.headless ?? true });
 }

@@ -111,9 +111,6 @@ importers:
       cosmiconfig:
         specifier: ^9.0.1
         version: 9.0.1(typescript@5.9.3)
-      playwright:
-        specifier: ^1.52.0
-        version: 1.60.0
     devDependencies:
       '@types/mocha':
         specifier: ^10.0.10
@@ -133,6 +130,9 @@ importers:
       mocha:
         specifier: ^11.7.6
         version: 11.7.6
+      playwright:
+        specifier: ^1.52.0
+        version: 1.60.0
 
 packages:
 

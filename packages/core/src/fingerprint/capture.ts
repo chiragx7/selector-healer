@@ -1,5 +1,6 @@
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Page } from 'playwright';
 import { logger } from '../logger.js';
+import { launchBrowser, loadPlaywright } from '../playwright-loader.js';
 import type { DomFingerprint, HealerConfig, SelectorUsage } from '../types.js';
 import { loadFingerprints, saveFingerprints } from './store.js';
 
@@ -23,17 +24,6 @@ export interface CaptureProgressEvent {
 
 /** Optional callback to observe capture progress in real time. */
 export type CaptureProgress = (event: CaptureProgressEvent) => void;
-
-interface PlaywrightModule {
-  chromium: { launch(opts?: Record<string, unknown>): Promise<Browser> };
-  firefox: { launch(opts?: Record<string, unknown>): Promise<Browser> };
-  webkit: { launch(opts?: Record<string, unknown>): Promise<Browser> };
-}
-
-async function launchBrowser(pw: PlaywrightModule, config: HealerConfig): Promise<Browser> {
-  const browserType = config.browser ?? 'chromium';
-  return pw[browserType].launch({ headless: config.headless ?? true });
-}
 
 function resolvePageUrl(selector: SelectorUsage, config: HealerConfig): string | undefined {
   const hint = selector.contextHint;
@@ -161,7 +151,7 @@ export async function captureFingerprints(
   projectRoot: string,
   onProgress?: CaptureProgress,
 ): Promise<CaptureResult> {
-  const pw = await loadPlaywright();
+  const pw = await loadPlaywright(projectRoot);
   const browser = await launchBrowser(pw, config);
   const context = await browser.newContext();
 
@@ -335,12 +325,4 @@ function groupByUrl(
   }
 
   return map;
-}
-
-async function loadPlaywright(): Promise<PlaywrightModule> {
-  try {
-    return await import('playwright');
-  } catch {
-    throw new Error('playwright is not installed. Install it with: npm install -D playwright');
-  }
 }
