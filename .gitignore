@@ -3,7 +3,11 @@ node_modules/
 
 # Build output
 dist/
+out/
 *.tsbuildinfo
+
+# VS Code extension test runner (downloaded VS Code + compiled integration tests)
+.vscode-test/
 
 # Test coverage and caches
 coverage/
