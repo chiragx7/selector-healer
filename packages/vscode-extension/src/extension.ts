@@ -10,7 +10,7 @@ import {
   renderConfigFile,
   verifySelectors,
 } from '@selector-healer/core';
-import type { HealerConfig, SelectorUsage } from '@selector-healer/core';
+import type { DomFingerprint, HealerConfig, SelectorUsage } from '@selector-healer/core';
 import * as vscode from 'vscode';
 import { applySuggestion } from './apply.js';
 import {
@@ -119,7 +119,15 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => maybeParse(doc)),
     vscode.workspace.onDidOpenTextDocument((doc) => maybeParse(doc)),
+    // Scan the file the user switches to — `onDidOpen` does NOT fire for editors
+    // that were already restored after a window reload.
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      if (editor) maybeParse(editor.document);
+    }),
   );
+
+  // Scan whatever is open right now (covers the just-reloaded case).
+  if (vscode.window.activeTextEditor) maybeParse(vscode.window.activeTextEditor.document);
 }
 
 export function deactivate(): void {
@@ -158,10 +166,10 @@ function parseSingleFile(doc: vscode.TextDocument): void {
   const root = getWorkspaceRoot();
   if (!root) return;
 
+  // Static fragility lint must run even with no baseline, so fall back to an
+  // empty set on a fingerprint-load error rather than bailing out.
   const fpResult = loadFingerprints(root);
-  if (fpResult.isErr()) return;
-
-  const fingerprints = fpResult.value;
+  const fingerprints: Map<string, DomFingerprint> = fpResult.isOk() ? fpResult.value : new Map();
   const diagnostics: vscode.Diagnostic[] = [];
   for (const sel of selectors) {
     if (!fingerprints.has(sel.id)) {
