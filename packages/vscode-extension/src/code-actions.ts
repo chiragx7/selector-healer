@@ -90,6 +90,24 @@ export function findCallExpressionRange(
   return { start: methodStart, end: endPos };
 }
 
+/**
+ * Strip a generated replacement's own leading receiver (e.g. `page.`, `cy.`)
+ * so it can be spliced into a range that already begins after the source's
+ * receiver dot. {@link findCallExpressionRange} returns a range starting at the
+ * method name, so `this.page.` + `page.getByText(...)` would otherwise produce
+ * the doubled `this.page.page.getByText(...)`. Replacements that have no
+ * `receiver.` head (`$('…')`, `Selector('…')`) are returned unchanged.
+ *
+ * @param replacementCode - the generated replacement, e.g. `page.getByRole('button', { name: 'Login' })`
+ * @returns the replacement with any single leading `identifier.` removed
+ *
+ * @example
+ * stripLeadingReceiver("page.getByText('Login')"); // "getByText('Login')"
+ */
+export function stripLeadingReceiver(replacementCode: string): string {
+  return replacementCode.replace(/^[A-Za-z_$][\w$]*\./, '');
+}
+
 export class SelectorHealerCodeActionProvider implements vscode.CodeActionProvider {
   static readonly providedCodeActionKinds = [vscode.CodeActionKind.QuickFix];
 
@@ -126,8 +144,15 @@ export class SelectorHealerCodeActionProvider implements vscode.CodeActionProvid
           vscode.CodeActionKind.QuickFix,
         );
 
+        // When the range starts at the method name (callRange), drop the
+        // replacement's own `page.`/`cy.` head so the existing receiver isn't
+        // duplicated. The full method call (callee.property + args) is replaced.
+        const replacementText = callRange
+          ? stripLeadingReceiver(s.replacementCode)
+          : s.replacementCode;
+
         action.edit = new vscode.WorkspaceEdit();
-        action.edit.replace(document.uri, replaceRange, s.replacementCode);
+        action.edit.replace(document.uri, replaceRange, replacementText);
         action.diagnostics = [diagnostic];
         action.isPreferred = s.confidence >= 0.8;
         actions.push(action);

@@ -3,9 +3,12 @@ import { vi } from 'vitest';
 
 vi.mock('vscode', () => import('./__mocks__/vscode.js'));
 
-const { storeSuggestions, clearSuggestions, SelectorHealerCodeActionProvider } = await import(
-  '../src/code-actions.js'
-);
+const {
+  storeSuggestions,
+  clearSuggestions,
+  SelectorHealerCodeActionProvider,
+  stripLeadingReceiver,
+} = await import('../src/code-actions.js');
 const vscode = await import('./__mocks__/vscode.js');
 
 function makeSuggestion(overrides: Record<string, unknown> = {}) {
@@ -253,6 +256,28 @@ describe('code-actions', () => {
       );
 
       expect(actions[0]?.edit).toBeDefined();
+    });
+  });
+
+  describe('stripLeadingReceiver', () => {
+    it('drops a leading page. receiver so it is not duplicated', () => {
+      // The call range begins after `this.page.`, so the replacement must not
+      // carry its own `page.` — else we get `this.page.page.getByText(...)`.
+      expect(stripLeadingReceiver("page.getByText('Login')")).toBe("getByText('Login')");
+      expect(stripLeadingReceiver("page.getByRole('button', { name: 'Login' })")).toBe(
+        "getByRole('button', { name: 'Login' })",
+      );
+    });
+
+    it('drops a leading cy. receiver', () => {
+      expect(stripLeadingReceiver('cy.get(\'[data-testid="x"]\')')).toBe(
+        'get(\'[data-testid="x"]\')',
+      );
+    });
+
+    it('leaves receiver-less replacements untouched', () => {
+      expect(stripLeadingReceiver('$(\'[data-testid="x"]\')')).toBe('$(\'[data-testid="x"]\')');
+      expect(stripLeadingReceiver("Selector('#app')")).toBe("Selector('#app')");
     });
   });
 

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { findCallExpressionRange } from './code-actions.js';
+import { findCallExpressionRange, stripLeadingReceiver } from './code-actions.js';
 import type { StoredSuggestion } from './code-actions.js';
 
 /**
@@ -32,9 +32,16 @@ export async function applySuggestion(s: StoredSuggestion): Promise<boolean> {
         new vscode.Position(lineIdx, s.column - 1 + s.rawValue.length),
       );
 
+  // The callRange begins at the method name (after the receiver's dot), so drop
+  // the replacement's own `page.`/`cy.` head to avoid `this.page.page.getBy…`.
+  const replacementText = callRange ? stripLeadingReceiver(s.replacementCode) : s.replacementCode;
+
   const edit = new vscode.WorkspaceEdit();
-  edit.replace(uri, range, s.replacementCode);
-  return vscode.workspace.applyEdit(edit);
+  edit.replace(uri, range, replacementText);
+  const applied = await vscode.workspace.applyEdit(edit);
+  // Persist to disk so a re-verify (which re-parses the file from disk) sees the fix.
+  if (applied) await doc.save();
+  return applied;
 }
 
 /**
