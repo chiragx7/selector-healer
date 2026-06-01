@@ -39,9 +39,35 @@ describe('generateReplacementCode — Playwright', () => {
     expect(generateReplacementCode(fp, 'playwright')).toBe("page.getByPlaceholder('Search...')");
   });
 
-  it('uses text content', () => {
-    const fp = makeFp({ textContent: 'Submit Order' });
+  it('uses text content for an element with no implicit role', () => {
+    const fp = makeFp({ tagName: 'span', textContent: 'Submit Order' });
     expect(generateReplacementCode(fp, 'playwright')).toBe("page.getByText('Submit Order')");
+  });
+
+  it('uses implicit button role + accessible name for a <button>', () => {
+    const fp = makeFp({ tagName: 'button', textContent: 'Login' });
+    expect(generateReplacementCode(fp, 'playwright')).toBe(
+      "page.getByRole('button', { name: 'Login' })",
+    );
+  });
+
+  it('uses implicit link role + accessible name for an <a href>', () => {
+    const fp = makeFp({ tagName: 'a', attributes: { href: '/home' }, textContent: 'Home' });
+    expect(generateReplacementCode(fp, 'playwright')).toBe(
+      "page.getByRole('link', { name: 'Home' })",
+    );
+  });
+
+  it('uses implicit heading role + accessible name for an <h2>', () => {
+    const fp = makeFp({ tagName: 'h2', textContent: 'Dashboard' });
+    expect(generateReplacementCode(fp, 'playwright')).toBe(
+      "page.getByRole('heading', { name: 'Dashboard' })",
+    );
+  });
+
+  it('does not invent a role name for a text input (falls back to placeholder)', () => {
+    const fp = makeFp({ tagName: 'input', attributes: { type: 'text', placeholder: 'Email' } });
+    expect(generateReplacementCode(fp, 'playwright')).toBe("page.getByPlaceholder('Email')");
   });
 
   it('uses id as CSS selector', () => {
@@ -145,7 +171,7 @@ describe('generateReplacementCode — defaults', () => {
   });
 
   it('escapes single quotes in values', () => {
-    const fp = makeFp({ textContent: "It's done" });
+    const fp = makeFp({ tagName: 'span', textContent: "It's done" });
     expect(generateReplacementCode(fp, 'playwright')).toBe("page.getByText('It\\'s done')");
     expect(generateReplacementCode(fp, 'cypress')).toBe("cy.contains('It\\'s done')");
   });

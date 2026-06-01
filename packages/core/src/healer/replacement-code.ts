@@ -38,18 +38,20 @@ function generatePlaywrightReplacement(fp: DomFingerprint): string {
     return `page.getByTestId('${escapeQuotes(testId)}')`;
   }
 
-  const role = fp.attributes.role;
-  const ariaLabel = fp.attributes['aria-label'];
-  if (role && ariaLabel) {
-    return `page.getByRole('${role}', { name: '${escapeQuotes(ariaLabel)}' })`;
-  }
-  if (role) {
-    return `page.getByRole('${role}')`;
+  // Prefer a role + accessible-name selector — the most robust and readable
+  // Playwright locator. Falls back to the implicit ARIA role of the tag (e.g.
+  // <button> → "button") so a healed `<button>Login</button>` becomes
+  // `getByRole('button', { name: 'Login' })` rather than a brittle text match.
+  const roleAttr = fp.attributes.role;
+  const role = roleAttr ?? implicitRole(fp);
+  const name = accessibleName(fp);
+  if (role && name && (roleAttr !== undefined || NAME_FROM_CONTENT_ROLES.has(role))) {
+    return `page.getByRole('${role}', { name: '${escapeQuotes(name)}' })`;
   }
 
-  const label = fp.attributes['aria-label'];
-  if (label) {
-    return `page.getByLabel('${escapeQuotes(label)}')`;
+  const ariaLabel = fp.attributes['aria-label'];
+  if (ariaLabel) {
+    return `page.getByLabel('${escapeQuotes(ariaLabel)}')`;
   }
 
   const placeholder = fp.attributes.placeholder;
@@ -61,11 +63,104 @@ function generatePlaywrightReplacement(fp: DomFingerprint): string {
     return `page.getByText('${escapeQuotes(fp.textContent)}')`;
   }
 
+  // Explicit role with no usable name — still better than a raw CSS selector.
+  if (roleAttr) {
+    return `page.getByRole('${roleAttr}')`;
+  }
+
   if (fp.attributes.id) {
     return `page.locator('#${escapeCss(fp.attributes.id)}')`;
   }
 
   return `page.locator('${buildCssSelector(fp)}')`;
+}
+
+/**
+ * ARIA roles whose accessible name is computed from the element's own text
+ * content (HTML-AAM "name from content"). For these we can safely use the
+ * element's text as the `name` option; for others (e.g. textbox) the name
+ * comes from an associated label, so text content must not be used.
+ */
+const NAME_FROM_CONTENT_ROLES = new Set([
+  'button',
+  'link',
+  'heading',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'option',
+  'tab',
+  'treeitem',
+  'switch',
+]);
+
+/**
+ * Resolve the implicit ARIA role of an element from its tag + attributes.
+ * Conservative: only returns roles Playwright's `getByRole` actually computes
+ * the same way, so a generated selector will match. Returns `undefined` when
+ * there is no reliable implicit role (e.g. `input[type="password"]`).
+ */
+function implicitRole(fp: DomFingerprint): string | undefined {
+  const tag = fp.tagName.toLowerCase();
+  const type = (fp.attributes.type ?? '').toLowerCase();
+  switch (tag) {
+    case 'button':
+    case 'summary':
+      return 'button';
+    case 'a':
+    case 'area':
+      return fp.attributes.href !== undefined ? 'link' : undefined;
+    case 'nav':
+      return 'navigation';
+    case 'main':
+      return 'main';
+    case 'select':
+      return 'combobox';
+    case 'textarea':
+      return 'textbox';
+    case 'ul':
+    case 'ol':
+      return 'list';
+    case 'li':
+      return 'listitem';
+    case 'table':
+      return 'table';
+    case 'dialog':
+      return 'dialog';
+    case 'h1':
+    case 'h2':
+    case 'h3':
+    case 'h4':
+    case 'h5':
+    case 'h6':
+      return 'heading';
+    case 'img':
+      return fp.attributes.alt !== undefined ? 'img' : undefined;
+    case 'input':
+      if (type === 'button' || type === 'submit' || type === 'reset') return 'button';
+      if (type === 'checkbox') return 'checkbox';
+      if (type === 'radio') return 'radio';
+      if (type === '' || type === 'text' || type === 'email' || type === 'tel' || type === 'url') {
+        return 'textbox';
+      }
+      if (type === 'search') return 'searchbox';
+      return undefined;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Best-effort accessible name from a fingerprint: an explicit `aria-label`
+ * wins, otherwise the trimmed text content (when short enough to be a stable
+ * name). Returns `undefined` when neither is usable.
+ */
+function accessibleName(fp: DomFingerprint): string | undefined {
+  const ariaLabel = fp.attributes['aria-label']?.trim();
+  if (ariaLabel) return ariaLabel;
+  const text = fp.textContent?.trim();
+  if (text && text.length > 0 && text.length <= 50) return text;
+  return undefined;
 }
 
 // ── Cypress ───────────────────────────────────────────────────────────────
