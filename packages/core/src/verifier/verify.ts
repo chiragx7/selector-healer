@@ -10,11 +10,18 @@ import type {
   VerificationResult,
   VerificationStatus,
 } from '../types.js';
-import { compareFingerprints } from './compare.js';
 
 export interface VerifyOptions {
   config: HealerConfig;
   projectRoot: string;
+  /**
+   * When `false`, selectors that have no stored fingerprint are still checked
+   * against the live DOM by match count (1 = ok, 0 = broken, >1 = multiple)
+   * instead of being reported as `skipped`. Used for targeted re-verification
+   * right after a heal is applied, where the replacement may have a new
+   * identity and therefore no baseline yet. Defaults to `true`.
+   */
+  requireBaseline?: boolean;
 }
 
 export async function verifySelectors(
@@ -22,6 +29,7 @@ export async function verifySelectors(
   options: VerifyOptions,
 ): Promise<VerificationResult[]> {
   const { config, projectRoot } = options;
+  const requireBaseline = options.requireBaseline ?? true;
 
   const storeResult = loadFingerprints(projectRoot);
   if (storeResult.isErr()) {
@@ -36,13 +44,17 @@ export async function verifySelectors(
 
   const fingerprints = storeResult.value;
 
-  const withBaseline: Array<{ selector: SelectorUsage; stored: DomFingerprint }> = [];
+  const toVerify: Array<{ selector: SelectorUsage; stored?: DomFingerprint }> = [];
   const skippedResults: VerificationResult[] = [];
 
   for (const sel of selectors) {
     const stored = fingerprints.get(sel.id);
     if (stored) {
-      withBaseline.push({ selector: sel, stored });
+      toVerify.push({ selector: sel, stored });
+    } else if (!requireBaseline) {
+      // Targeted re-verify (e.g. just after applying a heal): the replacement
+      // may not have a baseline yet, so check it by live match count alone.
+      toVerify.push({ selector: sel });
     } else {
       logger.info(
         { selectorId: sel.id, rawValue: sel.rawValue },
@@ -57,7 +69,7 @@ export async function verifySelectors(
     }
   }
 
-  if (withBaseline.length === 0) {
+  if (toVerify.length === 0) {
     return skippedResults;
   }
 
@@ -71,7 +83,7 @@ export async function verifySelectors(
 
   const results: VerificationResult[] = [];
 
-  const byUrl = groupByUrl(withBaseline, config);
+  const byUrl = groupByUrl(toVerify, config);
 
   for (const [url, group] of byUrl) {
     let page: Page;
@@ -121,7 +133,7 @@ export async function verifySelectors(
       }
     }
 
-    const unverified = withBaseline.filter(({ selector }) => !verifiedIds.has(selector.id));
+    const unverified = toVerify.filter(({ selector }) => !verifiedIds.has(selector.id));
 
     if (unverified.length > 0) {
       logger.info(
@@ -198,7 +210,7 @@ export async function verifySelectors(
 async function verifySingleSelector(
   page: Page,
   selector: SelectorUsage,
-  stored: DomFingerprint,
+  stored: DomFingerprint | undefined,
   pageUrl: string,
 ): Promise<VerificationResult> {
   const locator = buildLocator(page, selector);
@@ -285,15 +297,11 @@ async function verifySingleSelector(
     pageUrl,
   };
 
-  const comparison = compareFingerprints(stored, liveFingerprint);
-
-  const status: VerificationStatus = comparison.identical ? 'ok' : 'ok';
-  // Both identical and structurally similar count as OK — the selector still works.
-  // The healer (Phase 4) uses the comparison details to decide if healing is needed.
-
+  // A single match means the selector still resolves. Structural drift is the
+  // healer's concern, not the verifier's — one match counts as OK either way.
   return {
     selector,
-    status,
+    status: 'ok',
     matchCount: 1,
     liveFingerprint,
     storedFingerprint: stored,
@@ -320,10 +328,10 @@ function resolveConfigPageUrl(url: string, config: HealerConfig): string {
 }
 
 function groupByUrl(
-  entries: Array<{ selector: SelectorUsage; stored: DomFingerprint }>,
+  entries: Array<{ selector: SelectorUsage; stored?: DomFingerprint }>,
   config: HealerConfig,
-): Map<string, Array<{ selector: SelectorUsage; stored: DomFingerprint }>> {
-  const map = new Map<string, Array<{ selector: SelectorUsage; stored: DomFingerprint }>>();
+): Map<string, Array<{ selector: SelectorUsage; stored?: DomFingerprint }>> {
+  const map = new Map<string, Array<{ selector: SelectorUsage; stored?: DomFingerprint }>>();
 
   for (const entry of entries) {
     const url = resolvePageUrl(entry.selector, config) ?? config.baseUrl;
