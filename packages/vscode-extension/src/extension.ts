@@ -27,6 +27,7 @@ import {
   selectorToDiagnostic,
   updateDiagnosticsFromResults,
 } from './diagnostics.js';
+import { lintDiagnostics } from './lint.js';
 import { countResults, healerState } from './state.js';
 import {
   STATUS_MENU_COMMAND,
@@ -167,7 +168,10 @@ function parseSingleFile(doc: vscode.TextDocument): void {
       diagnostics.push(selectorToDiagnostic(sel, 'no-baseline'));
     }
   }
-  diagnosticCollection.set(doc.uri, diagnostics);
+  // Proactive fragility lint (Information): flags text/CSS/XPath locators and,
+  // when a baseline exists, suggests a sturdier replacement via a quick-fix.
+  const fragile = lintDiagnostics(doc.uri.fsPath, selectors, fingerprints);
+  diagnosticCollection.set(doc.uri, [...diagnostics, ...fragile]);
 }
 
 async function loadConfig(): Promise<HealerConfig | undefined> {

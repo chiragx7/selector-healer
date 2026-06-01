@@ -9,6 +9,7 @@ const {
   SelectorHealerCodeActionProvider,
   stripLeadingReceiver,
 } = await import('../src/code-actions.js');
+const { lintDiagnostics, clearLintUpgrades } = await import('../src/lint.js');
 const vscode = await import('./__mocks__/vscode.js');
 
 function makeSuggestion(overrides: Record<string, unknown> = {}) {
@@ -27,6 +28,7 @@ function makeSuggestion(overrides: Record<string, unknown> = {}) {
 describe('code-actions', () => {
   beforeEach(() => {
     clearSuggestions();
+    clearLintUpgrades();
   });
 
   describe('storeSuggestions / clearSuggestions', () => {
@@ -256,6 +258,75 @@ describe('code-actions', () => {
       );
 
       expect(actions[0]?.edit).toBeDefined();
+    });
+
+    it('offers a sturdier-locator quick-fix for a fragile selector', () => {
+      const file = '/test/login.spec.ts';
+      const lineText = "  await this.page.getByText('Forgot your password?').click();";
+      const col = lineText.indexOf('Forgot');
+      const line1 = 8; // 1-based source line
+
+      // Populate the upgrade store the way the extension does, via the lint module.
+      lintDiagnostics(
+        file,
+        [
+          {
+            id: 'frag1',
+            filePath: file,
+            line: line1,
+            column: col + 1,
+            selectorType: 'text',
+            rawValue: 'Forgot your password?',
+          },
+        ],
+        new Map([
+          [
+            'frag1',
+            {
+              selectorId: 'frag1',
+              capturedAt: '',
+              tagName: 'a',
+              attributes: { 'data-testid': 'forgot' },
+              textContent: 'Forgot your password?',
+              parentChain: [],
+              siblingIndex: 0,
+              pageUrl: '',
+            },
+          ],
+        ]),
+      );
+
+      const provider = new SelectorHealerCodeActionProvider();
+      const mockDoc = {
+        uri: vscode.Uri.file(file),
+        languageId: 'typescript',
+        lineAt: () => ({ text: lineText }),
+      };
+      const context = {
+        diagnostics: [
+          {
+            source: 'selector-healer',
+            code: 'fragile-selector',
+            range: new vscode.Range(
+              new vscode.Position(line1 - 1, col),
+              new vscode.Position(line1 - 1, col + 'Forgot your password?'.length),
+            ),
+          },
+        ],
+      };
+
+      const actions = provider.provideCodeActions(
+        mockDoc as unknown as vscode.TextDocument,
+        new vscode.Range(new vscode.Position(line1 - 1, 0), new vscode.Position(line1 - 1, 0)),
+        context as unknown as { diagnostics: vscode.Diagnostic[] },
+      );
+
+      expect(actions.length).toBe(1);
+      expect(actions[0]?.title).toContain("getByTestId('forgot')");
+      expect(actions[0]?.title).toContain('sturdier');
+      const edits = (actions[0]?.edit as vscode.WorkspaceEdit).getEdits();
+      // Receiver stripped, so `this.page.` is preserved (not duplicated).
+      expect(edits[0]?.newText).toBe("getByTestId('forgot')");
     });
   });
 

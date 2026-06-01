@@ -297,3 +297,18 @@ Format: append-only, newest at the bottom of each day's section. Never rewrite h
 ### Generated config is `.cjs`
 **Choice:** `init` always writes `selector-healer.config.cjs` (with a JSDoc `@type` for editor hints). On `--force`, any other-extension config is removed so the `.cjs` is the single source cosmiconfig loads.
 **Why:** A `.ts` config silently fails to load in projects without a TypeScript loader (the exact trap a real user hit). `.cjs` loads everywhere — ESM or CJS projects, with or without a transpiler — making first-run reliable. Removing a stale `.ts` on `--force` avoids cosmiconfig preferring it over the freshly generated `.cjs`.
+
+## 2026-06-01 — Proactive selector-quality lint
+
+### Robustness rating + static fragility lint in `core`
+**Choice:** A shared `core` module rates each selector's resilience (`robust`/`good`/`moderate`/`fragile`) and `lintSelectors` flags the fragile ones — visible text, structural CSS, XPath. CSS is value-aware: `[data-testid]`/id selectors are sturdy, class/structural ones are fragile. Surfaced via a CLI `lint` command and inline VS Code Information diagnostics.
+**Why:** The healer was purely *reactive* (fix breaks after they happen). Most users will keep writing text/CSS locators, so the tool needs to flag fragility *proactively* — at authoring time, for everyone — without a one-off manual audit. A pure, DOM-free rating works instantly with no baseline.
+**Alternatives considered:** (1) Only reactive healing — misses fragile locators until they break. (2) A separate linter tool — duplicates the parser/scoring already in core.
+
+### DOM-backed upgrades reuse the heal engine; only suggested when genuinely sturdier
+**Choice:** When a fingerprint exists, `lintSelectors` computes the element's best available anchor via `bestSelectorType` + `generateReplacementCode`, and attaches an `upgrade` **only if** its tier is strictly more robust than the current selector. The VS Code provider offers it as a quick-fix (reusing `findCallExpressionRange` + `stripLeadingReceiver`); the CLI prints it.
+**Why:** A suggestion is only useful if it's actually better — suggesting `getByText`→`getByText` is noise. On third-party apps with no test-ids (e.g. OrangeHRM), the lint honestly flags fragility *without* inventing an upgrade that doesn't exist. Reusing the heal engine keeps one source of truth for replacement generation.
+
+### Fragility diagnostics are Information severity, on the authoring path
+**Choice:** Fragility diagnostics use `Information` severity and are emitted from the on-open/on-save parse path (not the verify path). They never gate CI by default (`lint --strict` opts in).
+**Why:** Fragility is advice, not a failure — `Error`/`Warning` would cause noise and false CI breaks. Surfacing during authoring is where the nudge changes behavior; after a verify run, the broken/heal diagnostics take precedence.

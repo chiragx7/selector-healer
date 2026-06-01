@@ -29,3 +29,11 @@ export {
 export type { HealOptions, ScoreResult, ScoringRule, RuleScore } from './healer/index.js';
 export { detectProjectConfig, renderConfigFile } from './init/index.js';
 export type { ProjectDetection, GeneratedConfig } from './init/index.js';
+export { rateSelectorRobustness, rateSelectorType, lintSelectors } from './lint/index.js';
+export type {
+  RobustnessTier,
+  RobustnessRating,
+  LintFinding,
+  LintOptions,
+  SelectorUpgrade,
+} from './lint/index.js';

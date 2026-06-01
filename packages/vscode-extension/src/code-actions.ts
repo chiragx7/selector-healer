@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DIAGNOSTIC_SOURCE } from './diagnostics.js';
+import { FRAGILE_CODE, getLintUpgrade } from './lint.js';
 
 export interface StoredSuggestion {
   selectorId: string;
@@ -120,41 +121,57 @@ export class SelectorHealerCodeActionProvider implements vscode.CodeActionProvid
 
     for (const diagnostic of context.diagnostics) {
       if (diagnostic.source !== DIAGNOSTIC_SOURCE) continue;
-      if (diagnostic.code !== 'broken') continue;
+      if (diagnostic.code !== 'broken' && diagnostic.code !== FRAGILE_CODE) continue;
 
-      const key = `${document.uri.fsPath}:${diagnostic.range.start.line + 1}`;
-      const suggestions = suggestionStore.get(key);
-      if (!suggestions) continue;
+      const line = diagnostic.range.start.line;
 
-      // Compute the full method-call range so the replacement swaps the entire call
-      const lineText = document.lineAt(diagnostic.range.start.line).text;
+      // Compute the full method-call range so a replacement swaps the entire call.
+      const lineText = document.lineAt(line).text;
       const callRange = findCallExpressionRange(lineText, diagnostic.range.start.character);
-
       const replaceRange = callRange
         ? new vscode.Range(
-            new vscode.Position(diagnostic.range.start.line, callRange.start),
-            new vscode.Position(diagnostic.range.start.line, callRange.end),
+            new vscode.Position(line, callRange.start),
+            new vscode.Position(line, callRange.end),
           )
         : diagnostic.range;
 
-      for (const s of suggestions) {
-        const pct = Math.round(s.confidence * 100);
+      // When the range starts at the method name (callRange), drop the
+      // replacement's own `page.`/`cy.` head so the existing receiver isn't
+      // duplicated (`this.page.` + `page.getBy…` → `this.page.getBy…`).
+      const editFor = (replacementCode: string): vscode.WorkspaceEdit => {
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(
+          document.uri,
+          replaceRange,
+          callRange ? stripLeadingReceiver(replacementCode) : replacementCode,
+        );
+        return edit;
+      };
+
+      if (diagnostic.code === 'broken') {
+        const suggestions = suggestionStore.get(`${document.uri.fsPath}:${line + 1}`);
+        if (!suggestions) continue;
+        for (const s of suggestions) {
+          const pct = Math.round(s.confidence * 100);
+          const action = new vscode.CodeAction(
+            `Replace with ${s.replacementCode} (${pct}%)`,
+            vscode.CodeActionKind.QuickFix,
+          );
+          action.edit = editFor(s.replacementCode);
+          action.diagnostics = [diagnostic];
+          action.isPreferred = s.confidence >= 0.8;
+          actions.push(action);
+        }
+      } else {
+        // fragile-selector → offer the recorded DOM-backed upgrade, if any.
+        const upgrade = getLintUpgrade(document.uri.fsPath, line + 1);
+        if (!upgrade) continue;
         const action = new vscode.CodeAction(
-          `Replace with ${s.replacementCode} (${pct}%)`,
+          `Replace with ${upgrade} (sturdier locator)`,
           vscode.CodeActionKind.QuickFix,
         );
-
-        // When the range starts at the method name (callRange), drop the
-        // replacement's own `page.`/`cy.` head so the existing receiver isn't
-        // duplicated. The full method call (callee.property + args) is replaced.
-        const replacementText = callRange
-          ? stripLeadingReceiver(s.replacementCode)
-          : s.replacementCode;
-
-        action.edit = new vscode.WorkspaceEdit();
-        action.edit.replace(document.uri, replaceRange, replacementText);
+        action.edit = editFor(upgrade);
         action.diagnostics = [diagnostic];
-        action.isPreferred = s.confidence >= 0.8;
         actions.push(action);
       }
     }
