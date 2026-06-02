@@ -18,6 +18,12 @@ import { scoreCandidate } from './scoring.js';
 export interface HealOptions {
   config: HealerConfig;
   projectRoot: string;
+  /**
+   * Resolved URLs of configured pages whose setup hook already failed during
+   * verification. Heal skips them so the same failing hook isn't re-run (and
+   * re-timed-out) — a meaningful speedup on the broken-auth path.
+   */
+  unreachablePages?: Set<string>;
 }
 
 const MAX_CANDIDATES = 3;
@@ -84,6 +90,8 @@ export async function healSelectors(
     try {
       page = await context.newPage();
       if (setup) {
+        // Bound setup actions to the configured budget (Playwright defaults to 30s).
+        page.setDefaultTimeout(config.timeout ?? 30_000);
         await setup(page);
       } else {
         await page.goto(target, {
@@ -141,11 +149,23 @@ export async function healSelectors(
         (r) => bestConfidence(candidatesById.get(r.selector.id)) < autoApply,
       );
       if (remaining.length === 0) break;
+
+      const resolved = resolveConfigPageUrl(pageConfig.url, config);
+      // Skip pages whose setup already failed during verify — no point re-running
+      // (and re-timing-out) the same broken hook.
+      if (options.unreachablePages?.has(normalizeUrl(resolved))) {
+        logger.info(
+          { page: pageConfig.name ?? pageConfig.url },
+          'Skipping page whose setup already failed during verification',
+        );
+        continue;
+      }
+
       logger.info(
         { page: pageConfig.name ?? pageConfig.url, selectors: remaining.length },
         'Healing on configured page',
       );
-      await scanPage(resolveConfigPageUrl(pageConfig.url, config), remaining, pageConfig.setup);
+      await scanPage(resolved, remaining, pageConfig.setup);
     }
   }
 
@@ -221,6 +241,11 @@ function resolveConfigPageUrl(url: string, config: HealerConfig): string {
   const base = config.baseUrl.replace(/\/$/, '');
   const path = url.startsWith('/') ? url : `/${url}`;
   return `${base}${path}`;
+}
+
+/** Normalize a URL for comparison: drop a single trailing slash. */
+function normalizeUrl(url: string): string {
+  return url.replace(/\/$/, '');
 }
 
 function groupByUrl(

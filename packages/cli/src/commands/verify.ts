@@ -68,7 +68,14 @@ export function registerVerify(program: Command): void {
       if (broken.length > 0) {
         process.stdout.write(`\n${pc.bold('Healing suggestions:')}\n`);
 
-        const suggestions = await healSelectors(broken, { config, projectRoot: cwd });
+        // Tell heal which pages already failed setup so it won't re-run (and
+        // re-time-out) the same broken hooks.
+        const unreachablePages = resolveUnreachablePages(setupFailed, config);
+        const suggestions = await healSelectors(broken, {
+          config,
+          projectRoot: cwd,
+          unreachablePages,
+        });
         process.stdout.write(formatSuggestions(suggestions));
 
         if (opts.fix) {
@@ -82,6 +89,26 @@ export function registerVerify(program: Command): void {
         process.exitCode = 1;
       }
     });
+}
+
+/** Resolve the URLs of configured pages whose setup hook failed, for heal to skip. */
+function resolveUnreachablePages(
+  setupFailed: VerificationResult[],
+  config: HealerConfig,
+): Set<string> {
+  const failedNames = new Set(
+    setupFailed.map((r) => r.error?.match(/page '([^']+)'/)?.[1]).filter(Boolean),
+  );
+  const base = config.baseUrl.replace(/\/$/, '');
+  const urls = new Set<string>();
+  for (const p of config.pages ?? []) {
+    if (!failedNames.has(p.name ?? p.url)) continue;
+    const resolved = p.url.startsWith('http')
+      ? p.url
+      : `${base}${p.url.startsWith('/') ? p.url : `/${p.url}`}`;
+    urls.add(resolved.replace(/\/$/, ''));
+  }
+  return urls;
 }
 
 function applyFixes(

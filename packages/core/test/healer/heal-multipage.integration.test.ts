@@ -221,4 +221,52 @@ describe('healSelectors — multi-page (integration)', () => {
     expect(suggestions).toHaveLength(1);
     expect(suggestions[0]?.candidates).toHaveLength(0);
   });
+
+  it('skips a page listed in unreachablePages and does not run its setup', async () => {
+    // Seed a fingerprint store so heal can load (it bails if the store is missing).
+    await captureFingerprints([makeSelector({ id: 'seed_skip' })], makeConfig(), tmpDir);
+
+    let setupCalled = false;
+    const broken: VerificationResult[] = [
+      {
+        selector: makeSelector({
+          id: 'mp_hskip_001',
+          rawValue: '#missing-on-login',
+          contextHint: '/login',
+        }),
+        status: 'broken',
+        matchCount: 0,
+        storedFingerprint: {
+          selectorId: 'mp_hskip_001',
+          capturedAt: '2026-01-01T00:00:00.000Z',
+          tagName: 'h1',
+          attributes: { 'data-testid': 'dashboard' },
+          textContent: 'Welcome back',
+          parentChain: [],
+          siblingIndex: 0,
+          pageUrl: `${baseUrl}/dashboard`,
+        },
+      },
+    ];
+
+    const pages: PageConfig[] = [
+      {
+        name: 'Dashboard',
+        url: '/dashboard',
+        setup: async () => {
+          setupCalled = true;
+        },
+      },
+    ];
+
+    const suggestions = await healSelectors(broken, {
+      config: makeConfig({ pages }),
+      projectRoot: tmpDir,
+      unreachablePages: new Set([`${baseUrl}/dashboard`.replace(/\/$/, '')]),
+    });
+
+    expect(setupCalled).toBe(false); // the page was skipped — hook not re-run
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.candidates).toHaveLength(0);
+  });
 }, 120_000);

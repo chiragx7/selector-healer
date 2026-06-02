@@ -163,6 +163,9 @@ export async function verifySelectors(
         // attributed precisely (not confused with a per-selector error).
         try {
           if (pageConfig.setup) {
+            // Bound setup actions to the configured budget — otherwise a hook
+            // waiting on a missing element hangs for Playwright's 30s default.
+            page.setDefaultTimeout(config.timeout ?? 30_000);
             await pageConfig.setup(page);
           } else {
             await page.goto(resolvedUrl, {
