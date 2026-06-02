@@ -153,8 +153,9 @@ export class SelectorHealerCodeActionProvider implements vscode.CodeActionProvid
         if (!suggestions) continue;
         for (const s of suggestions) {
           const pct = Math.round(s.confidence * 100);
+          const lowConfidence = s.confidence < 0.5;
           const action = new vscode.CodeAction(
-            `Replace with ${s.replacementCode} (${pct}%)`,
+            `Replace with ${s.replacementCode} (${pct}%${lowConfidence ? ', low confidence' : ''})`,
             vscode.CodeActionKind.QuickFix,
           );
           action.edit = editFor(s.replacementCode);

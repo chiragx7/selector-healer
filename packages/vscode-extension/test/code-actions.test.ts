@@ -225,6 +225,36 @@ describe('code-actions', () => {
 
       expect(actions[0]?.title).toContain('87%');
       expect(actions[0]?.title).toContain('getByTestId("submit")');
+      expect(actions[0]?.title).not.toContain('low confidence');
+    });
+
+    it('labels a low-confidence suggestion and does not mark it preferred', () => {
+      storeSuggestions([makeSuggestion({ confidence: 0.3, replacementCode: 'getByText("x")' })]);
+
+      const provider = new SelectorHealerCodeActionProvider();
+      const mockDoc = {
+        uri: vscode.Uri.file('/test/login.spec.ts'),
+        languageId: 'typescript',
+        lineAt: () => ({ text: '  page.locator("#submit-btn").click()' }),
+      };
+      const context = {
+        diagnostics: [
+          {
+            source: 'selector-healer',
+            code: 'broken',
+            range: new vscode.Range(new vscode.Position(9, 4), new vscode.Position(9, 15)),
+          },
+        ],
+      };
+
+      const actions = provider.provideCodeActions(
+        mockDoc as unknown as vscode.TextDocument,
+        new vscode.Range(new vscode.Position(9, 0), new vscode.Position(9, 0)),
+        context as unknown as { diagnostics: vscode.Diagnostic[] },
+      );
+
+      expect(actions[0]?.title).toContain('low confidence');
+      expect(actions[0]?.isPreferred).toBe(false);
     });
 
     it('creates workspace edit with correct replacement', () => {

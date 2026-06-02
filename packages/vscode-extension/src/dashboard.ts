@@ -371,10 +371,16 @@ function card(it) {
     + '<div class="sel muted">' + esc(it.selectorType) + ' · ' + esc(it.rawValue) + '</div>';
   if (it.status === 'broken' && it.suggestion) {
     const pct = it.suggestion.pct;
+    // Only offer a one-click Apply when reasonably confident. Below that, show
+    // the suggestion for reference but make the user review it (no Apply trap).
+    const applyable = pct >= 50;
     body += '<div class="bar"><span style="width:' + pct + '%;background:' + ringColor(pct) + '"></span></div>'
-      + '<div class="conf">' + pct + '% confidence</div>'
+      + '<div class="conf">' + pct + '% confidence' + (applyable ? '' : ' · low — review before using') + '</div>'
       + '<div class="fix"><code>' + esc(it.suggestion.code) + '</code>'
-      + '<button class="apply" data-apply data-file="' + esc(it.filePath) + '" data-line="' + it.line + '" data-col="' + it.column + '" data-raw="' + esc(it.rawValue) + '" data-code="' + esc(it.suggestion.code) + '">Apply</button></div>';
+      + (applyable
+          ? '<button class="apply" data-apply data-file="' + esc(it.filePath) + '" data-line="' + it.line + '" data-col="' + it.column + '" data-raw="' + esc(it.rawValue) + '" data-code="' + esc(it.suggestion.code) + '">Apply</button>'
+          : '')
+      + '</div>';
   } else if (it.status === 'broken') body += '<div class="hint">No confident replacement found.</div>';
   else if (it.status === 'multiple-matches') body += '<div class="hint">Matches ' + it.matchCount + ' elements — make this selector more specific.</div>';
   else if (it.status === 'page-load-failed') body += '<div class="hint">' + esc(it.error || "Couldn't reach this page.") + '</div>';
