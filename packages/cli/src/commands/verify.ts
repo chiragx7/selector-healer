@@ -49,6 +49,21 @@ export function registerVerify(program: Command): void {
 
       const broken = results.filter((r) => r.status === 'broken');
       const multi = results.filter((r) => r.status === 'multiple-matches');
+      const setupFailed = results.filter(
+        (r) => r.status === 'page-load-failed' && (r.error ?? '').includes('setup hook failed'),
+      );
+
+      if (setupFailed.length > 0) {
+        const pages = [
+          ...new Set(setupFailed.map((r) => r.error?.match(/page '([^']+)'/)?.[1] ?? 'a page')),
+        ];
+        process.stdout.write(
+          `\n${pc.yellow('⚠ Setup hook failed')} for: ${pc.bold(pages.join(', '))}\n` +
+            `  ${pc.dim(
+              `${setupFailed.length} selector(s) couldn't be checked. Fix the login/setup step in your config's pages[] — those selectors aren't broken, they were just unreachable.`,
+            )}\n`,
+        );
+      }
 
       if (broken.length > 0) {
         process.stdout.write(`\n${pc.bold('Healing suggestions:')}\n`);
@@ -61,7 +76,7 @@ export function registerVerify(program: Command): void {
         }
       }
 
-      if (broken.length > 0) {
+      if (broken.length > 0 || setupFailed.length > 0) {
         process.exitCode = 1;
       } else if (opts.failOnWarning && multi.length > 0) {
         process.exitCode = 1;

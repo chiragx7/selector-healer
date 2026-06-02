@@ -201,4 +201,72 @@ describe('verifySelectors — multi-page (integration)', () => {
     expect(results).toHaveLength(2);
     expect(results.every((r) => r.status === 'ok')).toBe(true);
   });
+
+  it('reclassifies a broken selector to page-load-failed when its setup hook throws', async () => {
+    // Element lives on /dashboard (fingerprint pageUrl), reachable only via a hook.
+    const sel = makeSelector({
+      id: 'mp_vsetup_01',
+      selectorType: 'testid',
+      rawValue: 'dashboard',
+      contextHint: '/login', // Phase 1 checks /login → absent → broken
+    });
+    saveFingerprints(tmpDir, new Map([['mp_vsetup_01', makeDashboardFingerprint('mp_vsetup_01')]]));
+
+    const pages: PageConfig[] = [
+      {
+        name: 'Dashboard (after login)',
+        url: '/dashboard',
+        setup: async () => {
+          throw new Error('login failed: email field not found');
+        },
+      },
+    ];
+    const results = await verifySelectors([sel], {
+      config: makeConfig({ pages }),
+      projectRoot: tmpDir,
+    });
+
+    expect(results).toHaveLength(1);
+    // Not 'broken' — it couldn't be checked because the page was unreachable.
+    expect(results[0]?.status).toBe('page-load-failed');
+    expect(results[0]?.error).toContain('setup hook failed');
+    expect(results[0]?.error).toContain('Dashboard (after login)');
+  });
+
+  it('does NOT reclassify a default-page break when a same-URL page setup fails', async () => {
+    const sel = makeSelector({
+      id: 'mp_vsetup_02',
+      rawValue: '#gone-from-login',
+      contextHint: '/login',
+    });
+    const fp: DomFingerprint = {
+      selectorId: 'mp_vsetup_02',
+      capturedAt: '2026-01-01T00:00:00.000Z',
+      tagName: 'div',
+      attributes: { id: 'gone-from-login' },
+      textContent: 'x',
+      parentChain: [],
+      siblingIndex: 0,
+      pageUrl: baseUrl, // lives on the default page — always reachable
+    };
+    saveFingerprints(tmpDir, new Map([['mp_vsetup_02', fp]]));
+
+    // A configured page whose URL is the base (an interaction state) with a failing setup.
+    const pages: PageConfig[] = [
+      {
+        name: 'Error state',
+        url: '/',
+        setup: async () => {
+          throw new Error('boom');
+        },
+      },
+    ];
+    const results = await verifySelectors([sel], {
+      config: makeConfig({ pages }),
+      projectRoot: tmpDir,
+    });
+
+    // Stays broken — a default-page break is genuine, not a reachability problem.
+    expect(results[0]?.status).toBe('broken');
+  });
 }, 90_000);

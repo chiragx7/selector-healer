@@ -135,6 +135,10 @@ export async function verifySelectors(
 
     const unverified = toVerify.filter(({ selector }) => !verifiedIds.has(selector.id));
 
+    // Pages whose setup hook threw, keyed by normalized URL — used afterwards to
+    // reclassify broken selectors that actually live on those unreachable pages.
+    const setupFailures = new Map<string, { name: string; error: string }>();
+
     if (unverified.length > 0) {
       logger.info(
         { count: unverified.length, pages: config.pages.length },
@@ -145,11 +149,19 @@ export async function verifySelectors(
         const remaining = unverified.filter(({ selector }) => !verifiedIds.has(selector.id));
         if (remaining.length === 0) break;
 
+        const resolvedUrl = resolveConfigPageUrl(pageConfig.url, config);
+
         let page: Page;
         try {
           page = await context.newPage();
-          const resolvedUrl = resolveConfigPageUrl(pageConfig.url, config);
+        } catch (e) {
+          logger.warn({ error: errorMessage(e) }, 'Failed to open a page for verification');
+          continue;
+        }
 
+        // Run setup/navigation in its own try so a failing setup hook is
+        // attributed precisely (not confused with a per-selector error).
+        try {
           if (pageConfig.setup) {
             await pageConfig.setup(page);
           } else {
@@ -158,44 +170,67 @@ export async function verifySelectors(
               waitUntil: 'domcontentloaded',
             });
           }
-          await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
-
-          const currentUrl = page.url();
-          logger.info(
-            {
-              page: pageConfig.name ?? pageConfig.url,
-              url: currentUrl,
-              selectors: remaining.length,
-            },
-            'Verifying on configured page',
-          );
-
-          for (const { selector, stored } of remaining) {
-            try {
-              const result = await verifySingleSelector(page, selector, stored, currentUrl);
-              if (result.status === 'ok') {
-                const existingIdx = results.findIndex((r) => r.selector.id === selector.id);
-                if (existingIdx >= 0) {
-                  results[existingIdx] = result;
-                } else {
-                  results.push(result);
-                }
-                verifiedIds.add(selector.id);
-              }
-            } catch {
-              // Silently skip — other pages may verify this selector
-            }
-          }
-
-          await page.close();
         } catch (e) {
+          setupFailures.set(normalizeUrl(resolvedUrl), {
+            name: pageConfig.name ?? pageConfig.url,
+            error: errorMessage(e),
+          });
           logger.warn(
-            {
-              page: pageConfig.name ?? pageConfig.url,
-              error: e instanceof Error ? e.message : String(e),
-            },
-            'Failed to set up configured page for verification',
+            { page: pageConfig.name ?? pageConfig.url, error: errorMessage(e) },
+            'Setup hook failed for configured page',
           );
+          await page.close().catch(() => {});
+          continue;
+        }
+
+        await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+        const currentUrl = page.url();
+        logger.info(
+          { page: pageConfig.name ?? pageConfig.url, url: currentUrl, selectors: remaining.length },
+          'Verifying on configured page',
+        );
+
+        for (const { selector, stored } of remaining) {
+          try {
+            const result = await verifySingleSelector(page, selector, stored, currentUrl);
+            if (result.status === 'ok') {
+              const existingIdx = results.findIndex((r) => r.selector.id === selector.id);
+              if (existingIdx >= 0) {
+                results[existingIdx] = result;
+              } else {
+                results.push(result);
+              }
+              verifiedIds.add(selector.id);
+            }
+          } catch {
+            // Silently skip — other pages may verify this selector
+          }
+        }
+
+        await page.close();
+      }
+    }
+
+    // A still-broken selector whose captured page's setup hook failed could not
+    // actually be checked. Report it as page-load-failed (with the setup error)
+    // rather than 'broken', so it's not mistaken for a regression or sent to the
+    // healer. The default page is always reachable, so breaks there are genuine.
+    if (setupFailures.size > 0) {
+      const baseUrlNorm = normalizeUrl(config.baseUrl);
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        if (!r || r.status !== 'broken' || !r.storedFingerprint) continue;
+        const fpUrl = normalizeUrl(r.storedFingerprint.pageUrl);
+        if (fpUrl === baseUrlNorm) continue;
+        const failure = setupFailures.get(fpUrl);
+        if (failure) {
+          results[i] = {
+            selector: r.selector,
+            status: 'page-load-failed',
+            matchCount: 0,
+            storedFingerprint: r.storedFingerprint,
+            error: `Could not reach page '${failure.name}' — its setup hook failed: ${failure.error}`,
+          };
         }
       }
     }
@@ -325,6 +360,15 @@ function resolveConfigPageUrl(url: string, config: HealerConfig): string {
   const base = config.baseUrl.replace(/\/$/, '');
   const path = url.startsWith('/') ? url : `/${url}`;
   return `${base}${path}`;
+}
+
+/** Normalize a URL for comparison: drop a single trailing slash. */
+function normalizeUrl(url: string): string {
+  return url.replace(/\/$/, '');
+}
+
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 function groupByUrl(

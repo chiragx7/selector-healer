@@ -16,6 +16,7 @@ interface DashItem {
   status: VerificationResult['status'];
   matchCount: number;
   suggestion?: { code: string; pct: number };
+  error?: string;
 }
 
 interface DashMessage {
@@ -215,6 +216,7 @@ function serialize(snap: HealerSnapshot): {
       suggestion: top
         ? { code: top.replacementCode, pct: Math.round(top.confidence * 100) }
         : undefined,
+      error: r.error,
     };
   });
 
@@ -375,6 +377,7 @@ function card(it) {
       + '<button class="apply" data-apply data-file="' + esc(it.filePath) + '" data-line="' + it.line + '" data-col="' + it.column + '" data-raw="' + esc(it.rawValue) + '" data-code="' + esc(it.suggestion.code) + '">Apply</button></div>';
   } else if (it.status === 'broken') body += '<div class="hint">No confident replacement found.</div>';
   else if (it.status === 'multiple-matches') body += '<div class="hint">Matches ' + it.matchCount + ' elements — make this selector more specific.</div>';
+  else if (it.status === 'page-load-failed') body += '<div class="hint">' + esc(it.error || "Couldn't reach this page.") + '</div>';
   else body += '<div class="hint">No baseline — run Capture, or this element only appears after an interaction.</div>';
   return body + '</div>';
 }
