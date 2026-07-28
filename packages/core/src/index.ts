@@ -20,10 +20,12 @@ export { verifySelectors, compareFingerprints } from './verifier/index.js';
 export type { VerifyOptions, ComparisonResult, ComparisonDetail } from './verifier/index.js';
 export {
   healSelectors,
+  isNoOpReplacement,
   scoreCandidate,
   getScoringRules,
   scanCandidates,
   generateReplacementCode,
+  renderSelectorCode,
   bestSelectorType,
 } from './healer/index.js';
 export type { HealOptions, ScoreResult, ScoringRule, RuleScore } from './healer/index.js';

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { bestConfidence, dedupeByCode } from '../../src/healer/heal.js';
-import type { DomFingerprint, HealCandidate } from '../../src/types.js';
+import { bestConfidence, dedupeByCode, isNoOpReplacement } from '../../src/healer/heal.js';
+import type { DomFingerprint, HealCandidate, SelectorUsage } from '../../src/types.js';
+
+function selector(
+  over: Partial<SelectorUsage> & Pick<SelectorUsage, 'selectorType' | 'rawValue'>,
+): SelectorUsage {
+  return { id: 'x', filePath: '/t.spec.ts', line: 1, column: 1, ...over };
+}
 
 const FP_STUB: DomFingerprint = {
   selectorId: 'x',
@@ -61,5 +67,34 @@ describe('dedupeByCode', () => {
     const highFirst = dedupeByCode([cand('dup', 0.9), cand('dup', 0.2)]);
     expect(lowFirst[0]?.confidence).toBe(0.9);
     expect(highFirst[0]?.confidence).toBe(0.9);
+  });
+});
+
+describe('isNoOpReplacement', () => {
+  it('flags a candidate identical to the selector it would replace', () => {
+    // The original bug: role=alert breaks by cascade, healer re-derives getByRole('alert').
+    const s = selector({ selectorType: 'role', rawValue: 'alert' });
+    expect(isNoOpReplacement(s, "page.getByRole('alert')")).toBe(true);
+  });
+
+  it('ignores an incidental receiver difference', () => {
+    const s = selector({ selectorType: 'testid', rawValue: 'submit-btn' });
+    expect(isNoOpReplacement(s, "getByTestId('submit-btn')")).toBe(true);
+  });
+
+  it('does not flag a genuinely different replacement', () => {
+    const s = selector({ selectorType: 'role', rawValue: 'alert' });
+    expect(isNoOpReplacement(s, "page.getByTestId('error-banner')")).toBe(false);
+  });
+
+  it('respects the role name option', () => {
+    const s = selector({ selectorType: 'role', rawValue: 'button', options: { name: 'Log in' } });
+    expect(isNoOpReplacement(s, "page.getByRole('button', { name: 'Log in' })")).toBe(true);
+    expect(isNoOpReplacement(s, "page.getByRole('button', { name: 'Sign up' })")).toBe(false);
+  });
+
+  it('returns false for non-Playwright frameworks (nothing to reconstruct)', () => {
+    const s = selector({ selectorType: 'testid', rawValue: 'x' });
+    expect(isNoOpReplacement(s, '$(\'[data-testid="x"]\')', 'cypress')).toBe(false);
   });
 });

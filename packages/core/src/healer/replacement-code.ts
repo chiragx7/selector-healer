@@ -1,4 +1,4 @@
-import type { DomFingerprint, Framework, SelectorType } from '../types.js';
+import type { DomFingerprint, Framework, SelectorType, SelectorUsage } from '../types.js';
 
 /**
  * Generate a replacement code string for a healed selector in the target
@@ -27,6 +27,56 @@ export function generateReplacementCode(
       return generateTestCafeReplacement(fingerprint);
     default:
       return generatePlaywrightReplacement(fingerprint);
+  }
+}
+
+/**
+ * Reconstruct the Playwright source for an *existing* selector usage, in the
+ * same shape {@link generateReplacementCode} emits. Lets the healer compare a
+ * proposed candidate against the selector it would replace and drop it when the
+ * two are identical (a no-op "fix"). Returns `undefined` for non-Playwright
+ * frameworks, whose source we don't reconstruct.
+ *
+ * @param selector - The original selector usage extracted from the test file.
+ * @param framework - Target framework; only `'playwright'` is reconstructed.
+ * @returns The locator source (e.g. `page.getByRole('alert')`), or `undefined`.
+ *
+ * @example
+ * ```ts
+ * renderSelectorCode({ selectorType: 'testid', rawValue: 'submit-btn' });
+ * // "page.getByTestId('submit-btn')"
+ * ```
+ */
+export function renderSelectorCode(
+  selector: SelectorUsage,
+  framework: Framework = 'playwright',
+): string | undefined {
+  if (framework !== 'playwright') return undefined;
+  const value = escapeQuotes(selector.rawValue);
+  switch (selector.selectorType) {
+    case 'testid':
+      return `page.getByTestId('${value}')`;
+    case 'role': {
+      const name = selector.options?.name;
+      return typeof name === 'string'
+        ? `page.getByRole('${value}', { name: '${escapeQuotes(name)}' })`
+        : `page.getByRole('${value}')`;
+    }
+    case 'text':
+      return `page.getByText('${value}')`;
+    case 'label':
+      return `page.getByLabel('${value}')`;
+    case 'placeholder':
+      return `page.getByPlaceholder('${value}')`;
+    case 'title':
+      return `page.getByTitle('${value}')`;
+    case 'alt':
+      return `page.getByAltText('${value}')`;
+    case 'css':
+    case 'xpath':
+      return `page.locator('${value}')`;
+    default:
+      return undefined;
   }
 }
 

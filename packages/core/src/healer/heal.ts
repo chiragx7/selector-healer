@@ -12,7 +12,7 @@ import type {
   VerificationResult,
 } from '../types.js';
 import { scanCandidates } from './candidates.js';
-import { generateReplacementCode } from './replacement-code.js';
+import { generateReplacementCode, renderSelectorCode } from './replacement-code.js';
 import { scoreCandidate } from './scoring.js';
 
 export interface HealOptions {
@@ -172,10 +172,15 @@ export async function healSelectors(
   await context.close();
   await browser.close();
 
-  // One suggestion per selector: globally best candidates, deduped by code.
+  // One suggestion per selector: globally best candidates, deduped by code, with
+  // any no-op "fix" (a candidate identical to the selector it would replace)
+  // dropped — so we never surface an Apply that changes nothing.
   return toHeal.map((result) => {
     const all = candidatesById.get(result.selector.id) ?? [];
-    const deduped = dedupeByCode(all).sort((a, b) => b.confidence - a.confidence);
+    const framework: Framework = result.selector.framework ?? config.framework ?? 'playwright';
+    const deduped = dedupeByCode(all)
+      .filter((c) => !isNoOpReplacement(result.selector, c.replacementCode, framework))
+      .sort((a, b) => b.confidence - a.confidence);
     return { selectorId: result.selector.id, candidates: deduped.slice(0, MAX_CANDIDATES) };
   });
 }
@@ -225,6 +230,45 @@ export function dedupeByCode(candidates: HealCandidate[]): HealCandidate[] {
     }
   }
   return [...byCode.values()];
+}
+
+/**
+ * True when a healed candidate's code is equivalent to the selector it would
+ * replace — applying it changes nothing, so it must not be offered as a fix.
+ * This happens when a selector is flagged broken by a cascade elsewhere (e.g. a
+ * failed setup) yet its own element is unchanged, so the healer re-derives the
+ * identical locator.
+ *
+ * @param selector - The original selector usage extracted from the test.
+ * @param replacementCode - A candidate's proposed replacement code.
+ * @param framework - Target framework (only Playwright source is reconstructed).
+ * @returns True when the replacement is a no-op.
+ *
+ * @example
+ * ```ts
+ * isNoOpReplacement(
+ *   { selectorType: 'role', rawValue: 'alert' },
+ *   "page.getByRole('alert')",
+ * ); // true
+ * ```
+ */
+export function isNoOpReplacement(
+  selector: SelectorUsage,
+  replacementCode: string,
+  framework: Framework = 'playwright',
+): boolean {
+  const original = renderSelectorCode(selector, framework);
+  if (original === undefined) return false;
+  return normalizeLocator(original) === normalizeLocator(replacementCode);
+}
+
+/** Normalise a Playwright locator string so equivalent forms compare equal. */
+function normalizeLocator(code: string): string {
+  return code
+    .replace(/^page\./, '') // the receiver is incidental (`page.` / `this.page.` / none)
+    .replace(/"/g, "'") // unify quote style
+    .replace(/\s+/g, ' ') // collapse whitespace
+    .trim();
 }
 
 function resolvePageUrl(selector: SelectorUsage, config: HealerConfig): string | undefined {

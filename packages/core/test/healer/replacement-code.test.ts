@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { generateReplacementCode } from '../../src/healer/replacement-code.js';
-import type { DomFingerprint } from '../../src/types.js';
+import { generateReplacementCode, renderSelectorCode } from '../../src/healer/replacement-code.js';
+import type { DomFingerprint, SelectorUsage } from '../../src/types.js';
+
+function sel(
+  over: Partial<SelectorUsage> & Pick<SelectorUsage, 'selectorType' | 'rawValue'>,
+): SelectorUsage {
+  return { id: 'x', filePath: '/t.spec.ts', line: 1, column: 1, ...over };
+}
 
 function makeFp(overrides: Partial<DomFingerprint> = {}): DomFingerprint {
   return {
@@ -174,5 +180,52 @@ describe('generateReplacementCode — defaults', () => {
     const fp = makeFp({ tagName: 'span', textContent: "It's done" });
     expect(generateReplacementCode(fp, 'playwright')).toBe("page.getByText('It\\'s done')");
     expect(generateReplacementCode(fp, 'cypress')).toBe("cy.contains('It\\'s done')");
+  });
+});
+
+describe('renderSelectorCode — reconstruct an existing selector', () => {
+  it('reconstructs getByTestId', () => {
+    expect(renderSelectorCode(sel({ selectorType: 'testid', rawValue: 'submit-btn' }))).toBe(
+      "page.getByTestId('submit-btn')",
+    );
+  });
+
+  it('reconstructs getByRole with and without a name option', () => {
+    expect(
+      renderSelectorCode(
+        sel({ selectorType: 'role', rawValue: 'button', options: { name: 'Log in' } }),
+      ),
+    ).toBe("page.getByRole('button', { name: 'Log in' })");
+    expect(renderSelectorCode(sel({ selectorType: 'role', rawValue: 'alert' }))).toBe(
+      "page.getByRole('alert')",
+    );
+  });
+
+  it('reconstructs label / text / placeholder / css', () => {
+    expect(renderSelectorCode(sel({ selectorType: 'label', rawValue: 'Email' }))).toBe(
+      "page.getByLabel('Email')",
+    );
+    expect(renderSelectorCode(sel({ selectorType: 'text', rawValue: 'Submit' }))).toBe(
+      "page.getByText('Submit')",
+    );
+    expect(renderSelectorCode(sel({ selectorType: 'placeholder', rawValue: 'Search' }))).toBe(
+      "page.getByPlaceholder('Search')",
+    );
+    expect(renderSelectorCode(sel({ selectorType: 'css', rawValue: '.error-banner' }))).toBe(
+      "page.locator('.error-banner')",
+    );
+  });
+
+  it('matches generateReplacementCode for the same element (so no-op detection works)', () => {
+    // A role=alert element re-derived by the healer must render identically.
+    const fp = makeFp({ tagName: 'div', attributes: { role: 'alert' } });
+    const original = renderSelectorCode(sel({ selectorType: 'role', rawValue: 'alert' }));
+    expect(generateReplacementCode(fp, 'playwright')).toBe(original);
+  });
+
+  it('returns undefined for non-Playwright frameworks', () => {
+    expect(
+      renderSelectorCode(sel({ selectorType: 'testid', rawValue: 'x' }), 'cypress'),
+    ).toBeUndefined();
   });
 });
