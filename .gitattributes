@@ -1,0 +1,27 @@
+# Normalize line endings to LF in the repo and on checkout, so Windows
+# autocrlf doesn't churn line endings (and trip the formatter). `text=auto`
+# still auto-detects binaries and leaves them alone.
+* text=auto eol=lf
+
+# Be explicit for the file types this repo actually uses.
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+
+# Binary assets — never convert.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
