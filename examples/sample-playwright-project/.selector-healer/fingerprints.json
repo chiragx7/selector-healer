@@ -1,1 +1,1563 @@
-[]
+[
+  {
+    "selectorId": "040a9ce10365",
+    "capturedAt": "2026-06-04T05:42:52.009Z",
+    "tagName": "h2",
+    "attributes": {
+      "data-testid": "section-security"
+    },
+    "textContent": "Security",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      },
+      {
+        "tagName": "section",
+        "classes": []
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 416,
+      "y": 323,
+      "width": 448,
+      "height": 21
+    },
+    "pageUrl": "http://localhost:3456/settings"
+  },
+  {
+    "selectorId": "145562670808",
+    "capturedAt": "2026-06-04T05:42:54.423Z",
+    "tagName": "div",
+    "attributes": {
+      "class": "user-avatar",
+      "data-testid": "avatar"
+    },
+    "textContent": "U",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "nav"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 1212,
+      "y": 16,
+      "width": 36,
+      "height": 36
+    },
+    "pageUrl": "http://localhost:3456/dashboard"
+  },
+  {
+    "selectorId": "1b5a0cb1b92b",
+    "capturedAt": "2026-06-04T05:42:40.061Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "email",
+      "type": "email",
+      "data-testid": "email-input",
+      "placeholder": "you@example.com",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 292.625,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "2028a5f65df8",
+    "capturedAt": "2026-06-04T05:42:51.610Z",
+    "tagName": "h1",
+    "attributes": {
+      "data-testid": "settings-title"
+    },
+    "textContent": "Settings",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 392,
+      "y": 100,
+      "width": 496,
+      "height": 30
+    },
+    "pageUrl": "http://localhost:3456/settings"
+  },
+  {
+    "selectorId": "3efc43dab346",
+    "capturedAt": "2026-06-04T05:42:49.321Z",
+    "tagName": "textarea",
+    "attributes": {
+      "id": "bio",
+      "data-testid": "input-bio",
+      "placeholder": "Tell us about yourself"
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      },
+      {
+        "tagName": "form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 392,
+      "y": 347.1875,
+      "width": 496,
+      "height": 90
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "404c3573ec14",
+    "capturedAt": "2026-06-04T05:42:50.656Z",
+    "tagName": "a",
+    "attributes": {
+      "href": "/",
+      "data-testid": "logout-link"
+    },
+    "textContent": "Log out",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "nav"
+        ]
+      }
+    ],
+    "siblingIndex": 3,
+    "boundingBox": {
+      "x": 1136.15625,
+      "y": 24,
+      "width": 51.84375,
+      "height": 20
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "4084a2017bf2",
+    "capturedAt": "2026-06-04T05:42:46.274Z",
+    "tagName": "a",
+    "attributes": {
+      "href": "/signup"
+    },
+    "textContent": "Sign up",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "footer"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 689.296875,
+      "y": 487.375,
+      "width": 45.65625,
+      "height": 18
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "45ce4f8d1a09",
+    "capturedAt": "2026-06-04T05:42:52.210Z",
+    "tagName": "input",
+    "attributes": {
+      "type": "checkbox",
+      "data-testid": "toggle-email",
+      "checked": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      },
+      {
+        "tagName": "section",
+        "classes": []
+      },
+      {
+        "tagName": "label",
+        "classes": [
+          "row"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 416,
+      "y": 210.5,
+      "width": 13,
+      "height": 13
+    },
+    "pageUrl": "http://localhost:3456/settings"
+  },
+  {
+    "selectorId": "53384c93724f",
+    "capturedAt": "2026-06-04T05:42:50.107Z",
+    "tagName": "a",
+    "attributes": {
+      "href": "/profile"
+    },
+    "textContent": "Profile",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "nav"
+        ]
+      }
+    ],
+    "siblingIndex": 1,
+    "boundingBox": {
+      "x": 991.359375,
+      "y": 24,
+      "width": 42.78125,
+      "height": 20
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "546e94f37542",
+    "capturedAt": "2026-06-04T05:43:12.254Z",
+    "tagName": "div",
+    "attributes": {
+      "class": "error-banner visible",
+      "role": "alert"
+    },
+    "textContent": "Invalid email or password",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 241.53125,
+      "width": 296,
+      "height": 42.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "57d0cfbaa12b",
+    "capturedAt": "2026-06-04T05:42:49.504Z",
+    "tagName": "button",
+    "attributes": {
+      "type": "button",
+      "data-testid": "save-profile"
+    },
+    "textContent": "Save changes",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      },
+      {
+        "tagName": "form",
+        "classes": []
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 392,
+      "y": 457.1875,
+      "width": 134.71875,
+      "height": 36.1875
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "66b708f13190",
+    "capturedAt": "2026-06-04T05:42:40.721Z",
+    "tagName": "button",
+    "attributes": {
+      "type": "submit",
+      "id": "submit",
+      "role": "button",
+      "data-testid": "submit-btn"
+    },
+    "textContent": "Log in",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 431,
+      "width": 296,
+      "height": 40.375
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "6be66d96f7b1",
+    "capturedAt": "2026-06-04T05:42:46.939Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "password",
+      "type": "password",
+      "data-testid": "password-input",
+      "placeholder": "Enter password",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 368.8125,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "7e743cbf93af",
+    "capturedAt": "2026-06-04T05:42:52.436Z",
+    "tagName": "input",
+    "attributes": {
+      "type": "checkbox",
+      "data-testid": "toggle-2fa"
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      },
+      {
+        "tagName": "section",
+        "classes": []
+      },
+      {
+        "tagName": "label",
+        "classes": [
+          "row"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 416,
+      "y": 359.5,
+      "width": 13,
+      "height": 13
+    },
+    "pageUrl": "http://localhost:3456/settings"
+  },
+  {
+    "selectorId": "85be8e3c36ab",
+    "capturedAt": "2026-06-04T05:42:46.040Z",
+    "tagName": "div",
+    "attributes": {
+      "class": "error-banner",
+      "role": "alert"
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "87c6506690d7",
+    "capturedAt": "2026-06-04T05:42:48.929Z",
+    "tagName": "img",
+    "attributes": {
+      "class": "profile-photo",
+      "data-testid": "profile-photo",
+      "src": "data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'72'%20height%3D'72'%3E%3Crect%20width%3D'72'%20height%3D'72'%20fill%3D'%232563eb'%2F%3E%3C%2Fsvg%3E",
+      "alt": "Profile photo",
+      "width": "72",
+      "height": "72"
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 392,
+      "y": 150,
+      "width": 72,
+      "height": 72
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "8be91864598e",
+    "capturedAt": "2026-06-04T05:42:54.189Z",
+    "tagName": "h1",
+    "attributes": {
+      "class": "greeting",
+      "data-testid": "dashboard-greeting"
+    },
+    "textContent": "Welcome, user@example.com",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 312,
+      "y": 100,
+      "width": 656,
+      "height": 30
+    },
+    "pageUrl": "http://localhost:3456/dashboard"
+  },
+  {
+    "selectorId": "8cc75bda5bf2",
+    "capturedAt": "2026-06-04T05:42:52.624Z",
+    "tagName": "button",
+    "attributes": {
+      "type": "button",
+      "class": "primary",
+      "data-testid": "save-settings"
+    },
+    "textContent": "Save settings",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "actions"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 392,
+      "y": 424,
+      "width": 129.640625,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/settings"
+  },
+  {
+    "selectorId": "8d30d840b375",
+    "capturedAt": "2026-06-04T05:42:49.671Z",
+    "tagName": "p",
+    "attributes": {
+      "class": "hint",
+      "data-testid": "profile-updated"
+    },
+    "textContent": "Last updated 2 days ago",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 392,
+      "y": 509.375,
+      "width": 496,
+      "height": 17
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "938293f3771b",
+    "capturedAt": "2026-06-04T05:42:47.490Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "password",
+      "type": "password",
+      "data-testid": "password-input",
+      "placeholder": "Enter password",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 368.8125,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "ac3f3b13d598",
+    "capturedAt": "2026-06-04T05:42:49.901Z",
+    "tagName": "a",
+    "attributes": {
+      "href": "/dashboard"
+    },
+    "textContent": "Dashboard",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "nav"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 894.09375,
+      "y": 24,
+      "width": 73.265625,
+      "height": 20
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "ad1c8bf5f6cc",
+    "capturedAt": "2026-06-04T05:42:29.754Z",
+    "tagName": "button",
+    "attributes": {
+      "type": "submit",
+      "id": "submit",
+      "role": "button",
+      "data-testid": "submit-btn"
+    },
+    "textContent": "Log in",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 431,
+      "width": 296,
+      "height": 40.375
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "ad415f0ecb29",
+    "capturedAt": "2026-06-04T05:42:52.827Z",
+    "tagName": "button",
+    "attributes": {
+      "type": "button",
+      "class": "danger",
+      "data-testid": "delete-account"
+    },
+    "textContent": "Delete account",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "actions"
+        ]
+      }
+    ],
+    "siblingIndex": 1,
+    "boundingBox": {
+      "x": 533.640625,
+      "y": 424,
+      "width": 141.78125,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/settings"
+  },
+  {
+    "selectorId": "ae234b9bf8e9",
+    "capturedAt": "2026-06-04T05:42:47.688Z",
+    "tagName": "button",
+    "attributes": {
+      "type": "submit",
+      "id": "submit",
+      "role": "button",
+      "data-testid": "submit-btn"
+    },
+    "textContent": "Log in",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 431,
+      "width": 296,
+      "height": 40.375
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "b97e2f55a5ca",
+    "capturedAt": "2026-06-04T05:42:28.309Z",
+    "tagName": "h1",
+    "attributes": {},
+    "textContent": "Login",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 214.625,
+      "width": 296,
+      "height": 32
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "c36db20f9df1",
+    "capturedAt": "2026-06-04T05:42:29.489Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "password",
+      "type": "password",
+      "data-testid": "password-input",
+      "placeholder": "Enter password",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 368.8125,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "c5ad7ae91eeb",
+    "capturedAt": "2026-06-04T05:42:29.274Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "email",
+      "type": "email",
+      "data-testid": "email-input",
+      "placeholder": "you@example.com",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 292.625,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "ca03635597e2",
+    "capturedAt": "2026-06-04T05:42:48.680Z",
+    "tagName": "h1",
+    "attributes": {
+      "data-testid": "profile-title"
+    },
+    "textContent": "Your Profile",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 392,
+      "y": 100,
+      "width": 496,
+      "height": 30
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "d43c777afe8a",
+    "capturedAt": "2026-06-04T05:42:49.092Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "fullname",
+      "type": "text",
+      "data-testid": "input-fullname",
+      "value": "Jane Doe"
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      },
+      {
+        "tagName": "form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 392,
+      "y": 268,
+      "width": 496,
+      "height": 41.1875
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "d62b2d98bbe4",
+    "capturedAt": "2026-06-04T05:42:46.740Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "email",
+      "type": "email",
+      "data-testid": "email-input",
+      "placeholder": "you@example.com",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 292.625,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "d82c9067c5c7",
+    "capturedAt": "2026-06-04T05:42:50.370Z",
+    "tagName": "a",
+    "attributes": {
+      "href": "/settings"
+    },
+    "textContent": "Settings",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "nav"
+        ]
+      }
+    ],
+    "siblingIndex": 2,
+    "boundingBox": {
+      "x": 1058.140625,
+      "y": 24,
+      "width": 54.015625,
+      "height": 20
+    },
+    "pageUrl": "http://localhost:3456/profile"
+  },
+  {
+    "selectorId": "dd63e0c3c272",
+    "capturedAt": "2026-06-04T05:42:51.795Z",
+    "tagName": "h2",
+    "attributes": {
+      "data-testid": "section-notifications"
+    },
+    "textContent": "Notifications",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "content"
+        ]
+      },
+      {
+        "tagName": "section",
+        "classes": []
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 416,
+      "y": 174,
+      "width": 448,
+      "height": 21
+    },
+    "pageUrl": "http://localhost:3456/settings"
+  },
+  {
+    "selectorId": "dec8ec5fe7fe",
+    "capturedAt": "2026-06-04T05:42:28.615Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "email",
+      "type": "email",
+      "data-testid": "email-input",
+      "placeholder": "you@example.com",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 292.625,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "ebbee27de1e2",
+    "capturedAt": "2026-06-04T05:42:46.507Z",
+    "tagName": "h1",
+    "attributes": {},
+    "textContent": "Login",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 214.625,
+      "width": 296,
+      "height": 32
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "eceb4edb647f",
+    "capturedAt": "2026-06-04T05:42:40.480Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "password",
+      "type": "password",
+      "data-testid": "password-input",
+      "placeholder": "Enter password",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 368.8125,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "f01779f166ce",
+    "capturedAt": "2026-06-04T05:42:28.838Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "password",
+      "type": "password",
+      "data-testid": "password-input",
+      "placeholder": "Enter password",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 368.8125,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "f1dca6586ae6",
+    "capturedAt": "2026-06-04T05:42:47.094Z",
+    "tagName": "button",
+    "attributes": {
+      "type": "submit",
+      "id": "submit",
+      "role": "button",
+      "data-testid": "submit-btn"
+    },
+    "textContent": "Log in",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 431,
+      "width": 296,
+      "height": 40.375
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "fe6adfbc32df",
+    "capturedAt": "2026-06-04T05:42:29.090Z",
+    "tagName": "button",
+    "attributes": {
+      "type": "submit",
+      "id": "submit",
+      "role": "button",
+      "data-testid": "submit-btn"
+    },
+    "textContent": "Log in",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 431,
+      "width": 296,
+      "height": 40.375
+    },
+    "pageUrl": "http://localhost:3456/"
+  },
+  {
+    "selectorId": "feaacff82eff",
+    "capturedAt": "2026-06-04T05:42:47.291Z",
+    "tagName": "input",
+    "attributes": {
+      "id": "email",
+      "type": "email",
+      "data-testid": "email-input",
+      "placeholder": "you@example.com",
+      "required": ""
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "html",
+        "classes": []
+      },
+      {
+        "tagName": "body",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "card"
+        ]
+      },
+      {
+        "tagName": "form",
+        "id": "login-form",
+        "classes": []
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "field"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 492,
+      "y": 292.625,
+      "width": 296,
+      "height": 38.1875
+    },
+    "pageUrl": "http://localhost:3456/"
+  }
+]

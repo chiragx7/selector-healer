@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Profile</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1f2937; }
+    .nav { background: #fff; padding: 1rem 2rem; display: flex; align-items: center; gap: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    .nav .brand { font-size: 1.1rem; font-weight: 700; margin-right: auto; }
+    .nav a { color: #2563eb; text-decoration: none; font-size: 0.95rem; }
+    .nav a:hover { text-decoration: underline; }
+    .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; }
+    .content { padding: 2rem; max-width: 560px; margin: 0 auto; }
+    h1 { font-size: 1.4rem; margin-bottom: 1.25rem; }
+    .profile-photo { border-radius: 50%; margin-bottom: 1.25rem; }
+    .field { margin-bottom: 1rem; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
+    input, textarea { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; font-family: inherit; }
+    textarea { min-height: 90px; resize: vertical; }
+    button { padding: 0.6rem 1.2rem; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 0.95rem; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    .hint { margin-top: 1rem; font-size: 0.8rem; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <span class="brand">Acme Console</span>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/profile">Profile</a>
+    <a href="/settings">Settings</a>
+    <a href="/" data-testid="logout-link">Log out</a>
+    <div class="user-avatar" data-testid="avatar">U</div>
+  </nav>
+
+  <div class="content">
+    <h1 data-testid="profile-title">Your Profile</h1>
+
+    <img class="profile-photo" data-testid="profile-photo"
+         src="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'72'%20height%3D'72'%3E%3Crect%20width%3D'72'%20height%3D'72'%20fill%3D'%232563eb'%2F%3E%3C%2Fsvg%3E"
+         alt="Profile photo" width="72" height="72">
+
+    <form>
+      <div class="field">
+        <label for="fullname">Username</label>
+        <input id="fullname" type="text" data-testid="input-fullname" value="Jane Doe">
+      </div>
+      <div class="field">
+        <label for="bio">Bio</label>
+        <textarea id="bio" data-testid="input-bio" placeholder="Tell us about yourself"></textarea>
+      </div>
+      <button type="button" data-testid="save-profile">Update Profile</button>
+    </form>
+
+    <p class="hint" data-testid="profile-updated">Last updated 2 days ago</p>
+  </div>
+</body>
+</html>
