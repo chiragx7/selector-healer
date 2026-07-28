@@ -303,6 +303,49 @@ describe('parseTestFile', () => {
       expect(usages[0].contextHint).toBe('/login');
       expect(usages[1].contextHint).toBeUndefined();
     });
+
+    it('propagates a beforeEach goto to the tests in the block', () => {
+      const fp = writeTempFile(
+        tmpDir,
+        `
+        test.describe('dashboard', () => {
+          test.beforeEach(async ({ page }) => {
+            await page.goto('/dashboard');
+          });
+          test('shows greeting', async ({ page }) => {
+            await page.getByTestId('greeting').isVisible();
+          });
+          test('shows avatar', async ({ page }) => {
+            await page.locator('.avatar').isVisible();
+          });
+        });
+      `,
+      );
+      const usages = parseTestFile(fp)._unsafeUnwrap();
+      expect(usages).toHaveLength(2);
+      expect(usages[0].contextHint).toBe('/dashboard');
+      expect(usages[1].contextHint).toBe('/dashboard');
+    });
+
+    it('lets a test-local goto override the inherited beforeEach hint', () => {
+      const fp = writeTempFile(
+        tmpDir,
+        `
+        test.beforeEach(async ({ page }) => {
+          await page.goto('/dashboard');
+        });
+        test('navigates away', async ({ page }) => {
+          await page.getByTestId('greeting').isVisible();
+          await page.goto('/settings');
+          await page.locator('.panel').isVisible();
+        });
+      `,
+      );
+      const usages = parseTestFile(fp)._unsafeUnwrap();
+      expect(usages).toHaveLength(2);
+      expect(usages[0].contextHint).toBe('/dashboard');
+      expect(usages[1].contextHint).toBe('/settings');
+    });
   });
 
   describe('template literals', () => {

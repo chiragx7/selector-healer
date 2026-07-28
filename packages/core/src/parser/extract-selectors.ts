@@ -53,8 +53,14 @@ export function extractSelectors(ast: ParseResult<t.File>, filePath: string): Se
       enter() {
         contextStack.push(contextStack[contextStack.length - 1]);
       },
-      exit() {
-        contextStack.pop();
+      exit(path: NodePath) {
+        const top = contextStack.pop();
+        // A beforeEach/beforeAll hook that navigates (goto) establishes the page
+        // every following test in the block starts on — propagate its URL to the
+        // enclosing scope so those tests inherit the right contextHint.
+        if (top !== undefined && isSetupHookCallback(path)) {
+          contextStack[contextStack.length - 1] = top;
+        }
       },
     },
 
@@ -135,6 +141,24 @@ export function extractSelectors(ast: ParseResult<t.File>, filePath: string): Se
 
   results.sort((a, b) => a.line - b.line || a.column - b.column);
   return results;
+}
+
+const SETUP_HOOKS = new Set(['beforeEach', 'beforeAll', 'before']);
+
+/**
+ * True when a function is the callback of a Playwright `beforeEach`/`beforeAll`
+ * setup hook — either bare `beforeEach(...)` or `test.beforeEach(...)`. Such a
+ * hook's `goto` sets the page every following test in the block starts on.
+ */
+function isSetupHookCallback(path: NodePath): boolean {
+  const parent = path.parent;
+  if (!t.isCallExpression(parent)) return false;
+  const callee = parent.callee;
+  if (t.isIdentifier(callee)) return SETUP_HOOKS.has(callee.name);
+  if (t.isMemberExpression(callee) && t.isIdentifier(callee.property)) {
+    return SETUP_HOOKS.has(callee.property.name);
+  }
+  return false;
 }
 
 function extractObjectLiteral(node: t.ObjectExpression): Record<string, unknown> {
