@@ -10,6 +10,8 @@ const PAGES = {
   '/': 'index.html',
   '/login': 'index.html',
   '/dashboard': 'dashboard.html',
+  '/profile': 'profile.html',
+  '/settings': 'settings.html',
   '/signup': 'signup.html',
 };
 
