@@ -268,6 +268,9 @@ async function runInit(): Promise<void> {
       `Selector Healer: created ${filename} (${summary}). Run Capture next.`,
     );
   }
+
+  // Config now exists — refresh the dashboard so onboarding switches to "Get started".
+  dashboard.refresh();
 }
 
 async function runVerify(): Promise<void> {

@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { VerificationResult } from '@selector-healer/core';
 import * as vscode from 'vscode';
 import { revealSelector } from './apply.js';
@@ -20,7 +22,7 @@ interface DashItem {
 }
 
 interface DashMessage {
-  type: 'verify' | 'capture' | 'applyAll' | 'open' | 'apply' | 'ready';
+  type: 'verify' | 'capture' | 'applyAll' | 'open' | 'apply' | 'ready' | 'init';
   filePath?: string;
   line?: number;
   column?: number;
@@ -47,6 +49,14 @@ const STATUS_ORDER: Record<string, number> = {
   skipped: 3,
   ok: 4,
 };
+
+/** Config filenames cosmiconfig discovers — used to detect a first-run (no config). */
+const CONFIG_FILES = [
+  'selector-healer.config.ts',
+  'selector-healer.config.js',
+  'selector-healer.config.mjs',
+  'selector-healer.config.cjs',
+];
 
 /**
  * Rich webview dashboard in the Selector Healer activity-bar container.
@@ -90,6 +100,9 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
           break;
         case 'capture':
           await vscode.commands.executeCommand('selectorHealer.capture');
+          break;
+        case 'init':
+          await vscode.commands.executeCommand('selectorHealer.init');
           break;
         case 'applyAll':
           await vscode.commands.executeCommand('selectorHealer.applyAllFixes');
@@ -146,10 +159,22 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
     this.view?.webview.postMessage({ type: 'captureFinish', captured, total });
   }
 
+  /** True when a selector-healer config exists in the workspace root. */
+  private hasConfig(): boolean {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!root) return false;
+    return CONFIG_FILES.some((f) => existsSync(join(root, f)));
+  }
+
+  /** Re-push state — re-checks whether a config now exists (e.g. after `init`). */
+  refresh(): void {
+    this.postState(false);
+  }
+
   private postState(activate: boolean): void {
     this.view?.webview.postMessage({
       type: 'state',
-      payload: serialize(healerState.snapshot),
+      payload: { ...serialize(healerState.snapshot), hasConfig: this.hasConfig() },
       activate,
     });
   }
@@ -300,6 +325,15 @@ body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size
 .tag { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
 .tag.pass { color: var(--ok); background: color-mix(in srgb, var(--ok) 18%, transparent); }
 .tag.fail { color: var(--broken); background: color-mix(in srgb, var(--broken) 18%, transparent); }
+.ob { padding: 8px 4px 4px; line-height: 1.55; }
+.ob-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.ob-lead { font-size: 12.5px; color: var(--vscode-descriptionForeground); margin-bottom: 16px; }
+.ob-note { font-size: 12px; margin-bottom: 12px; }
+.ob-steps { margin-bottom: 16px; }
+.ob-step { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; margin-bottom: 8px; }
+.ob-num { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: var(--vscode-badge-background, rgba(128,128,128,.3)); color: var(--vscode-badge-foreground, var(--vscode-foreground)); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.ob-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ob-actions .btn { padding: 6px 14px; }
 `;
 
 const SCRIPT = /* js */ `
@@ -330,14 +364,33 @@ function bindRun() {
   const aa = document.getElementById('apply-all'); if (aa) aa.onclick = () => vscode.postMessage({ type: 'applyAll' });
   app.querySelectorAll('[data-open]').forEach(el => el.onclick = () => { const d = el.dataset; vscode.postMessage({ type: 'open', filePath: d.file, line: +d.line, column: +d.col, rawValueLength: +d.len }); });
   app.querySelectorAll('[data-apply]').forEach(el => el.onclick = () => { const d = el.dataset; vscode.postMessage({ type: 'apply', filePath: d.file, line: +d.line, column: +d.col, rawValue: d.raw, replacementCode: d.code }); });
+  const cc = document.getElementById('create-config'); if (cc) cc.onclick = () => vscode.postMessage({ type: 'init' });
+}
+
+/* ---------- Onboarding (first run) ---------- */
+function onboarding() {
+  const intro = '<div class="ob-title">🛡️ Selector Healer</div>'
+    + '<div class="ob-lead">Catch broken test selectors before CI does — it snapshots each selector against your live DOM, flags the ones that broke, and suggests AST-based fixes. Fully local: no network, no telemetry.</div>';
+  if (!lastState.hasConfig) {
+    return '<div class="ob">' + intro
+      + '<div class="ob-note muted">No config yet — create one. It auto-detects your framework, base URL, and test directory.</div>'
+      + '<button class="btn primary run" id="create-config">＋ Create Config</button></div>';
+  }
+  return '<div class="ob">' + intro
+    + '<div class="ob-steps">'
+    +   '<div class="ob-step"><span class="ob-num">1</span><span>Capture a baseline — snapshot your selectors.</span></div>'
+    +   '<div class="ob-step"><span class="ob-num">2</span><span>Verify — check them against the live DOM.</span></div>'
+    +   '<div class="ob-step"><span class="ob-num">3</span><span>Heal — apply suggested fixes for any that broke.</span></div>'
+    + '</div>'
+    + '<div class="ob-actions"><button class="btn primary" id="run-capture">Capture baseline</button>'
+    +   '<button class="btn" id="run-verify">Verify now</button></div></div>';
 }
 
 /* ---------- Verify tab ---------- */
 function renderVerify() {
-  if (!lastState || (lastState.phase === 'idle' && lastState.counts.total === 0)) {
-    app.innerHTML = '<div class="empty"><div class="big">🛡️</div><div>No verification results yet.</div>'
-      + '<div class="muted">Check your selectors against the live DOM.</div>'
-      + '<button class="btn primary run" id="run-verify">Verify now</button></div>';
+  if (!lastState) { app.innerHTML = '<div class="empty">Loading…</div>'; return; }
+  if (lastState.phase === 'idle' && lastState.counts.total === 0) {
+    app.innerHTML = onboarding();
     return;
   }
   const p = lastState, c = p.counts;
@@ -381,7 +434,7 @@ function card(it) {
           ? '<button class="apply" data-apply data-file="' + esc(it.filePath) + '" data-line="' + it.line + '" data-col="' + it.column + '" data-raw="' + esc(it.rawValue) + '" data-code="' + esc(it.suggestion.code) + '">Apply</button>'
           : '')
       + '</div>';
-  } else if (it.status === 'broken') body += '<div class="hint">No confident replacement found.</div>';
+  } else if (it.status === 'broken') body += '<div class="hint">No replacement found — the element may be gone, hidden, or only present after a setup step or interaction.</div>';
   else if (it.status === 'multiple-matches') body += '<div class="hint">Matches ' + it.matchCount + ' elements — make this selector more specific.</div>';
   else if (it.status === 'page-load-failed') body += '<div class="hint">' + esc(it.error || "Couldn't reach this page.") + '</div>';
   else body += '<div class="hint">No baseline — run Capture, or this element only appears after an interaction.</div>';
