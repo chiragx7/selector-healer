@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { parse } from '@babel/parser';
 import { logger } from '../logger.js';
 import type { Framework } from '../types.js';
+import { type DetectedLogin, type DetectedPage, analyzeTestSuite } from './analyze-tests.js';
 
 /**
  * Best-effort detection of a test project's shape, used by `init` to scaffold a
@@ -23,6 +24,14 @@ export interface ProjectDetection {
   testDirSource: string;
   testDirConfident: boolean;
   testGlob: string;
+  /** True when the project is TypeScript-based (a `tsconfig.json` or a `.ts` framework config). */
+  usesTypeScript: boolean;
+  /** Pages the tests navigate to (from `page.goto()`), for pre-filling `pages[]`. */
+  pages: DetectedPage[];
+  /** A login flow lifted from the tests, if one was recognised. */
+  login?: DetectedLogin;
+  /** Module specifier for the Playwright `Page` type used in a generated `.ts` hook. */
+  playwrightImport: string;
 }
 
 const FRAMEWORK_PRIORITY: Framework[] = ['playwright', 'cypress', 'webdriverio', 'testcafe'];
@@ -105,6 +114,7 @@ export function detectProjectConfig(cwd: string): ProjectDetection {
   const { framework, otherFrameworks, frameworkConfidence } = detectFramework(cwd, pkg);
   const base = detectBaseUrl(cwd, framework);
   const dir = detectTestDir(cwd, framework);
+  const analysis = analyzeTestSuite(cwd, dir.dir, TEST_GLOBS[framework], base.url);
 
   return {
     framework,
@@ -117,7 +127,41 @@ export function detectProjectConfig(cwd: string): ProjectDetection {
     testDirSource: dir.source,
     testDirConfident: dir.source !== 'default',
     testGlob: TEST_GLOBS[framework],
+    usesTypeScript: detectUsesTypeScript(cwd),
+    pages: analysis.pages,
+    login: analysis.login,
+    playwrightImport: detectPlaywrightImport(pkg),
   };
+}
+
+/**
+ * The module specifier whose `.Page` type a generated `.ts` setup hook should
+ * cast to. Selector Healer always drives a Playwright `Page`, so this prefers
+ * whichever package the project actually installed.
+ */
+function detectPlaywrightImport(pkg: Record<string, unknown>): string {
+  const deps = {
+    ...(pkg.dependencies as Record<string, string> | undefined),
+    ...(pkg.devDependencies as Record<string, string> | undefined),
+  };
+  if (deps['@playwright/test']) return '@playwright/test';
+  if (deps.playwright) return 'playwright';
+  return '@playwright/test';
+}
+
+/**
+ * True when the project is TypeScript-based: it has a `tsconfig.json` or a
+ * `.ts` framework config (e.g. `playwright.config.ts`). Decides whether `init`
+ * emits a typed `.ts` config or a zero-tooling `.cjs` one.
+ */
+function detectUsesTypeScript(cwd: string): boolean {
+  if (existsSync(join(cwd, 'tsconfig.json'))) return true;
+  for (const files of Object.values(FRAMEWORK_CONFIG_FILES)) {
+    for (const f of files) {
+      if (f.endsWith('.ts') && existsSync(join(cwd, f))) return true;
+    }
+  }
+  return false;
 }
 
 function readPackageJson(cwd: string): Record<string, unknown> {

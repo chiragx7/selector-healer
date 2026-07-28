@@ -177,3 +177,22 @@ describe('detectProjectConfig — testDir', () => {
     expect(d.testDirConfident).toBe(false);
   });
 });
+
+describe('detectProjectConfig — TypeScript detection', () => {
+  it('flags a project with a tsconfig.json', () => {
+    const root = project({ files: { 'tsconfig.json': '{}', 'package.json': '{}' } });
+    expect(detectProjectConfig(root).usesTypeScript).toBe(true);
+  });
+
+  it('flags a project with a .ts framework config (no tsconfig)', () => {
+    const root = project({ files: { 'playwright.config.ts': 'export default {};' } });
+    expect(detectProjectConfig(root).usesTypeScript).toBe(true);
+  });
+
+  it('is false for a plain-JS project', () => {
+    const root = project({
+      files: { 'package.json': '{}', 'playwright.config.js': 'module.exports = {};' },
+    });
+    expect(detectProjectConfig(root).usesTypeScript).toBe(false);
+  });
+});
