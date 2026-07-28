@@ -132,7 +132,7 @@ corepack pnpm -F @selector-healer/cli dev
 
 ## Architecture
 
-See [`CLAUDE.md`](CLAUDE.md) for the full architecture overview and [`DECISIONS.md`](DECISIONS.md) for non-obvious design choices.
+See [`DECISIONS.md`](docs/DECISIONS.md) for the rationale behind non-obvious design choices.
 
 ## License
 
