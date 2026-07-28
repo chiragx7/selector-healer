@@ -1,6 +1,15 @@
 # Selector Healer
 
-A local-first developer tool that statically scans Playwright test files, verifies each selector against a live DOM, and suggests AST-based replacements when selectors have broken -- before CI catches them.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Node ≥20](https://img.shields.io/badge/node-%E2%89%A520-brightgreen)
+
+**Catch broken Playwright selectors before CI does.** Selector Healer statically scans your test files, verifies each selector against the live DOM, and — when a UI change breaks a selector — suggests (or auto-applies) an AST-based fix. Everything runs on your machine: no network calls beyond your own app, no telemetry.
+
+- 🩹 **Heals broken selectors** — scores live DOM candidates against a stored fingerprint and proposes ranked replacements.
+- ⚡ **Shift-left** — catches breakage at commit time (pre-commit or in your editor), not at 09:00 the next morning in CI.
+- 🧭 **Near-zero config** — `init` auto-detects your framework, base URL, test directory, and even the login flow and pages.
+- 🖥️ **Three surfaces** — a core library, the `selector-healer` CLI (CI / pre-commit), and a VS Code extension.
+- 🔒 **Local-first** — AST-only edits via recast + Babel (never regex on your source); nothing leaves your machine.
 
 ## Quick Start
 
@@ -20,13 +29,13 @@ npx selector-healer report     # Generate HTML report
 
 ## How It Works
 
-1. **Parse** -- The parser walks Babel ASTs of your Playwright test files and extracts every `page.locator()`, `getByTestId()`, `getByRole()`, etc.
+1. **Parse** — The parser walks Babel ASTs of your Playwright test files and extracts every `page.locator()`, `getByTestId()`, `getByRole()`, etc.
 
-2. **Capture** -- Each selector is resolved against the live DOM using Playwright. A structural fingerprint (tag, attributes, text, parent chain, sibling index) is stored in `.selector-healer/fingerprints.json`.
+2. **Capture** — Each selector is resolved against the live DOM using Playwright. A structural fingerprint (tag, attributes, text, parent chain, sibling index) is stored in `.selector-healer/fingerprints.json`.
 
-3. **Verify** -- Re-runs each selector against the current DOM. If a selector no longer matches, it's flagged as broken.
+3. **Verify** — Re-runs each selector against the current DOM. If a selector no longer matches, it's flagged as broken.
 
-4. **Heal** -- For broken selectors, the healer scans the DOM for candidates matching the stored fingerprint using a 7-rule weighted scoring engine (data-testid, id, role, tag, text, parent structure, sibling position). Returns up to 3 ranked replacement suggestions.
+4. **Heal** — For broken selectors, the healer scans the DOM for candidates matching the stored fingerprint using a 7-rule weighted scoring engine (data-testid, id, role, tag, text, parent structure, sibling position). Returns up to 3 ranked replacement suggestions.
 
 ## Packages
 
@@ -40,7 +49,7 @@ npx selector-healer report     # Generate HTML report
 
 | Command | Description |
 |---|---|
-| `selector-healer init` | Create `.selector-healer/` directory and config template |
+| `selector-healer init` | Detect framework, base URL, test dir, login + pages; write a ready-to-use config |
 | `selector-healer capture` | Parse test files and capture DOM fingerprints |
 | `selector-healer verify` | Verify selectors against live DOM, show healing suggestions |
 | `selector-healer verify --fix` | Auto-apply suggestions above the auto-apply threshold |
@@ -48,13 +57,13 @@ npx selector-healer report     # Generate HTML report
 
 ### Options
 
-- `-v, --verbose` -- Show detailed output including per-selector errors
-- `--fail-on-warning` -- Exit 1 on ambiguous (multiple-match) selectors
-- `-o, --output <path>` -- Report output path (default: `.selector-healer/report.html`)
+- `-v, --verbose` — Show detailed output including per-selector errors
+- `--fail-on-warning` — Exit 1 on ambiguous (multiple-match) selectors
+- `-o, --output <path>` — Report output path (default: `.selector-healer/report.html`)
 
 ## Configuration
 
-Create `selector-healer.config.ts` in your project root (or run `selector-healer init`):
+Run `selector-healer init` to generate a config automatically — it detects your framework, base URL, test directory, and login flow. Or write `selector-healer.config.ts` by hand:
 
 ```typescript
 import type { HealerConfig } from '@selector-healer/core';
@@ -79,7 +88,7 @@ export default {
 | `timeout` | `number` | `30000` | Page load timeout in ms |
 | `confidenceThreshold.autoApply` | `number` | `0.8` | Min confidence for `--fix` auto-apply |
 | `confidenceThreshold.suggest` | `number` | `0.2` | Min confidence to show a suggestion |
-| `globalSetup` | `(context) => Promise<void>` | -- | Pre-verification hook for auth/cookies |
+| `globalSetup` | `(context) => Promise<void>` | — | Pre-verification hook for auth/cookies |
 
 ## VS Code Extension
 
@@ -93,9 +102,9 @@ The extension activates in workspaces containing `selector-healer.config.ts`.
 - Status bar shows selector health at a glance
 
 **Commands (Ctrl+Shift+P):**
-- `Selector Healer: Verify Now` -- Run full verification
-- `Selector Healer: Capture Baseline` -- Capture fingerprints
-- `Selector Healer: Apply All High-Confidence Fixes` -- Batch apply fixes
+- `Selector Healer: Verify Now` — Run full verification
+- `Selector Healer: Capture Baseline` — Capture fingerprints
+- `Selector Healer: Apply All High-Confidence Fixes` — Batch apply fixes
 
 ## CI Integration
 
