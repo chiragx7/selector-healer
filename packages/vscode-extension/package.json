@@ -94,6 +94,11 @@
         "icon": "$(dashboard)"
       },
       {
+        "command": "selectorHealer.openDashboard",
+        "title": "Selector Healer: Open Full Dashboard",
+        "icon": "$(multiple-windows)"
+      },
+      {
         "command": "selectorHealer.undoLastHeal",
         "title": "Selector Healer: Undo Last Heal",
         "icon": "$(discard)"
@@ -134,6 +139,11 @@
           "command": "selectorHealer.showHealHistory",
           "when": "view == selectorHealerDashboard",
           "group": "navigation@4"
+        },
+        {
+          "command": "selectorHealer.openDashboard",
+          "when": "view == selectorHealerDashboard",
+          "group": "navigation@5"
         }
       ],
       "commandPalette": [

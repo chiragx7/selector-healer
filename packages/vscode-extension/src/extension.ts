@@ -37,6 +37,7 @@ import {
 import { type HealHistoryEntry, healHistory, undoHeal } from './history.js';
 import type { AppliedHeal } from './history.js';
 import { lintDiagnostics } from './lint.js';
+import { DashboardPanel } from './panel.js';
 import { HEAL_PREVIEW_SCHEME, HealPreviewProvider, previewAndApplyHeal } from './preview.js';
 import { countResults, healerState } from './state.js';
 import {
@@ -50,6 +51,7 @@ import {
   setWatch,
 } from './status-bar.js';
 import { Debouncer, isTestFilePath } from './watch.js';
+import type { CaptureSink } from './webview-content.js';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let statusBarItem: vscode.StatusBarItem;
@@ -131,6 +133,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.refresh', () => runVerify()),
     vscode.commands.registerCommand(STATUS_MENU_COMMAND, () => showMenu()),
     vscode.commands.registerCommand('selectorHealer.focusDashboard', () => dashboard.focus()),
+    vscode.commands.registerCommand('selectorHealer.openDashboard', () => {
+      DashboardPanel.show(context.extensionUri, watchEnabled);
+    }),
     vscode.commands.registerCommand(
       'selectorHealer.previewHeal',
       async (uri: vscode.Uri, range: vscode.Range, text: string, label: string) => {
@@ -388,21 +393,26 @@ async function runCapture(): Promise<void> {
 
     const { selectors } = parseResult.value;
 
-    await dashboard.focus();
-    dashboard.startCapture(
-      selectors.map((s) => ({
-        selectorId: s.id,
-        rawValue: s.rawValue,
-        selectorType: s.selectorType,
-        fileName: s.filePath.split(/[/\\]/).pop() ?? s.filePath,
-        line: s.line,
-      })),
-    );
+    // Broadcast capture progress to every open surface (sidebar + editor panel);
+    // reveal the panel if it's open, otherwise the sidebar.
+    const sinks: CaptureSink[] = DashboardPanel.current
+      ? [dashboard, DashboardPanel.current]
+      : [dashboard];
+    await (DashboardPanel.current ?? dashboard).focus();
 
-    const result = await captureFingerprints(selectors, config, root, (e) =>
-      dashboard.updateCapture(e.selectorId, e.status),
-    );
-    dashboard.finishCapture(result.captured, selectors.length);
+    const rows = selectors.map((s) => ({
+      selectorId: s.id,
+      rawValue: s.rawValue,
+      selectorType: s.selectorType,
+      fileName: s.filePath.split(/[/\\]/).pop() ?? s.filePath,
+      line: s.line,
+    }));
+    for (const sink of sinks) sink.startCapture(rows);
+
+    const result = await captureFingerprints(selectors, config, root, (e) => {
+      for (const sink of sinks) sink.updateCapture(e.selectorId, e.status);
+    });
+    for (const sink of sinks) sink.finishCapture(result.captured, selectors.length);
 
     outputChannel.appendLine(
       `[${time()}] Captured ${result.captured}/${selectors.length} (${result.errors.length} errors)`,
@@ -721,6 +731,7 @@ async function toggleWatch(context: vscode.ExtensionContext): Promise<void> {
   await context.workspaceState.update(WATCH_STATE_KEY, watchEnabled);
   setWatch(watchStatusItem, watchEnabled ? 'on' : 'off');
   dashboard.setWatch(watchEnabled);
+  DashboardPanel.current?.setWatch(watchEnabled);
   if (watchEnabled) {
     vscode.window.showInformationMessage(
       'Selector Healer: watch on — saving a test file re-verifies its selectors.',
@@ -860,9 +871,9 @@ async function showMenu(): Promise<void> {
       cmd: WATCH_TOGGLE_COMMAND,
     },
     {
-      label: '$(dashboard) Open Dashboard',
-      detail: 'Show the Selector Healer panel',
-      cmd: 'selectorHealer.focusDashboard',
+      label: '$(multiple-windows) Open Full Dashboard',
+      detail: 'Open the roomy dashboard in an editor tab',
+      cmd: 'selectorHealer.openDashboard',
     },
   ];
   const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Selector Healer' });
