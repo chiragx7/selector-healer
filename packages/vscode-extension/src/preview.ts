@@ -54,27 +54,34 @@ export async function previewAndApplyHeal(
   replacement: string,
   label: string,
 ): Promise<boolean> {
-  const doc = await vscode.workspace.openTextDocument(uri);
-  const after = spliceText(
-    doc.getText(),
-    doc.offsetAt(range.start),
-    doc.offsetAt(range.end),
-    replacement,
-  );
+  try {
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const after = spliceText(
+      doc.getText(),
+      doc.offsetAt(range.start),
+      doc.offsetAt(range.end),
+      replacement,
+    );
 
-  const previewUri = uri.with({ scheme: HEAL_PREVIEW_SCHEME });
-  provider.set(previewUri, after);
+    const previewUri = uri.with({ scheme: HEAL_PREVIEW_SCHEME });
+    provider.set(previewUri, after);
 
-  await vscode.commands.executeCommand('vscode.diff', uri, previewUri, `Heal preview — ${label}`);
+    await vscode.commands.executeCommand('vscode.diff', uri, previewUri, `Heal preview — ${label}`);
 
-  const choice = await vscode.window.showInformationMessage(
-    `Apply this heal?  ${label}`,
-    'Apply',
-    'Dismiss',
-  );
-  if (choice !== 'Apply') return false;
+    const choice = await vscode.window.showInformationMessage(
+      `Apply this heal?  ${label}`,
+      'Apply',
+      'Dismiss',
+    );
+    if (choice !== 'Apply') return false;
 
-  const edit = new vscode.WorkspaceEdit();
-  edit.replace(uri, range, replacement);
-  return vscode.workspace.applyEdit(edit);
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(uri, range, replacement);
+    return await vscode.workspace.applyEdit(edit);
+  } catch (e) {
+    vscode.window.showErrorMessage(
+      `Selector Healer: couldn't preview the heal — ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return false;
+  }
 }

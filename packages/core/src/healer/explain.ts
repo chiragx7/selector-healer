@@ -116,7 +116,7 @@ function attrChange(name: string, from: string | undefined, to: string | undefin
 }
 
 function normalizeText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
+  return (text ?? '').replace(/\s+/g, ' ').trim();
 }
 
 /** Quote and truncate a value for a one-line summary. */
@@ -127,5 +127,5 @@ function quote(value: string): string {
 
 /** A stable string of the ancestor tag chain, to detect relocation. */
 function parentPath(fp: DomFingerprint): string {
-  return fp.parentChain.map((p) => p.tagName).join('>');
+  return (fp.parentChain ?? []).map((p) => p.tagName).join('>');
 }

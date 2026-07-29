@@ -27,6 +27,14 @@ export class Uri {
   static file(path: string): Uri {
     return new Uri(path, 'file');
   }
+
+  with(change: { scheme?: string }): Uri {
+    return new Uri(this.fsPath, change.scheme ?? this.scheme);
+  }
+
+  toString(): string {
+    return `${this.scheme}:${this.fsPath}`;
+  }
 }
 
 export enum DiagnosticSeverity {
@@ -178,6 +186,31 @@ function createMockOutputChannel() {
   };
 }
 
+// ── Test harness state (mutated by tests via the __* helpers below) ──────────
+let __docText = '';
+let __infoChoice: string | undefined;
+let __lastEdit: WorkspaceEdit | undefined;
+const __executedCommands: Array<{ command: string; args: unknown[] }> = [];
+
+export function __setDocText(text: string): void {
+  __docText = text;
+}
+export function __setInfoChoice(choice: string | undefined): void {
+  __infoChoice = choice;
+}
+export function __getLastEdit(): WorkspaceEdit | undefined {
+  return __lastEdit;
+}
+export function __getExecutedCommands(): Array<{ command: string; args: unknown[] }> {
+  return __executedCommands;
+}
+export function __reset(): void {
+  __docText = '';
+  __infoChoice = undefined;
+  __lastEdit = undefined;
+  __executedCommands.length = 0;
+}
+
 export const languages = {
   createDiagnosticCollection: (_name?: string) => createMockDiagnosticCollection(),
   registerCodeActionsProvider: () => ({ dispose: () => {} }),
@@ -190,17 +223,32 @@ export const window = {
   createTreeView: () => ({ dispose: () => {} }),
   showErrorMessage: () => {},
   showWarningMessage: () => {},
-  showInformationMessage: () => {},
+  showInformationMessage: (..._args: unknown[]) => Promise.resolve(__infoChoice),
 };
 
 export const workspace = {
   workspaceFolders: undefined as Array<{ uri: Uri }> | undefined,
   onDidSaveTextDocument: () => ({ dispose: () => {} }),
   onDidOpenTextDocument: () => ({ dispose: () => {} }),
+  openTextDocument: (uri: Uri) =>
+    Promise.resolve({
+      uri,
+      getText: () => __docText,
+      offsetAt: (pos: Position) => pos.character,
+    }),
+  applyEdit: (edit: WorkspaceEdit) => {
+    __lastEdit = edit;
+    return Promise.resolve(true);
+  },
+  registerTextDocumentContentProvider: () => ({ dispose: () => {} }),
 };
 
 export const commands = {
   registerCommand: (_command: string, _callback: () => void) => ({ dispose: () => {} }),
+  executeCommand: (command: string, ...args: unknown[]) => {
+    __executedCommands.push({ command, args });
+    return Promise.resolve(undefined);
+  },
 };
 
 export type DocumentSelector = Array<{ language: string; scheme: string }>;

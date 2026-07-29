@@ -3,6 +3,7 @@ import { loadFingerprints } from '../fingerprint/store.js';
 import { logger } from '../logger.js';
 import { launchBrowser, loadPlaywright } from '../playwright-loader.js';
 import type {
+  BreakReason,
   DomFingerprint,
   Framework,
   HealCandidate,
@@ -184,9 +185,20 @@ export async function healSelectors(
       .sort((a, b) => b.confidence - a.confidence)
       .slice(0, MAX_CANDIDATES);
     // Explain the break by diffing the baseline against the top candidate (what
-    // the element looks like now); undefined candidate ⇒ "removed".
+    // the element looks like now); undefined candidate ⇒ "removed". Isolated in a
+    // try/catch so a malformed fingerprint can never break the actual heal.
     const stored = storedById.get(result.selector.id);
-    const explanation = stored ? explainBreak(stored, ranked[0]?.matchedFingerprint) : [];
+    let explanation: BreakReason[] = [];
+    if (stored) {
+      try {
+        explanation = explainBreak(stored, ranked[0]?.matchedFingerprint);
+      } catch (e) {
+        logger.warn(
+          { selectorId: result.selector.id, error: String(e) },
+          'Failed to explain selector break',
+        );
+      }
+    }
     return {
       selectorId: result.selector.id,
       candidates: ranked,
