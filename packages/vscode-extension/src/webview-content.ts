@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { VerificationResult } from '@selector-healer/core';
+import { type VerificationResult, renderSelectorCode } from '@selector-healer/core';
 import * as vscode from 'vscode';
 import { revealSelector } from './apply.js';
 import type { StoredSuggestion } from './code-actions.js';
@@ -16,6 +16,8 @@ export interface DashItem {
   rawValueLength: number;
   selectorType: string;
   rawValue: string;
+  /** The full original locator, reconstructed (e.g. `page.getByRole('button', { name: 'Log in' })`). */
+  display: string;
   status: VerificationResult['status'];
   matchCount: number;
   suggestion?: { code: string; pct: number };
@@ -110,6 +112,9 @@ export function serialize(snap: HealerSnapshot): {
       rawValueLength: sel.rawValue.length,
       selectorType: sel.selectorType,
       rawValue: sel.rawValue,
+      // Reconstruct the full original locator so the card reads the same as the
+      // suggested fix below it; fall back to the raw value for non-Playwright.
+      display: renderSelectorCode(sel, sel.framework) ?? sel.rawValue,
       status: r.status,
       matchCount: r.matchCount,
       suggestion: top
@@ -433,7 +438,7 @@ function card(it){
   let h = '<div class="card"><div class="chead"><span class="dot" style="background:'+col+'"></span>'
     + '<a class="loc" '+openAttrs(it)+'>'+esc(it.fileName)+':'+it.line+'</a>'
     + '<span class="badge" style="color:'+col+';background:color-mix(in srgb,'+col+' 16%,transparent)">'+badgeText(it.status)+'</span></div>'
-    + '<div class="code mono">'+esc(it.rawValue)+'</div>';
+    + '<div class="code mono">'+esc(it.display)+'</div>';
   if(it.reason) h += '<div class="why">'+ICON.why+'<span>'+esc(it.reason)+'</span></div>';
   if(it.status==='broken' && it.suggestion){
     const pct = it.suggestion.pct, applyable = pct>=50, pc = barColor(pct);
@@ -455,7 +460,7 @@ function card(it){
 function compactRow(it){
   return '<div class="compact"><span class="dot" style="background:var(--ok)"></span>'
     + '<a class="loc" '+openAttrs(it)+'>'+esc(it.fileName)+':'+it.line+'</a>'
-    + '<span class="csel mono muted">'+esc(it.rawValue)+'</span></div>';
+    + '<span class="csel mono muted">'+esc(it.display)+'</span></div>';
 }
 
 /* ---------- Capture (inline mode) ---------- */
