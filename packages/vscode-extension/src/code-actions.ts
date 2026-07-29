@@ -163,6 +163,27 @@ export class SelectorHealerCodeActionProvider implements vscode.CodeActionProvid
           action.isPreferred = s.confidence >= 0.8;
           actions.push(action);
         }
+
+        // Diff preview for the top suggestion — review the before→after, then apply.
+        const top = suggestions[0];
+        if (top) {
+          const preview = new vscode.CodeAction(
+            `Preview heal: ${top.replacementCode}…`,
+            vscode.CodeActionKind.QuickFix,
+          );
+          preview.command = {
+            command: 'selectorHealer.previewHeal',
+            title: 'Preview heal',
+            arguments: [
+              document.uri,
+              replaceRange,
+              callRange ? stripLeadingReceiver(top.replacementCode) : top.replacementCode,
+              `${top.rawValue} → ${top.replacementCode}`,
+            ],
+          };
+          preview.diagnostics = [diagnostic];
+          actions.push(preview);
+        }
       } else {
         // fragile-selector → offer the recorded DOM-backed upgrade, if any.
         const upgrade = getLintUpgrade(document.uri.fsPath, line + 1);

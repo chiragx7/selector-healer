@@ -28,6 +28,7 @@ import {
   updateDiagnosticsFromResults,
 } from './diagnostics.js';
 import { lintDiagnostics } from './lint.js';
+import { HEAL_PREVIEW_SCHEME, HealPreviewProvider, previewAndApplyHeal } from './preview.js';
 import { countResults, healerState } from './state.js';
 import {
   STATUS_MENU_COMMAND,
@@ -59,11 +60,13 @@ export function activate(context: vscode.ExtensionContext): void {
   outputChannel = vscode.window.createOutputChannel('Selector Healer');
   treeProvider = new SelectorTreeProvider();
   dashboard = new DashboardViewProvider(context.extensionUri);
+  const healPreview = new HealPreviewProvider();
 
   context.subscriptions.push(
     diagnosticCollection,
     statusBarItem,
     outputChannel,
+    vscode.workspace.registerTextDocumentContentProvider(HEAL_PREVIEW_SCHEME, healPreview),
     vscode.window.registerWebviewViewProvider(DashboardViewProvider.viewType, dashboard, {
       // Keep the panel's DOM + state alive when the view is hidden, so switching
       // away and back doesn't blank the Verify/Capture tabs.
@@ -108,6 +111,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.refresh', () => runVerify()),
     vscode.commands.registerCommand(STATUS_MENU_COMMAND, () => showMenu()),
     vscode.commands.registerCommand('selectorHealer.focusDashboard', () => dashboard.focus()),
+    vscode.commands.registerCommand(
+      'selectorHealer.previewHeal',
+      (uri: vscode.Uri, range: vscode.Range, text: string, label: string) =>
+        previewAndApplyHeal(healPreview, uri, range, text, label),
+    ),
     vscode.commands.registerCommand('selectorHealer.applyFixAt', (s: StoredSuggestion) =>
       applyAndReverify(s),
     ),

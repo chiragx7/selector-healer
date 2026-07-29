@@ -65,7 +65,9 @@ describe('code-actions', () => {
         context as unknown as { diagnostics: vscode.Diagnostic[] },
       );
 
-      expect(actions.length).toBe(2);
+      // 2 replacement suggestions + a diff-preview action for the top one.
+      expect(actions.filter((a) => a.edit).length).toBe(2);
+      expect(actions.some((a) => a.command?.command === 'selectorHealer.previewHeal')).toBe(true);
     });
 
     it('clearSuggestions removes all stored suggestions', () => {
@@ -412,9 +414,9 @@ describe('code-actions', () => {
         context as unknown as { diagnostics: vscode.Diagnostic[] },
       );
 
-      // The action should have a workspace edit
-      expect(actions.length).toBe(1);
-      const edit = actions[0]?.edit as vscode.WorkspaceEdit;
+      // One replacement action (with a workspace edit) + the diff-preview action.
+      const replace = actions.find((a) => a.edit);
+      const edit = replace?.edit as vscode.WorkspaceEdit;
       expect(edit).toBeDefined();
     });
 
@@ -445,8 +447,8 @@ describe('code-actions', () => {
         context as unknown as { diagnostics: vscode.Diagnostic[] },
       );
 
-      // Should still produce actions (no crash on nested content)
-      expect(actions.length).toBe(1);
+      // Should still produce actions (no crash on nested content).
+      expect(actions.some((a) => a.edit)).toBe(true);
     });
   });
 });
