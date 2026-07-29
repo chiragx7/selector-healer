@@ -18,11 +18,22 @@ interface DashItem {
   status: VerificationResult['status'];
   matchCount: number;
   suggestion?: { code: string; pct: number };
+  /** Top "why it broke" reason, shown inline on the card. */
+  reason?: string;
   error?: string;
 }
 
 interface DashMessage {
-  type: 'verify' | 'capture' | 'applyAll' | 'open' | 'apply' | 'ready' | 'init';
+  type:
+    | 'verify'
+    | 'capture'
+    | 'applyAll'
+    | 'open'
+    | 'apply'
+    | 'preview'
+    | 'watchToggle'
+    | 'ready'
+    | 'init';
   filePath?: string;
   line?: number;
   column?: number;
@@ -75,6 +86,7 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
   private captureStatus = new Map<string, CaptureStatus>();
   private captureSummary?: { captured: number; total: number };
   private hasCapture = false;
+  private watchEnabled = false;
 
   constructor(private readonly extensionUri: vscode.Uri) {
     // A verify run changed state → push results and switch to the Verify tab.
@@ -106,6 +118,23 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
           break;
         case 'applyAll':
           await vscode.commands.executeCommand('selectorHealer.applyAllFixes');
+          break;
+        case 'watchToggle':
+          await vscode.commands.executeCommand('selectorHealer.toggleWatch');
+          break;
+        case 'preview':
+          if (msg.filePath && msg.line && msg.column && msg.replacementCode) {
+            const s: StoredSuggestion = {
+              selectorId: '',
+              filePath: msg.filePath,
+              line: msg.line,
+              column: msg.column,
+              rawValue: msg.rawValue ?? '',
+              replacementCode: msg.replacementCode,
+              confidence: 1,
+            };
+            await vscode.commands.executeCommand('selectorHealer.previewFixAt', s);
+          }
           break;
         case 'open':
           if (msg.filePath && msg.line && msg.column) {
@@ -171,10 +200,20 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
     this.postState(false);
   }
 
+  /** Reflect watch-mode on/off in the panel (drives the live "watching" strip). */
+  setWatch(enabled: boolean): void {
+    this.watchEnabled = enabled;
+    this.postState(false);
+  }
+
   private postState(activate: boolean): void {
     this.view?.webview.postMessage({
       type: 'state',
-      payload: { ...serialize(healerState.snapshot), hasConfig: this.hasConfig() },
+      payload: {
+        ...serialize(healerState.snapshot),
+        hasConfig: this.hasConfig(),
+        watch: this.watchEnabled,
+      },
       activate,
     });
   }
@@ -208,10 +247,6 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider {
 <style>${STYLES}</style>
 </head>
 <body>
-  <div class="tabs">
-    <button id="tab-verify" class="tab active">Verify</button>
-    <button id="tab-capture" class="tab">Capture</button>
-  </div>
   <div id="app"><div class="empty">Loading…</div></div>
 <script nonce="${nonce}">${SCRIPT}</script>
 </body>
@@ -241,6 +276,7 @@ function serialize(snap: HealerSnapshot): {
       suggestion: top
         ? { code: top.replacementCode, pct: Math.round(top.confidence * 100) }
         : undefined,
+      reason: snap.explanationsById.get(sel.id),
       error: r.error,
     };
   });
@@ -263,217 +299,236 @@ function makeNonce(): string {
 }
 
 const STYLES = /* css */ `
-:root { --ok: #3fb950; --broken: #f85149; --multi: #d29922; --skip: #8b949e; --run: #58a6ff; }
+:root { --ok: var(--vscode-charts-green, #3fb950); --broken: var(--vscode-charts-red, #f85149); --multi: var(--vscode-charts-yellow, #d29922); --skip: var(--vscode-descriptionForeground, #8b949e); --run: var(--vscode-charts-blue, #58a6ff); }
 * { box-sizing: border-box; }
-body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size, 13px); color: var(--vscode-foreground); padding: 0; margin: 0; }
+body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vscode-foreground); margin: 0; padding: 0; }
 .muted { color: var(--vscode-descriptionForeground); }
-.tabs { display: flex; position: sticky; top: 0; background: var(--vscode-sideBar-background, var(--vscode-editor-background)); border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25)); z-index: 2; }
-.tab { flex: 1; cursor: pointer; border: none; background: transparent; color: var(--vscode-foreground); padding: 9px 10px; font-size: 12px; border-bottom: 2px solid transparent; opacity: .65; }
-.tab:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground, rgba(128,128,128,.1)); }
-.tab.active { opacity: 1; font-weight: 600; border-bottom-color: var(--vscode-focusBorder, #58a6ff); background: var(--vscode-list-activeSelectionBackground, rgba(88,166,255,.12)); }
-#app { padding: 12px; }
-.empty { text-align: center; color: var(--vscode-descriptionForeground); padding: 24px 12px; line-height: 1.6; }
-.empty .big { font-size: 28px; opacity: .5; }
-.btn { cursor: pointer; border: 1px solid var(--vscode-button-border, transparent); background: var(--vscode-button-secondaryBackground, rgba(128,128,128,.15)); color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); padding: 5px 10px; border-radius: 4px; font-size: 12px; }
-.btn.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+.mono { font-family: var(--vscode-editor-font-family, monospace); }
+#app { padding: 12px 12px 22px; }
+.empty { text-align: center; color: var(--vscode-descriptionForeground); padding: 26px 12px; line-height: 1.6; }
+.empty .big { font-size: 26px; opacity: .5; display: block; margin-bottom: 6px; }
+.btn { cursor: pointer; border: 1px solid var(--vscode-button-border, transparent); background: var(--vscode-button-secondaryBackground, rgba(128,128,128,.15)); color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); border-radius: 5px; font-size: 12px; padding: 5px 10px; }
+.btn:hover { background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,.25)); }
+.btn.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border-color: transparent; }
 .btn.primary:hover { background: var(--vscode-button-hoverBackground); }
-.run { margin-top: 12px; padding: 6px 18px; }
-.view-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
-.view-title { font-size: 13px; font-weight: 600; }
-.mini { cursor: pointer; border: 1px solid var(--vscode-button-border, transparent); background: var(--vscode-button-secondaryBackground, rgba(128,128,128,.15)); color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); padding: 3px 9px; border-radius: 4px; font-size: 11px; white-space: nowrap; }
-.mini:hover { background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,.25)); }
-.health { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
-.ring { width: 60px; height: 60px; flex: 0 0 auto; }
-.ring text { fill: var(--vscode-foreground); font-size: 15px; font-weight: 700; }
-.health-meta { font-size: 12px; color: var(--vscode-descriptionForeground); }
-.chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-.chip { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid transparent; white-space: nowrap; }
-.chip.ok { color: var(--ok); border-color: var(--ok); }
-.chip.broken { color: var(--broken); border-color: var(--broken); }
-.chip.multi { color: var(--multi); border-color: var(--multi); }
-.chip.skip { color: var(--skip); border-color: var(--skip); }
-.applyall { width: 100%; margin: 0 0 12px; }
-.section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); margin: 14px 0 6px; }
-.card { border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25)); border-left-width: 3px; border-radius: 6px; padding: 9px 10px; margin-bottom: 8px; background: var(--vscode-editorWidget-background, transparent); }
-.card.broken { border-left-color: var(--broken); }
-.card.multi { border-left-color: var(--multi); }
-.card.skip { border-left-color: var(--skip); }
-.card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: 1px 6px; border-radius: 4px; }
-.badge.broken { color: var(--broken); background: color-mix(in srgb, var(--broken) 18%, transparent); }
-.badge.multi { color: var(--multi); background: color-mix(in srgb, var(--multi) 18%, transparent); }
-.badge.skip { color: var(--skip); background: color-mix(in srgb, var(--skip) 18%, transparent); }
-.loc { font-size: 11px; color: var(--vscode-textLink-foreground); cursor: pointer; text-decoration: none; }
+.btn svg { flex: none; }
+.hpct { font-size: 30px; font-weight: 600; line-height: 1; }
+.hsub { font-size: 12px; color: var(--vscode-descriptionForeground); margin-left: 8px; }
+.hbar { display: flex; height: 8px; border-radius: 5px; overflow: hidden; margin: 11px 0 12px; background: rgba(128,128,128,.18); }
+.hbar > span { display: block; height: 100%; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 9px; border-radius: 8px; background: var(--vscode-badge-background, rgba(128,128,128,.16)); }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.watch { display: flex; align-items: center; gap: 8px; background: color-mix(in srgb, var(--run) 13%, transparent); border: 1px solid color-mix(in srgb, var(--run) 32%, transparent); border-radius: 8px; padding: 7px 10px; margin-bottom: 14px; font-size: 12px; }
+.watch .dot { background: var(--run); animation: pulse 1.7s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.link { cursor: pointer; color: var(--vscode-textLink-foreground); background: none; border: none; padding: 0; font-size: 11.5px; }
+.heal-all { width: 100%; padding: 8px; margin-bottom: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.filter { display: flex; gap: 3px; background: rgba(128,128,128,.12); border-radius: 7px; padding: 3px; margin-bottom: 12px; }
+.seg { flex: 1; text-align: center; font-size: 11.5px; padding: 5px 4px; border-radius: 5px; color: var(--vscode-descriptionForeground); cursor: pointer; border: none; background: transparent; }
+.seg:hover { color: var(--vscode-foreground); }
+.seg.on { background: var(--vscode-editorWidget-background, var(--vscode-editor-background)); color: var(--vscode-foreground); box-shadow: 0 0 0 1px var(--vscode-panel-border, rgba(128,128,128,.3)); }
+.seg .n { opacity: .55; margin-left: 3px; }
+.card { border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.22)); border-radius: 10px; padding: 10px 11px; margin-bottom: 8px; background: var(--vscode-editorWidget-background, transparent); }
+.chead { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+.loc { font-size: 11.5px; color: var(--vscode-textLink-foreground); cursor: pointer; text-decoration: none; }
 .loc:hover { text-decoration: underline; }
-.sel { font-family: var(--vscode-editor-font-family, monospace); font-size: 12px; margin: 6px 0; word-break: break-all; }
-.bar { height: 5px; border-radius: 3px; background: rgba(128,128,128,.25); overflow: hidden; margin: 7px 0 4px; }
-.bar > span { display: block; height: 100%; background: var(--ok); transition: width .2s ease; }
-.conf { font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 6px; }
-.fix { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.fix code { flex: 1; font-family: var(--vscode-editor-font-family, monospace); font-size: 11.5px; background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.12)); padding: 3px 6px; border-radius: 4px; word-break: break-all; }
-.apply { cursor: pointer; border: none; border-radius: 4px; padding: 4px 10px; font-size: 11px; white-space: nowrap; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
-.apply:hover { background: var(--vscode-button-hoverBackground); }
-.hint { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 4px; }
-.running { display: flex; align-items: center; gap: 8px; color: var(--vscode-descriptionForeground); padding: 12px 0; }
-.spinner { width: 14px; height: 14px; border: 2px solid rgba(128,128,128,.4); border-top-color: var(--run); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; }
+.badge { margin-left: auto; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; padding: 2px 7px; border-radius: 5px; }
+.code { font-size: 11.5px; line-height: 1.5; word-break: break-all; color: var(--vscode-descriptionForeground); }
+.why { display: flex; gap: 6px; font-size: 11.5px; color: var(--vscode-descriptionForeground); margin-top: 7px; }
+.why svg { flex: none; margin-top: 1px; color: var(--multi); }
+.fix { border-radius: 8px; padding: 7px 9px; margin-top: 9px; background: color-mix(in srgb, var(--ok) 11%, transparent); }
+.fixhead { display: flex; justify-content: space-between; font-size: 10.5px; margin-bottom: 4px; }
+.confbar { height: 3px; border-radius: 2px; background: rgba(128,128,128,.25); margin-top: 6px; overflow: hidden; }
+.confbar > span { display: block; height: 100%; }
+.actions { display: flex; gap: 6px; margin-top: 9px; }
+.actions .btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.actions .btn.icon { flex: 0 0 32px; padding: 5px; }
+.compact { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.1)); }
+.compact .csel { margin-left: auto; max-width: 52%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.hint { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; }
+.running { display: flex; align-items: center; gap: 8px; color: var(--vscode-descriptionForeground); padding: 8px 0; }
+.spinner { width: 13px; height: 13px; border: 2px solid rgba(128,128,128,.4); border-top-color: var(--run); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.caprow { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.12)); }
+.secttl { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); margin: 4px 2px 8px; }
+.pbar { height: 6px; border-radius: 4px; background: rgba(128,128,128,.22); overflow: hidden; margin: 2px 0 12px; }
+.pbar > span { display: block; height: 100%; transition: width .2s ease; }
+.caphead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.caprow { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.1)); }
 .caprow.pending { opacity: .5; }
-.capicon { width: 16px; text-align: center; flex: 0 0 auto; font-size: 12px; }
-.capsel { flex: 1; font-family: var(--vscode-editor-font-family, monospace); font-size: 11.5px; word-break: break-all; }
+.capicon { width: 16px; text-align: center; flex: none; font-size: 12px; }
+.capsel { flex: 1; font-size: 11.5px; word-break: break-all; }
 .caploc { font-size: 10.5px; color: var(--vscode-descriptionForeground); white-space: nowrap; }
-.tag { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+.tag { font-size: 9.5px; font-weight: 600; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
 .tag.pass { color: var(--ok); background: color-mix(in srgb, var(--ok) 18%, transparent); }
 .tag.fail { color: var(--broken); background: color-mix(in srgb, var(--broken) 18%, transparent); }
-.ob { padding: 8px 4px 4px; line-height: 1.55; }
-.ob-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.ob { padding: 10px 4px; line-height: 1.55; }
+.ob-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
 .ob-lead { font-size: 12.5px; color: var(--vscode-descriptionForeground); margin-bottom: 16px; }
 .ob-note { font-size: 12px; margin-bottom: 12px; }
-.ob-steps { margin-bottom: 16px; }
-.ob-step { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; margin-bottom: 8px; }
-.ob-num { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: var(--vscode-badge-background, rgba(128,128,128,.3)); color: var(--vscode-badge-foreground, var(--vscode-foreground)); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
-.ob-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.ob-actions .btn { padding: 6px 14px; }
+.ob-step { display: flex; gap: 9px; font-size: 12.5px; margin-bottom: 9px; }
+.ob-num { flex: none; width: 19px; height: 19px; border-radius: 50%; background: var(--vscode-badge-background, rgba(128,128,128,.3)); color: var(--vscode-badge-foreground, var(--vscode-foreground)); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+.ob-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.ob-actions .btn { padding: 7px 14px; }
 `;
 
 const SCRIPT = /* js */ `
 const vscode = acquireVsCodeApi();
 const app = document.getElementById('app');
-const tabVerify = document.getElementById('tab-verify');
-const tabCapture = document.getElementById('tab-capture');
 
-let activeTab = 'verify';
-let lastState = null;   // last verify payload
-let capture = null;     // { rows:[{...,status}], summary }
+let lastState = null;   // verify payload (+ watch, hasConfig)
+let capture = null;     // { rows, summary }
+let mode = 'results';   // 'results' | 'capture'
+let filter = 'all';     // all | broken | ambiguous | healthy
 
-tabVerify.addEventListener('click', () => { activeTab = 'verify'; render(); });
-tabCapture.addEventListener('click', () => { activeTab = 'capture'; render(); });
+const ICON = {
+  why:  '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v3.4M8 4.7h.01" stroke-linecap="round"/></svg>',
+  check:'<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4.5 6.5 12 3 8.5"/></svg>',
+  diff: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2 2 5l3 3M2 5h7a2 2 0 0 1 2 2v2M11 14l3-3-3-3M14 11H7a2 2 0 0 1-2-2V7"/></svg>',
+  open: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3v10h10v-3M9.5 3H13v3.5M13 3 7.5 8.5"/></svg>',
+  heal: '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 1.2l1.35 3.28L13 5.1l-2.6 2.3.75 3.6L8 9.3 4.85 11l.75-3.6L3 5.1l3.65-.62z"/></svg>'
+};
 
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function ringColor(p){return p>=80?'var(--ok)':p>=50?'var(--multi)':'var(--broken)';}
+function barColor(p){return p>=80?'var(--ok)':p>=50?'var(--multi)':'var(--broken)';}
+function statusColor(s){return s==='broken'?'var(--broken)':s==='multiple-matches'?'var(--multi)':s==='ok'?'var(--ok)':'var(--skip)';}
+function post(type,extra){vscode.postMessage(Object.assign({type:type},extra||{}));}
 
-function render() {
-  tabVerify.classList.toggle('active', activeTab === 'verify');
-  tabCapture.classList.toggle('active', activeTab === 'capture');
-  if (activeTab === 'verify') renderVerify(); else renderCapture();
-  bindRun();
-}
-function bindRun() {
-  const rv = document.getElementById('run-verify'); if (rv) rv.onclick = () => vscode.postMessage({ type: 'verify' });
-  const rc = document.getElementById('run-capture'); if (rc) rc.onclick = () => vscode.postMessage({ type: 'capture' });
-  const aa = document.getElementById('apply-all'); if (aa) aa.onclick = () => vscode.postMessage({ type: 'applyAll' });
-  app.querySelectorAll('[data-open]').forEach(el => el.onclick = () => { const d = el.dataset; vscode.postMessage({ type: 'open', filePath: d.file, line: +d.line, column: +d.col, rawValueLength: +d.len }); });
-  app.querySelectorAll('[data-apply]').forEach(el => el.onclick = () => { const d = el.dataset; vscode.postMessage({ type: 'apply', filePath: d.file, line: +d.line, column: +d.col, rawValue: d.raw, replacementCode: d.code }); });
-  const cc = document.getElementById('create-config'); if (cc) cc.onclick = () => vscode.postMessage({ type: 'init' });
+function render(){ if(mode==='capture' && capture) renderCapture(); else renderResults(); bind(); }
+
+function bind(){
+  const byId=(id,fn)=>{const el=document.getElementById(id);if(el)fn(el);};
+  byId('apply-all',el=>el.onclick=()=>post('applyAll'));
+  byId('watch-off',el=>el.onclick=()=>post('watchToggle'));
+  byId('run-verify',el=>el.onclick=()=>post('verify'));
+  byId('run-capture',el=>el.onclick=()=>post('capture'));
+  byId('create-config',el=>el.onclick=()=>post('init'));
+  byId('cap-back',el=>{el.onclick=()=>{mode='results';render();};});
+  app.querySelectorAll('[data-filter]').forEach(el=>el.onclick=()=>{filter=el.dataset.filter;render();});
+  app.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('open',{filePath:d.file,line:+d.line,column:+d.col,rawValueLength:+d.len});});
+  app.querySelectorAll('[data-apply]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('apply',{filePath:d.file,line:+d.line,column:+d.col,rawValue:d.raw,replacementCode:d.code});});
+  app.querySelectorAll('[data-preview]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('preview',{filePath:d.file,line:+d.line,column:+d.col,rawValue:d.raw,replacementCode:d.code});});
 }
 
 /* ---------- Onboarding (first run) ---------- */
-function onboarding() {
+function onboarding(){
   const intro = '<div class="ob-title">🛡️ Selector Healer</div>'
     + '<div class="ob-lead">Catch broken test selectors before CI does — it snapshots each selector against your live DOM, flags the ones that broke, and suggests AST-based fixes. Fully local: no network, no telemetry.</div>';
-  if (!lastState.hasConfig) {
+  if(!lastState.hasConfig){
     return '<div class="ob">' + intro
       + '<div class="ob-note muted">No config yet — create one. It auto-detects your framework, base URL, and test directory.</div>'
-      + '<button class="btn primary run" id="create-config">＋ Create Config</button></div>';
+      + '<button class="btn primary" id="create-config">＋ Create config</button></div>';
   }
   return '<div class="ob">' + intro
-    + '<div class="ob-steps">'
-    +   '<div class="ob-step"><span class="ob-num">1</span><span>Capture a baseline — snapshot your selectors.</span></div>'
-    +   '<div class="ob-step"><span class="ob-num">2</span><span>Verify — check them against the live DOM.</span></div>'
-    +   '<div class="ob-step"><span class="ob-num">3</span><span>Heal — apply suggested fixes for any that broke.</span></div>'
-    + '</div>'
+    + '<div class="ob-step"><span class="ob-num">1</span><span>Capture a baseline — snapshot your selectors.</span></div>'
+    + '<div class="ob-step"><span class="ob-num">2</span><span>Verify — check them against the live DOM.</span></div>'
+    + '<div class="ob-step"><span class="ob-num">3</span><span>Heal — apply suggested fixes for any that broke.</span></div>'
     + '<div class="ob-actions"><button class="btn primary" id="run-capture">Capture baseline</button>'
-    +   '<button class="btn" id="run-verify">Verify now</button></div></div>';
+    + '<button class="btn" id="run-verify">Verify now</button></div></div>';
 }
 
-/* ---------- Verify tab ---------- */
-function renderVerify() {
-  if (!lastState) { app.innerHTML = '<div class="empty">Loading…</div>'; return; }
-  if (lastState.phase === 'idle' && lastState.counts.total === 0) {
-    app.innerHTML = onboarding();
-    return;
+/* ---------- Results ---------- */
+function seg(flex,color){ return flex>0 ? '<span style="flex:'+flex+';background:'+color+'"></span>' : ''; }
+function chip(color,count,label){ return '<span class="chip"><span class="dot" style="background:'+color+'"></span>'+count+' '+label+'</span>'; }
+
+function renderResults(){
+  if(!lastState){ app.innerHTML = '<div class="empty">Loading…</div>'; return; }
+  const c = lastState.counts;
+  if(lastState.phase==='idle' && c.total===0){ app.innerHTML = onboarding(); return; }
+
+  let html = '<div><span class="hpct" style="color:'+barColor(c.healthPct)+'">'+c.healthPct+'%</span>'
+    + '<span class="hsub">healthy · '+c.ok+' of '+c.total+' checked</span></div>';
+  html += '<div class="hbar">'+seg(c.ok,'var(--ok)')+seg(c.broken,'var(--broken)')+seg(c.multi,'var(--multi)')+seg(c.skipped+c.failed,'var(--skip)')+'</div>';
+  html += '<div class="chips">'+chip('var(--ok)',c.ok,'ok')
+    + (c.broken?chip('var(--broken)',c.broken,'broken'):'')
+    + (c.multi?chip('var(--multi)',c.multi,'ambiguous'):'')
+    + ((c.skipped+c.failed)?chip('var(--skip)',c.skipped+c.failed,'skipped'):'')
+    + '</div>';
+  if(lastState.phase==='running') html += '<div class="running"><span class="spinner"></span> Verifying…</div>';
+  if(lastState.watch) html += '<div class="watch"><span class="dot"></span><span style="flex:1">Watching — re-verifies test files on save</span><button class="link" id="watch-off">turn off</button></div>';
+
+  const healable = lastState.items.filter(i => i.status==='broken' && i.suggestion && i.suggestion.pct>=80);
+  if(healable.length) html += '<button class="btn primary heal-all" id="apply-all">'+ICON.heal+' Heal '+healable.length+' selector'+(healable.length>1?'s':'')+'</button>';
+
+  const tabs = [['all','All',c.total],['broken','Broken',c.broken],['ambiguous','Ambiguous',c.multi],['healthy','Healthy',c.ok]];
+  html += '<div class="filter">'+tabs.map(t=>'<button class="seg'+(filter===t[0]?' on':'')+'" data-filter="'+t[0]+'">'+t[1]+(t[2]?'<span class="n">'+t[2]+'</span>':'')+'</button>').join('')+'</div>';
+
+  const items = filtered(lastState.items);
+  if(!items.length){
+    html += '<div class="empty"><span class="big">✓</span>'+(filter==='all'?'All selectors healthy.':'Nothing here.')+'</div>';
+  } else {
+    for(const it of items) html += (it.status==='ok') ? compactRow(it) : card(it);
   }
-  const p = lastState, c = p.counts;
-  const r = 27, circ = 2 * Math.PI * r, off = circ * (1 - c.healthPct / 100), col = ringColor(c.healthPct);
-  let html = '<div class="view-head"><div class="view-title">Verify results</div>'
-    + '<button class="mini" id="run-verify">↻ Re-verify</button></div>';
-  html += '<div class="health"><svg class="ring" viewBox="0 0 60 60">'
-    + '<circle cx="30" cy="30" r="' + r + '" fill="none" stroke="rgba(128,128,128,.25)" stroke-width="6"/>'
-    + '<circle cx="30" cy="30" r="' + r + '" fill="none" stroke="' + col + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 30 30)"/>'
-    + '<text x="30" y="35" text-anchor="middle">' + c.healthPct + '%</text></svg>'
-    + '<div class="health-meta"><div>' + c.total + ' selectors checked</div><div class="chips">'
-    + chip('ok', c.ok + ' OK')
-    + (c.broken ? chip('broken', c.broken + ' broken') : '')
-    + (c.multi ? chip('multi', c.multi + ' ambiguous') : '')
-    + (c.skipped + c.failed ? chip('skip', (c.skipped + c.failed) + ' skipped') : '')
-    + '</div></div></div>';
-  if (p.phase === 'running') html += '<div class="running"><div class="spinner"></div><div>Verifying…</div></div>';
-  const healable = p.items.filter(i => i.status === 'broken' && i.suggestion && i.suggestion.pct >= 80);
-  if (healable.length) html += '<button class="btn primary applyall" id="apply-all">✨ Apply ' + healable.length + ' high-confidence fix' + (healable.length > 1 ? 'es' : '') + '</button>';
-  const attention = p.items.filter(i => i.status !== 'ok');
-  if (attention.length === 0) html += '<div class="empty"><div class="big">✓</div><div>All selectors healthy.</div></div>';
-  else { html += '<div class="section-title">Needs attention (' + attention.length + ')</div>'; for (const it of attention) html += card(it); }
   app.innerHTML = html;
 }
-function chip(cls, label) { return '<span class="chip ' + cls + '">' + esc(label) + '</span>'; }
-function card(it) {
-  const kind = it.status === 'broken' ? 'broken' : it.status === 'multiple-matches' ? 'multi' : 'skip';
-  const badge = it.status === 'broken' ? 'Broken' : it.status === 'multiple-matches' ? 'Ambiguous' : it.status === 'page-load-failed' ? 'Page failed' : 'No baseline';
-  let body = '<div class="card ' + kind + '"><div class="card-head"><span class="badge ' + kind + '">' + badge + '</span>'
-    + '<a class="loc" data-open data-file="' + esc(it.filePath) + '" data-line="' + it.line + '" data-col="' + it.column + '" data-len="' + it.rawValueLength + '">' + esc(it.fileName) + ':' + it.line + '</a></div>'
-    + '<div class="sel muted">' + esc(it.selectorType) + ' · ' + esc(it.rawValue) + '</div>';
-  if (it.status === 'broken' && it.suggestion) {
-    const pct = it.suggestion.pct;
-    // Only offer a one-click Apply when reasonably confident. Below that, show
-    // the suggestion for reference but make the user review it (no Apply trap).
-    const applyable = pct >= 50;
-    body += '<div class="bar"><span style="width:' + pct + '%;background:' + ringColor(pct) + '"></span></div>'
-      + '<div class="conf">' + pct + '% confidence' + (applyable ? '' : ' · low — review before using') + '</div>'
-      + '<div class="fix"><code>' + esc(it.suggestion.code) + '</code>'
-      + (applyable
-          ? '<button class="apply" data-apply data-file="' + esc(it.filePath) + '" data-line="' + it.line + '" data-col="' + it.column + '" data-raw="' + esc(it.rawValue) + '" data-code="' + esc(it.suggestion.code) + '">Apply</button>'
-          : '')
-      + '</div>';
-  } else if (it.status === 'broken') body += '<div class="hint">No replacement found — the element may be gone, hidden, or only present after a setup step or interaction.</div>';
-  else if (it.status === 'multiple-matches') body += '<div class="hint">Matches ' + it.matchCount + ' elements — make this selector more specific.</div>';
-  else if (it.status === 'page-load-failed') body += '<div class="hint">' + esc(it.error || "Couldn't reach this page.") + '</div>';
-  else body += '<div class="hint">No baseline — run Capture, or this element only appears after an interaction.</div>';
-  return body + '</div>';
+
+function filtered(items){
+  if(filter==='broken') return items.filter(i=>i.status==='broken');
+  if(filter==='ambiguous') return items.filter(i=>i.status==='multiple-matches');
+  if(filter==='healthy') return items.filter(i=>i.status==='ok');
+  return items; // 'all' — already sorted with attention first
 }
 
-/* ---------- Capture tab ---------- */
+function badgeText(s){ return s==='broken'?'broken':s==='multiple-matches'?'ambiguous':s==='page-load-failed'?'page failed':'no baseline'; }
+function dataAttrs(it){ return 'data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-raw="'+esc(it.rawValue)+'" data-code="'+esc(it.suggestion.code)+'"'; }
+function openAttrs(it){ return 'data-open data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-len="'+it.rawValueLength+'"'; }
+
+function card(it){
+  const col = statusColor(it.status);
+  let h = '<div class="card"><div class="chead"><span class="dot" style="background:'+col+'"></span>'
+    + '<a class="loc" '+openAttrs(it)+'>'+esc(it.fileName)+':'+it.line+'</a>'
+    + '<span class="badge" style="color:'+col+';background:color-mix(in srgb,'+col+' 16%,transparent)">'+badgeText(it.status)+'</span></div>'
+    + '<div class="code mono">'+esc(it.rawValue)+'</div>';
+  if(it.reason) h += '<div class="why">'+ICON.why+'<span>'+esc(it.reason)+'</span></div>';
+  if(it.status==='broken' && it.suggestion){
+    const pct = it.suggestion.pct, applyable = pct>=50, pc = barColor(pct);
+    h += '<div class="fix"><div class="fixhead"><span style="color:'+pc+'">suggested fix</span><span class="muted">'+pct+'%'+(applyable?'':' · low, review first')+'</span></div>'
+      + '<div class="code mono" style="color:var(--vscode-foreground)">'+esc(it.suggestion.code)+'</div>'
+      + '<div class="confbar"><span style="width:'+pct+'%;background:'+pc+'"></span></div></div>'
+      + '<div class="actions">'
+      + (applyable ? '<button class="btn primary" data-apply '+dataAttrs(it)+'>'+ICON.check+' Apply</button>' : '')
+      + '<button class="btn" data-preview '+dataAttrs(it)+'>'+ICON.diff+' Preview</button>'
+      + '<button class="btn icon" title="Open in editor" '+openAttrs(it)+'>'+ICON.open+'</button>'
+      + '</div>';
+  } else if(it.status==='broken') h += '<div class="hint">No replacement found — the element may be gone, hidden, or only present after a setup step.</div>';
+  else if(it.status==='multiple-matches') h += '<div class="hint">Matches '+it.matchCount+' elements — make this selector more specific.</div>';
+  else if(it.status==='page-load-failed') h += '<div class="hint">'+esc(it.error || "Couldn't reach this page.")+'</div>';
+  else h += '<div class="hint">No baseline — run Capture, or this element only appears after an interaction.</div>';
+  return h + '</div>';
+}
+
+function compactRow(it){
+  return '<div class="compact"><span class="dot" style="background:var(--ok)"></span>'
+    + '<a class="loc" '+openAttrs(it)+'>'+esc(it.fileName)+':'+it.line+'</a>'
+    + '<span class="csel mono muted">'+esc(it.rawValue)+'</span></div>';
+}
+
+/* ---------- Capture (inline mode) ---------- */
 function capIcon(s){ if(s==='captured')return '<span style="color:var(--ok)">✓</span>'; if(s==='missed')return '<span style="color:var(--broken)">✗</span>'; if(s==='capturing')return '<span class="spinner"></span>'; return '<span class="muted">○</span>'; }
 function capTag(s){ if(s==='captured')return '<span class="tag pass">PASS</span>'; if(s==='missed')return '<span class="tag fail">FAIL</span>'; if(s==='capturing')return '<span class="muted">capturing…</span>'; return '<span class="muted">waiting</span>'; }
 function capRow(r){
   return '<div class="caprow ' + r.status + '" id="cap_' + esc(r.selectorId) + '">'
     + '<span class="capicon">' + capIcon(r.status) + '</span>'
-    + '<span class="capsel"><span class="muted">' + esc(r.selectorType) + '</span> ' + esc(r.rawValue) + '</span>'
+    + '<span class="capsel mono"><span class="muted">' + esc(r.selectorType) + '</span> ' + esc(r.rawValue) + '</span>'
     + '<span class="caploc">' + esc(r.fileName) + ':' + r.line + '</span>'
     + '<span class="captag">' + capTag(r.status) + '</span></div>';
 }
-function renderCapture() {
-  if (!capture) {
-    app.innerHTML = '<div class="empty"><div class="big">📸</div><div>No capture run yet.</div>'
-      + '<div class="muted">Snapshot fingerprints for all your selectors.</div>'
-      + '<button class="btn primary run" id="run-capture">Capture baseline</button></div>';
-    return;
-  }
+function renderCapture(){
   const rows = capture.rows, summary = capture.summary;
   const total = rows.length;
-  const resolved = rows.filter(r => r.status === 'captured' || r.status === 'missed').length;
-  const captured = rows.filter(r => r.status === 'captured').length;
-  const pct = summary ? 100 : (total ? Math.round(resolved / total * 100) : 0);
+  const resolved = rows.filter(r => r.status==='captured' || r.status==='missed').length;
+  const captured = rows.filter(r => r.status==='captured').length;
+  const pct = summary ? 100 : (total ? Math.round(resolved/total*100) : 0);
   const col = summary ? (summary.captured < summary.total ? 'var(--broken)' : 'var(--ok)') : 'var(--run)';
-  const sumText = summary ? (summary.captured + ' captured · ' + (summary.total - summary.captured) + ' missed · ' + summary.total + ' total') : (resolved + ' / ' + total + ' · ' + captured + ' captured');
-  app.innerHTML = '<div class="view-head"><div class="view-title">Capture baseline</div>'
-    + '<button class="mini" id="run-capture">↻ Re-capture</button></div>'
-    + '<div class="conf" id="cap-sum">' + sumText + '</div>'
-    + '<div class="bar"><span id="cap-bar" style="width:' + pct + '%;background:' + col + '"></span></div>'
+  const sumText = summary ? (summary.captured + ' captured · ' + (summary.total-summary.captured) + ' missed · ' + summary.total + ' total') : (resolved + ' / ' + total + ' · ' + captured + ' captured');
+  app.innerHTML = '<div class="caphead"><div class="secttl" style="margin:0">Capturing baseline</div><button class="link" id="cap-back">← Results</button></div>'
+    + '<div class="muted" id="cap-sum" style="font-size:12px;margin-bottom:6px">' + sumText + '</div>'
+    + '<div class="pbar"><span id="cap-bar" style="width:' + pct + '%;background:' + col + '"></span></div>'
     + '<div id="cap-rows">' + rows.map(capRow).join('') + '</div>';
 }
-function captureUpdateDom(id, status) {
+function captureUpdateDom(id, status){
   const el = document.getElementById('cap_' + id);
-  if (!el) return;
+  if(!el) return;
   el.className = 'caprow ' + status;
   el.querySelector('.capicon').innerHTML = capIcon(status);
   el.querySelector('.captag').innerHTML = capTag(status);
@@ -481,28 +536,28 @@ function captureUpdateDom(id, status) {
   const total = els.length;
   const resolved = els.filter(r => r.classList.contains('captured') || r.classList.contains('missed')).length;
   const cap = els.filter(r => r.classList.contains('captured')).length;
-  const sum = document.getElementById('cap-sum'); if (sum) sum.textContent = resolved + ' / ' + total + ' · ' + cap + ' captured';
-  const bar = document.getElementById('cap-bar'); if (bar) bar.style.width = (total ? Math.round(resolved / total * 100) : 0) + '%';
+  const sum = document.getElementById('cap-sum'); if(sum) sum.textContent = resolved + ' / ' + total + ' · ' + cap + ' captured';
+  const bar = document.getElementById('cap-bar'); if(bar) bar.style.width = (total ? Math.round(resolved/total*100) : 0) + '%';
 }
-function captureFinishDom(captured, total) {
-  const sum = document.getElementById('cap-sum'); if (sum) sum.textContent = captured + ' captured · ' + (total - captured) + ' missed · ' + total + ' total';
-  const bar = document.getElementById('cap-bar'); if (bar) { bar.style.width = '100%'; bar.style.background = captured < total ? 'var(--broken)' : 'var(--ok)'; }
+function captureFinishDom(captured, total){
+  const sum = document.getElementById('cap-sum'); if(sum) sum.textContent = captured + ' captured · ' + (total-captured) + ' missed · ' + total + ' total';
+  const bar = document.getElementById('cap-bar'); if(bar){ bar.style.width = '100%'; bar.style.background = captured < total ? 'var(--broken)' : 'var(--ok)'; }
 }
 
 window.addEventListener('message', (e) => {
   const m = e.data;
-  if (m.type === 'state') { lastState = m.payload; if (m.activate) activeTab = 'verify'; render(); }
-  else if (m.type === 'captureSeed') { capture = { rows: m.rows, summary: m.summary }; if (m.activate) activeTab = 'capture'; render(); }
-  else if (m.type === 'captureUpdate') {
-    if (capture) { const r = capture.rows.find(x => x.selectorId === m.selectorId); if (r) r.status = m.status; }
-    if (activeTab === 'capture') captureUpdateDom(m.selectorId, m.status);
-  } else if (m.type === 'captureFinish') {
-    if (capture) capture.summary = { captured: m.captured, total: m.total };
-    if (activeTab === 'capture') captureFinishDom(m.captured, m.total);
+  if(m.type==='state'){ lastState = m.payload; if(m.activate) mode='results'; render(); }
+  else if(m.type==='captureSeed'){ capture = { rows: m.rows, summary: m.summary }; if(m.activate) mode='capture'; render(); }
+  else if(m.type==='captureUpdate'){
+    if(capture){ const r = capture.rows.find(x => x.selectorId===m.selectorId); if(r) r.status = m.status; }
+    if(mode==='capture') captureUpdateDom(m.selectorId, m.status);
+  } else if(m.type==='captureFinish'){
+    if(capture) capture.summary = { captured: m.captured, total: m.total };
+    if(mode==='capture') captureFinishDom(m.captured, m.total);
   }
 });
 
-// Tell the extension our message listener is live so it can (re)send the last
-// results — fixes the Verify/Capture tabs going blank after hide + reopen.
+// Tell the extension our listener is live so it can (re)send the last results —
+// fixes the panel going blank after hide + reopen.
 vscode.postMessage({ type: 'ready' });
 `;

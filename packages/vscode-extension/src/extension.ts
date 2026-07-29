@@ -21,7 +21,9 @@ import { applySuggestion } from './apply.js';
 import {
   SelectorHealerCodeActionProvider,
   clearSuggestions,
+  findCallExpressionRange,
   storeSuggestions,
+  stripLeadingReceiver,
 } from './code-actions.js';
 import type { StoredSuggestion } from './code-actions.js';
 import { SelectorCodeLensProvider } from './code-lens.js';
@@ -82,6 +84,7 @@ export function activate(context: vscode.ExtensionContext): void {
   setWatch(watchStatusItem, watchEnabled ? 'on' : 'off');
   outputChannel = vscode.window.createOutputChannel('Selector Healer');
   dashboard = new DashboardViewProvider(context.extensionUri);
+  dashboard.setWatch(watchEnabled);
   const healPreview = new HealPreviewProvider();
 
   context.subscriptions.push(
@@ -140,6 +143,9 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('selectorHealer.applyFixAt', (s: StoredSuggestion) =>
       applyAndReverify(s),
+    ),
+    vscode.commands.registerCommand('selectorHealer.previewFixAt', (s: StoredSuggestion) =>
+      previewFixAt(s),
     ),
     vscode.commands.registerCommand('selectorHealer.undoLastHeal', () => undoLastHeal()),
     vscode.commands.registerCommand('selectorHealer.showHealHistory', () => showHealHistory()),
@@ -409,6 +415,36 @@ async function runCapture(): Promise<void> {
     outputChannel.appendLine(`[${time()}] Capture error: ${msg}`);
     vscode.window.showErrorMessage(`Selector Healer capture failed: ${msg}`);
   }
+}
+
+/**
+ * Preview a heal from the panel: reconstruct the selector call's range (as the
+ * apply path does), then hand off to the shared `previewHeal` command — which
+ * opens the before→after diff and, on confirm, applies + records + re-verifies.
+ */
+async function previewFixAt(s: StoredSuggestion): Promise<void> {
+  const uri = vscode.Uri.file(s.filePath);
+  const doc = await vscode.workspace.openTextDocument(uri);
+  const lineIdx = s.line - 1;
+  if (lineIdx < 0 || lineIdx >= doc.lineCount) return;
+
+  const lineText = doc.lineAt(lineIdx).text;
+  const callRange = findCallExpressionRange(lineText, s.column - 1);
+  const startCol = callRange ? callRange.start : s.column - 1;
+  const endCol = callRange ? callRange.end : s.column - 1 + s.rawValue.length;
+  const range = new vscode.Range(
+    new vscode.Position(lineIdx, startCol),
+    new vscode.Position(lineIdx, endCol),
+  );
+  const replacement = callRange ? stripLeadingReceiver(s.replacementCode) : s.replacementCode;
+
+  await vscode.commands.executeCommand(
+    'selectorHealer.previewHeal',
+    uri,
+    range,
+    replacement,
+    `${s.rawValue} → ${s.replacementCode}`,
+  );
 }
 
 async function applyAndReverify(s: StoredSuggestion): Promise<void> {
@@ -684,6 +720,7 @@ async function toggleWatch(context: vscode.ExtensionContext): Promise<void> {
   watchEnabled = !watchEnabled;
   await context.workspaceState.update(WATCH_STATE_KEY, watchEnabled);
   setWatch(watchStatusItem, watchEnabled ? 'on' : 'off');
+  dashboard.setWatch(watchEnabled);
   if (watchEnabled) {
     vscode.window.showInformationMessage(
       'Selector Healer: watch on — saving a test file re-verifies its selectors.',
