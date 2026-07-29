@@ -39,6 +39,23 @@ export interface CaptureRow {
   line: number;
 }
 
+/** One selector in the baseline inventory view (captured or not). */
+export interface BaselineRow {
+  selectorId: string;
+  /** Full reconstructed locator for display. */
+  display: string;
+  fileName: string;
+  filePath: string;
+  line: number;
+  column: number;
+  rawValueLength: number;
+  /** Whether this selector has a captured fingerprint on disk. */
+  captured: boolean;
+  /** ISO 8601 time it was captured, if captured. */
+  capturedAt?: string;
+  pageUrl?: string;
+}
+
 export type CaptureStatus = 'pending' | 'capturing' | 'captured' | 'missed';
 
 /**
@@ -65,6 +82,7 @@ export interface DashMessage {
     | 'apply'
     | 'preview'
     | 'watchToggle'
+    | 'showBaseline'
     | 'ready'
     | 'init';
   filePath?: string;
@@ -265,6 +283,7 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .btn.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border-color: transparent; }
 .btn.primary:hover { background: var(--vscode-button-hoverBackground); }
 .btn svg { flex: none; }
+.rhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .hpct { font-size: 30px; font-weight: 600; line-height: 1; }
 .hsub { font-size: 12px; color: var(--vscode-descriptionForeground); margin-left: 8px; }
 .lastrun { font-size: 11px; margin-top: 4px; }
@@ -349,10 +368,11 @@ const vscode = acquireVsCodeApi();
 const app = document.getElementById('app');
 const MODE = document.body.dataset.mode || 'sidebar';
 
-let lastState = null;   // verify payload (+ watch, hasConfig)
-let capture = null;     // { rows, summary }
-let mode = 'results';   // 'results' | 'capture'
-let filter = 'all';     // all | broken | ambiguous | healthy
+let lastState = null;    // verify payload (+ watch, hasConfig)
+let capture = null;      // { rows, summary }
+let baselineRows = null; // [{ display, captured, ... }] for the baseline view
+let mode = 'results';    // 'results' | 'capture' | 'baseline'
+let filter = 'all';      // all | broken | ambiguous | healthy
 
 const ICON = {
   why:  '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v3.4M8 4.7h.01" stroke-linecap="round"/></svg>',
@@ -370,7 +390,12 @@ function barColor(p){return p>=80?'var(--ok)':p>=50?'var(--multi)':'var(--broken
 function statusColor(s){return s==='broken'?'var(--broken)':s==='multiple-matches'?'var(--multi)':s==='ok'?'var(--ok)':'var(--skip)';}
 function post(type,extra){vscode.postMessage(Object.assign({type:type},extra||{}));}
 
-function render(){ if(mode==='capture' && capture) renderCapture(); else renderResults(); bind(); }
+function render(){
+  if(mode==='capture' && capture) renderCapture();
+  else if(mode==='baseline' && baselineRows) renderBaseline();
+  else renderResults();
+  bind();
+}
 
 function bind(){
   const byId=(id,fn)=>{const el=document.getElementById(id);if(el)fn(el);};
@@ -380,6 +405,8 @@ function bind(){
   byId('run-capture',el=>el.onclick=()=>post('capture'));
   byId('create-config',el=>el.onclick=()=>post('init'));
   byId('cap-back',el=>{el.onclick=()=>{mode='results';render();};});
+  byId('view-baseline',el=>el.onclick=()=>post('showBaseline'));
+  byId('baseline-back',el=>{el.onclick=()=>{mode='results';render();};});
   byId('p-verify',el=>el.onclick=()=>post('verify'));
   byId('p-capture',el=>el.onclick=()=>post('capture'));
   byId('p-watch',el=>el.onclick=()=>post('watchToggle'));
@@ -405,7 +432,7 @@ function onboarding(){
     return '<div class="ob">' + hero
       + '<div class="ob-note muted"><b>'+lastState.baseline+'</b> selector'+(lastState.baseline===1?'':'s')+' have a captured baseline. Run Verify to check them against the live DOM.</div>'
       + '<div class="ob-actions"><button class="btn primary ob-cta" id="run-verify">Verify now</button>'
-      + '<button class="btn ob-cta" id="run-capture">Re-capture</button></div></div>';
+      + '<button class="btn ob-cta" id="view-baseline">View baseline</button></div></div>';
   }
   const steps = [
     ['Capture', 'Snapshot your selectors as a baseline.'],
@@ -427,8 +454,9 @@ function renderResults(){
   const c = lastState.counts;
   if(lastState.phase==='idle' && c.total===0){ app.innerHTML = onboarding(); return; }
 
-  let html = '<div><span class="hpct" style="color:'+barColor(c.healthPct)+'">'+c.healthPct+'%</span>'
-    + '<span class="hsub">healthy · '+c.ok+' of '+c.total+' checked</span></div>';
+  let html = '<div class="rhead"><div><span class="hpct" style="color:'+barColor(c.healthPct)+'">'+c.healthPct+'%</span>'
+    + '<span class="hsub">healthy · '+c.ok+' of '+c.total+' checked</span></div>'
+    + '<button class="link" id="view-baseline">Baseline ›</button></div>';
   if(lastState.lastRunAt) html += '<div class="lastrun muted">last verified '+relTime(lastState.lastRunAt)+'</div>';
   html += '<div class="hbar">'+seg(c.ok,'var(--ok)')+seg(c.broken,'var(--broken)')+seg(c.multi,'var(--multi)')+seg(c.skipped+c.failed,'var(--skip)')+'</div>';
   html += '<div class="chips">'+chip('var(--ok)',c.ok,'ok')
@@ -536,9 +564,30 @@ function captureFinishDom(captured, total){
   const bar = document.getElementById('cap-bar'); if(bar){ bar.style.width = '100%'; bar.style.background = captured < total ? 'var(--broken)' : 'var(--ok)'; }
 }
 
+/* ---------- Baseline (inventory) ---------- */
+function baselineRow(r){
+  const icon = r.captured ? '<span style="color:var(--ok)">✓</span>' : '<span class="muted">○</span>';
+  const t = r.capturedAt ? new Date(r.capturedAt).getTime() : Number.NaN;
+  const when = (r.captured && !Number.isNaN(t)) ? ' · captured ' + relTime(t) : (r.captured ? '' : ' · not captured');
+  return '<div class="caprow' + (r.captured ? '' : ' pending') + '">'
+    + '<span class="capicon">' + icon + '</span>'
+    + '<a class="capsel mono loc" data-open data-file="' + esc(r.filePath) + '" data-line="' + r.line + '" data-col="' + r.column + '" data-len="' + r.rawValueLength + '">' + esc(r.display) + '</a>'
+    + '<span class="caploc">' + esc(r.fileName) + ':' + r.line + when + '</span></div>';
+}
+function renderBaseline(){
+  const rows = baselineRows || [];
+  const captured = rows.filter(r => r.captured).length;
+  let html = '<div class="caphead"><div class="secttl" style="margin:0">Baseline</div><button class="link" id="baseline-back">← Results</button></div>';
+  html += '<div class="muted" style="font-size:12px;margin-bottom:10px"><b>' + captured + '</b> of <b>' + rows.length + '</b> selectors captured</div>';
+  if(!rows.length) html += '<div class="empty muted">No selectors found — check the test directory in your config.</div>';
+  else html += '<div class="list">' + rows.map(baselineRow).join('') + '</div>';
+  app.innerHTML = html;
+}
+
 window.addEventListener('message', (e) => {
   const m = e.data;
   if(m.type==='state'){ lastState = m.payload; if(m.activate) mode='results'; render(); }
+  else if(m.type==='baselineData'){ baselineRows = m.rows; mode='baseline'; render(); }
   else if(m.type==='captureSeed'){ capture = { rows: m.rows, summary: m.summary }; if(m.activate) mode='capture'; render(); }
   else if(m.type==='captureUpdate'){
     if(capture){ const r = capture.rows.find(x => x.selectorId===m.selectorId); if(r) r.status = m.status; }

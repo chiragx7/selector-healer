@@ -68,6 +68,11 @@ export class DashboardPanel implements CaptureSink {
           if (this.hasCapture) this.postCapture(false);
           return;
         }
+        if (msg.type === 'showBaseline') {
+          const rows = await vscode.commands.executeCommand('selectorHealer.getBaseline');
+          this.panel.webview.postMessage({ type: 'baselineData', rows });
+          return;
+        }
         await handleWebviewMessage(msg);
       },
       null,

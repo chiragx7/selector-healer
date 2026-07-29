@@ -8,6 +8,7 @@ import {
   parseDirectory,
   parseTestFile,
   renderConfigFile,
+  renderSelectorCode,
   verifySelectors,
 } from '@selector-healer/core';
 import type {
@@ -51,7 +52,7 @@ import {
   setWatch,
 } from './status-bar.js';
 import { Debouncer, isTestFilePath } from './watch.js';
-import type { CaptureSink } from './webview-content.js';
+import type { BaselineRow, CaptureSink } from './webview-content.js';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let statusBarItem: vscode.StatusBarItem;
@@ -161,6 +162,7 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand('selectorHealer.undoLastHeal', () => undoLastHeal()),
     vscode.commands.registerCommand('selectorHealer.showHealHistory', () => showHealHistory()),
+    vscode.commands.registerCommand('selectorHealer.getBaseline', () => gatherBaseline()),
     vscode.commands.registerCommand(WATCH_TOGGLE_COMMAND, () => toggleWatch(context)),
   );
 
@@ -657,6 +659,39 @@ interface PersistedSnapshot {
   suggestions: Array<[string, StoredSuggestion[]]>;
   explanations: Array<[string, string]>;
   lastRunAt?: number;
+}
+
+/**
+ * Build the baseline inventory: every parsed selector paired with whether it
+ * has a captured fingerprint on disk (and when). Powers the panel's Baseline view.
+ */
+async function gatherBaseline(): Promise<BaselineRow[]> {
+  const root = getWorkspaceRoot();
+  if (!root) return [];
+  const config = await loadConfig(true);
+  if (!config) return [];
+
+  const parsed = parseDirectory(config.testDir, config.testGlob);
+  if (parsed.isErr()) return [];
+
+  const fpResult = loadFingerprints(root);
+  const fingerprints = fpResult.isOk() ? fpResult.value : new Map<string, DomFingerprint>();
+
+  return parsed.value.selectors.map((sel) => {
+    const fp = fingerprints.get(sel.id);
+    return {
+      selectorId: sel.id,
+      display: renderSelectorCode(sel, sel.framework) ?? sel.rawValue,
+      fileName: sel.filePath.split(/[/\\]/).pop() ?? sel.filePath,
+      filePath: sel.filePath,
+      line: sel.line,
+      column: sel.column,
+      rawValueLength: sel.rawValue.length,
+      captured: fp !== undefined,
+      capturedAt: fp?.capturedAt,
+      pageUrl: fp?.pageUrl,
+    };
+  });
 }
 
 /** Save the current completed run so a window reload can restore it. */
