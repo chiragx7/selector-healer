@@ -23,6 +23,8 @@ export interface HealerSnapshot {
   results: VerificationResult[];
   /** Heal suggestions keyed by `${filePath}:${line}`. */
   suggestionsByKey: Map<string, StoredSuggestion[]>;
+  /** Top "why it broke" reason per selector id — survives targeted/watch merges. */
+  explanationsById: Map<string, string>;
   /** Epoch ms of the last completed run, if any. */
   lastRunAt?: number;
   /** Optional transient message (e.g. what the running phase is doing). */
@@ -30,7 +32,7 @@ export interface HealerSnapshot {
 }
 
 function emptySnapshot(): HealerSnapshot {
-  return { phase: 'idle', results: [], suggestionsByKey: new Map() };
+  return { phase: 'idle', results: [], suggestionsByKey: new Map(), explanationsById: new Map() };
 }
 
 /**
@@ -105,11 +107,13 @@ class HealerStateStore {
   setResults(
     results: VerificationResult[],
     suggestionsByKey: Map<string, StoredSuggestion[]>,
+    explanationsById: Map<string, string> = new Map(),
   ): void {
     this.current = {
       phase: 'done',
       results,
       suggestionsByKey,
+      explanationsById,
       lastRunAt: Date.now(),
     };
     this.emitter.fire(this.current);
@@ -118,12 +122,19 @@ class HealerStateStore {
   /**
    * Merge freshly re-verified results for a few selectors into the current
    * snapshot — replacing the prior result at each `file:line` without re-running
-   * the whole suite. Suggestions for selectors that are no longer broken are
-   * dropped. Used for the targeted re-verify after a fix is applied.
+   * the whole suite. Freshly-healed suggestions/explanations are overlaid, and
+   * any for selectors that are no longer broken are dropped. Used for the
+   * targeted re-verify after a fix is applied and by watch mode on save.
    *
    * @param updated - results for just the re-checked selectors
+   * @param newSuggestions - freshly-healed suggestions to overlay, keyed by `file:line`
+   * @param newExplanations - freshly-computed break reasons to overlay, keyed by selector id
    */
-  mergeResults(updated: VerificationResult[]): void {
+  mergeResults(
+    updated: VerificationResult[],
+    newSuggestions?: Map<string, StoredSuggestion[]>,
+    newExplanations?: Map<string, string>,
+  ): void {
     const byKey = new Map<string, VerificationResult>();
     for (const r of updated) {
       byKey.set(`${r.selector.filePath}:${r.selector.line}`, r);
@@ -139,9 +150,14 @@ class HealerStateStore {
     for (const r of byKey.values()) merged.push(r);
 
     const suggestionsByKey = new Map(this.current.suggestionsByKey);
+    const explanationsById = new Map(this.current.explanationsById);
+    if (newSuggestions) for (const [k, v] of newSuggestions) suggestionsByKey.set(k, v);
+    if (newExplanations) for (const [k, v] of newExplanations) explanationsById.set(k, v);
+    // Drop stale heal data for anything that is no longer broken.
     for (const r of updated) {
       if (r.status !== 'broken') {
         suggestionsByKey.delete(`${r.selector.filePath}:${r.selector.line}`);
+        explanationsById.delete(r.selector.id);
       }
     }
 
@@ -149,6 +165,7 @@ class HealerStateStore {
       phase: 'done',
       results: merged,
       suggestionsByKey,
+      explanationsById,
       lastRunAt: Date.now(),
     };
     this.emitter.fire(this.current);

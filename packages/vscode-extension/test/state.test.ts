@@ -120,4 +120,25 @@ describe('healerState.mergeResults', () => {
     expect(last?.phase).toBe('done');
     sub.dispose();
   });
+
+  it('overlays new explanations and drops them once a selector is ok', () => {
+    healerState.setResults(
+      [vr('/a.ts', 10, 'broken')],
+      new Map([['/a.ts:10', [sugg('/a.ts', 10)]]]),
+      new Map([['/a.ts:10', 'text changed']]),
+    );
+    expect(healerState.snapshot.explanationsById.get('/a.ts:10')).toBe('text changed');
+
+    // Still broken → keep the result, overlay a fresh reason.
+    healerState.mergeResults(
+      [vr('/a.ts', 10, 'broken')],
+      new Map([['/a.ts:10', [sugg('/a.ts', 10)]]]),
+      new Map([['/a.ts:10', 'role changed']]),
+    );
+    expect(healerState.snapshot.explanationsById.get('/a.ts:10')).toBe('role changed');
+
+    // Now ok → the explanation is dropped along with the suggestion.
+    healerState.mergeResults([vr('/a.ts', 10, 'ok')]);
+    expect(healerState.snapshot.explanationsById.has('/a.ts:10')).toBe(false);
+  });
 });

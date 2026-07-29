@@ -10,7 +10,12 @@ import {
   renderConfigFile,
   verifySelectors,
 } from '@selector-healer/core';
-import type { DomFingerprint, HealerConfig, SelectorUsage } from '@selector-healer/core';
+import type {
+  DomFingerprint,
+  HealerConfig,
+  SelectorUsage,
+  VerificationResult,
+} from '@selector-healer/core';
 import * as vscode from 'vscode';
 import { applySuggestion } from './apply.js';
 import {
@@ -34,18 +39,31 @@ import { HEAL_PREVIEW_SCHEME, HealPreviewProvider, previewAndApplyHeal } from '.
 import { countResults, healerState } from './state.js';
 import {
   STATUS_MENU_COMMAND,
+  WATCH_TOGGLE_COMMAND,
   createStatusBarItem,
+  createWatchStatusItem,
   setIdle,
   setResults,
   setRunning,
+  setWatch,
 } from './status-bar.js';
 import { type SelectorItem, SelectorTreeProvider } from './tree-view.js';
+import { Debouncer, isTestFilePath } from './watch.js';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let statusBarItem: vscode.StatusBarItem;
+let watchStatusItem: vscode.StatusBarItem;
 let outputChannel: vscode.OutputChannel;
 let treeProvider: SelectorTreeProvider;
 let dashboard: DashboardViewProvider;
+
+// ── Watch mode: auto re-verify a test file when it's saved (opt-in) ──────────
+const WATCH_DEBOUNCE_MS = 700;
+const WATCH_STATE_KEY = 'selectorHealer.watch';
+let watchEnabled = false;
+let watchRunning = false;
+const watchDebouncer = new Debouncer(WATCH_DEBOUNCE_MS);
+const pendingWatchFiles = new Set<string>();
 
 const DOC_SELECTOR: vscode.DocumentSelector = [
   { language: 'typescript', scheme: 'file' },
@@ -61,6 +79,9 @@ export function activate(context: vscode.ExtensionContext): void {
   healHistory.init(context.workspaceState);
   diagnosticCollection = createDiagnosticCollection();
   statusBarItem = createStatusBarItem();
+  watchStatusItem = createWatchStatusItem();
+  watchEnabled = context.workspaceState.get(WATCH_STATE_KEY, false);
+  setWatch(watchStatusItem, watchEnabled ? 'on' : 'off');
   outputChannel = vscode.window.createOutputChannel('Selector Healer');
   treeProvider = new SelectorTreeProvider();
   dashboard = new DashboardViewProvider(context.extensionUri);
@@ -69,6 +90,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     diagnosticCollection,
     statusBarItem,
+    watchStatusItem,
     outputChannel,
     vscode.workspace.registerTextDocumentContentProvider(HEAL_PREVIEW_SCHEME, healPreview),
     vscode.window.registerWebviewViewProvider(DashboardViewProvider.viewType, dashboard, {
@@ -133,10 +155,14 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('selectorHealer.undoLastHeal', () => undoLastHeal()),
     vscode.commands.registerCommand('selectorHealer.showHealHistory', () => showHealHistory()),
+    vscode.commands.registerCommand(WATCH_TOGGLE_COMMAND, () => toggleWatch(context)),
   );
 
   context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument((doc) => maybeParse(doc)),
+    vscode.workspace.onDidSaveTextDocument((doc) => {
+      maybeParse(doc);
+      if (watchEnabled && TS_LANGS.has(doc.languageId)) scheduleWatchVerify([doc.uri.fsPath]);
+    }),
     vscode.workspace.onDidOpenTextDocument((doc) => maybeParse(doc)),
     // Scan the file the user switches to — `onDidOpen` does NOT fire for editors
     // that were already restored after a window reload.
@@ -150,6 +176,8 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
+  watchDebouncer.cancel();
+  pendingWatchFiles.clear();
   clearSuggestions();
   healerState.reset();
 }
@@ -201,10 +229,10 @@ function parseSingleFile(doc: vscode.TextDocument): void {
   diagnosticCollection.set(doc.uri, [...diagnostics, ...fragile]);
 }
 
-async function loadConfig(): Promise<HealerConfig | undefined> {
+async function loadConfig(quiet = false): Promise<HealerConfig | undefined> {
   const root = getWorkspaceRoot();
   if (!root) {
-    vscode.window.showErrorMessage('Selector Healer: no workspace folder open.');
+    if (!quiet) vscode.window.showErrorMessage('Selector Healer: no workspace folder open.');
     return undefined;
   }
 
@@ -213,9 +241,11 @@ async function loadConfig(): Promise<HealerConfig | undefined> {
   const result = await explorer.search(root);
 
   if (!result || result.isEmpty) {
-    vscode.window.showWarningMessage(
-      'Selector Healer: no config found. Create a selector-healer.config.cjs first.',
-    );
+    // Watch mode passes quiet=true so a missing config doesn't nag on every save.
+    if (!quiet)
+      vscode.window.showWarningMessage(
+        'Selector Healer: no config found. Create a selector-healer.config.cjs first.',
+      );
     return undefined;
   }
 
@@ -314,43 +344,15 @@ async function runVerify(): Promise<void> {
     const results = await verifySelectors(selectors, { config, projectRoot: root });
     const broken = results.filter((r) => r.status === 'broken');
 
-    const suggestionMap = new Map<string, string>();
-    const explanationMap = new Map<string, string>();
-    const allSuggestions: StoredSuggestion[] = [];
-    const suggestionsByKey = new Map<string, StoredSuggestion[]>();
-
-    if (broken.length > 0) {
-      const healResults = await healSelectors(broken, { config, projectRoot: root });
-      for (const h of healResults) {
-        // The top break reason (why it broke) — shown in the diagnostic message.
-        if (h.explanation?.[0]) explanationMap.set(h.selectorId, h.explanation[0].summary);
-        const top = h.candidates[0];
-        const sel = broken.find((r) => r.selector.id === h.selectorId)?.selector;
-        if (!top || !sel) continue;
-
-        suggestionMap.set(h.selectorId, top.replacementCode);
-        const key = `${sel.filePath}:${sel.line}`;
-        const list = suggestionsByKey.get(key) ?? [];
-        for (const c of h.candidates) {
-          const stored: StoredSuggestion = {
-            selectorId: h.selectorId,
-            filePath: sel.filePath,
-            line: sel.line,
-            column: sel.column,
-            rawValue: sel.rawValue,
-            replacementCode: c.replacementCode,
-            confidence: c.confidence,
-          };
-          allSuggestions.push(stored);
-          list.push(stored);
-        }
-        suggestionsByKey.set(key, list);
-      }
-    }
-
-    storeSuggestions(allSuggestions);
-    updateDiagnosticsFromResults(diagnosticCollection, results, suggestionMap, explanationMap);
-    healerState.setResults(results, suggestionsByKey);
+    const built = await healToSuggestions(broken, config, root);
+    storeSuggestions(built.allSuggestions);
+    updateDiagnosticsFromResults(
+      diagnosticCollection,
+      results,
+      built.suggestionMap,
+      built.explanationMap,
+    );
+    healerState.setResults(results, built.suggestionsByKey, built.explanationMap);
 
     const c = countResults(results);
     outputChannel.appendLine(
@@ -519,6 +521,7 @@ async function verifyTargeted(suggestions: StoredSuggestion[]): Promise<void> {
       diagnosticCollection,
       snap.results,
       topSuggestionById(snap.suggestionsByKey),
+      snap.explanationsById,
     );
 
     const okNow = results.filter((r) => r.status === 'ok').length;
@@ -541,6 +544,160 @@ function topSuggestionById(byKey: Map<string, StoredSuggestion[]>): Map<string, 
     if (top) map.set(top.selectorId, top.replacementCode);
   }
   return map;
+}
+
+interface BuiltHeal {
+  /** selector id → top replacement code (for diagnostic messages). */
+  suggestionMap: Map<string, string>;
+  /** selector id → top "why it broke" reason. */
+  explanationMap: Map<string, string>;
+  /** `file:line` → ranked suggestions (code actions + tree). */
+  suggestionsByKey: Map<string, StoredSuggestion[]>;
+  /** Flat list of every suggestion (for the code-action store). */
+  allSuggestions: StoredSuggestion[];
+}
+
+/**
+ * Heal a set of broken selectors and shape the results into the maps every UI
+ * surface needs. Shared by the full verify and watch mode's per-file re-verify.
+ */
+async function healToSuggestions(
+  broken: VerificationResult[],
+  config: HealerConfig,
+  root: string,
+): Promise<BuiltHeal> {
+  const suggestionMap = new Map<string, string>();
+  const explanationMap = new Map<string, string>();
+  const suggestionsByKey = new Map<string, StoredSuggestion[]>();
+  const allSuggestions: StoredSuggestion[] = [];
+  if (broken.length === 0) {
+    return { suggestionMap, explanationMap, suggestionsByKey, allSuggestions };
+  }
+
+  const healResults = await healSelectors(broken, { config, projectRoot: root });
+  for (const h of healResults) {
+    // The top break reason (why it broke) — shown in the diagnostic message.
+    if (h.explanation?.[0]) explanationMap.set(h.selectorId, h.explanation[0].summary);
+    const top = h.candidates[0];
+    const sel = broken.find((r) => r.selector.id === h.selectorId)?.selector;
+    if (!top || !sel) continue;
+
+    suggestionMap.set(h.selectorId, top.replacementCode);
+    const key = `${sel.filePath}:${sel.line}`;
+    const list = suggestionsByKey.get(key) ?? [];
+    for (const c of h.candidates) {
+      const stored: StoredSuggestion = {
+        selectorId: h.selectorId,
+        filePath: sel.filePath,
+        line: sel.line,
+        column: sel.column,
+        rawValue: sel.rawValue,
+        replacementCode: c.replacementCode,
+        confidence: c.confidence,
+      };
+      allSuggestions.push(stored);
+      list.push(stored);
+    }
+    suggestionsByKey.set(key, list);
+  }
+  return { suggestionMap, explanationMap, suggestionsByKey, allSuggestions };
+}
+
+/** Flatten the state's per-key suggestions into one list for the code-action store. */
+function flattenSuggestions(byKey: Map<string, StoredSuggestion[]>): StoredSuggestion[] {
+  const out: StoredSuggestion[] = [];
+  for (const list of byKey.values()) out.push(...list);
+  return out;
+}
+
+/** Queue a debounced watch re-verify for the given saved files. */
+function scheduleWatchVerify(files: string[]): void {
+  for (const f of files) pendingWatchFiles.add(f);
+  watchDebouncer.schedule(() => {
+    const batch = [...pendingWatchFiles];
+    pendingWatchFiles.clear();
+    void runWatchVerify(batch);
+  });
+}
+
+/**
+ * Watch mode's per-save re-verify: parse the saved test file(s), verify + heal
+ * just their selectors, and merge into state (updating diagnostics, tree, and
+ * status bar) without disturbing other files. Quiet — no dialogs; the watch
+ * status item shows a spinner while it runs.
+ */
+async function runWatchVerify(files: string[]): Promise<void> {
+  // A watch verify is already in flight — requeue and let the current run drain it.
+  if (watchRunning) {
+    for (const f of files) pendingWatchFiles.add(f);
+    return;
+  }
+  // A manual "Verify Now" or an apply re-verify is running — it already covers
+  // this file, so drop the watch request rather than double-verifying.
+  if (healerState.snapshot.phase === 'running') return;
+
+  const root = getWorkspaceRoot();
+  if (!root) return;
+  const config = await loadConfig(true);
+  if (!config) return;
+
+  const testFiles = files.filter((f) => isTestFilePath(f, config.testDir));
+  if (testFiles.length === 0) return;
+
+  const selectors: SelectorUsage[] = [];
+  for (const f of testFiles) {
+    const parsed = parseTestFile(f);
+    if (parsed.isOk()) selectors.push(...parsed.value);
+  }
+  if (selectors.length === 0) return;
+
+  watchRunning = true;
+  setWatch(watchStatusItem, 'running');
+  try {
+    const results = await verifySelectors(selectors, { config, projectRoot: root });
+    const broken = results.filter((r) => r.status === 'broken');
+    const built = await healToSuggestions(broken, config, root);
+
+    healerState.mergeResults(results, built.suggestionsByKey, built.explanationMap);
+    // Rebuild the code-action store from the merged state so this file's new
+    // suggestions are usable without wiping other files'.
+    const snap = healerState.snapshot;
+    storeSuggestions(flattenSuggestions(snap.suggestionsByKey));
+    updateDiagnosticsFromResults(
+      diagnosticCollection,
+      snap.results,
+      topSuggestionById(snap.suggestionsByKey),
+      snap.explanationsById,
+    );
+    outputChannel.appendLine(
+      `[${time()}] Watch: re-verified ${testFiles.map((f) => basename(f)).join(', ')} — ${broken.length} broken`,
+    );
+  } catch (e) {
+    outputChannel.appendLine(
+      `[${time()}] Watch error: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  } finally {
+    watchRunning = false;
+    setWatch(watchStatusItem, watchEnabled ? 'on' : 'off');
+    // Drain any saves that arrived mid-run.
+    if (pendingWatchFiles.size > 0) scheduleWatchVerify([]);
+  }
+}
+
+/** Toggle watch mode on/off, persisting the choice per workspace. */
+async function toggleWatch(context: vscode.ExtensionContext): Promise<void> {
+  watchEnabled = !watchEnabled;
+  await context.workspaceState.update(WATCH_STATE_KEY, watchEnabled);
+  setWatch(watchStatusItem, watchEnabled ? 'on' : 'off');
+  if (watchEnabled) {
+    vscode.window.showInformationMessage(
+      'Selector Healer: watch on — saving a test file re-verifies its selectors.',
+    );
+  } else {
+    watchDebouncer.cancel();
+    pendingWatchFiles.clear();
+    vscode.window.showInformationMessage('Selector Healer: watch off.');
+  }
 }
 
 /** Human label for a heal, e.g. `'button' → getByTestId('save')`. */
@@ -664,6 +821,11 @@ async function showMenu(): Promise<void> {
       label: '$(history) Heal History',
       detail: 'Browse and undo past fixes',
       cmd: 'selectorHealer.showHealHistory',
+    },
+    {
+      label: watchEnabled ? '$(eye) Watch: On — click to turn off' : '$(eye-closed) Watch: Off',
+      detail: 'Auto re-verify a test file when you save it',
+      cmd: WATCH_TOGGLE_COMMAND,
     },
     {
       label: '$(dashboard) Open Dashboard',

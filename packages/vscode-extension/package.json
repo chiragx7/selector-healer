@@ -120,6 +120,11 @@
         "icon": "$(history)"
       },
       {
+        "command": "selectorHealer.toggleWatch",
+        "title": "Selector Healer: Toggle Watch Mode",
+        "icon": "$(eye)"
+      },
+      {
         "command": "selectorHealer.showMenu",
         "title": "Selector Healer: Menu"
       }
@@ -145,6 +150,11 @@
           "command": "selectorHealer.showHealHistory",
           "when": "view == selectorHealerExplorer",
           "group": "navigation@4"
+        },
+        {
+          "command": "selectorHealer.toggleWatch",
+          "when": "view == selectorHealerExplorer",
+          "group": "navigation@5"
         }
       ],
       "view/item/context": [
