@@ -137,6 +137,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.init', () => runInit()),
     vscode.commands.registerCommand('selectorHealer.verify', () => runVerify()),
     vscode.commands.registerCommand('selectorHealer.capture', () => runCapture()),
+    vscode.commands.registerCommand('selectorHealer.captureMissing', () => runCaptureMissing()),
     vscode.commands.registerCommand('selectorHealer.applyAllFixes', () => applyAllFixes()),
     vscode.commands.registerCommand('selectorHealer.refresh', () => runVerify()),
     vscode.commands.registerCommand(STATUS_MENU_COMMAND, () => showMenu()),
@@ -393,47 +394,79 @@ async function runCapture(): Promise<void> {
 
   outputChannel.appendLine(`[${time()}] Capturing baseline…`);
 
+  const parseResult = parseDirectory(config.testDir, config.testGlob);
+  if (parseResult.isErr()) {
+    vscode.window.showErrorMessage(`Selector Healer parse error: ${parseResult.error.message}`);
+    return;
+  }
+  await captureSelectors(parseResult.value.selectors, config, root);
+}
+
+/**
+ * Capture fingerprints for the given selectors, broadcasting live progress to
+ * every open surface. `captureFingerprints` merges into the existing baseline,
+ * so capturing a subset (e.g. just the missing ones) never drops already-
+ * captured entries.
+ */
+async function captureSelectors(
+  selectors: SelectorUsage[],
+  config: HealerConfig,
+  root: string,
+): Promise<void> {
+  // Reveal the panel if it's open, otherwise the sidebar; broadcast to both.
+  const sinks: CaptureSink[] = DashboardPanel.current
+    ? [dashboard, DashboardPanel.current]
+    : [dashboard];
+  await (DashboardPanel.current ?? dashboard).focus();
+
+  const rows = selectors.map((s) => ({
+    selectorId: s.id,
+    rawValue: s.rawValue,
+    selectorType: s.selectorType,
+    fileName: s.filePath.split(/[/\\]/).pop() ?? s.filePath,
+    line: s.line,
+  }));
+  for (const sink of sinks) sink.startCapture(rows);
+
   try {
-    const parseResult = parseDirectory(config.testDir, config.testGlob);
-    if (parseResult.isErr()) {
-      vscode.window.showErrorMessage(`Selector Healer parse error: ${parseResult.error.message}`);
-      return;
-    }
-
-    const { selectors } = parseResult.value;
-
-    // Broadcast capture progress to every open surface (sidebar + editor panel);
-    // reveal the panel if it's open, otherwise the sidebar.
-    const sinks: CaptureSink[] = DashboardPanel.current
-      ? [dashboard, DashboardPanel.current]
-      : [dashboard];
-    await (DashboardPanel.current ?? dashboard).focus();
-
-    const rows = selectors.map((s) => ({
-      selectorId: s.id,
-      rawValue: s.rawValue,
-      selectorType: s.selectorType,
-      fileName: s.filePath.split(/[/\\]/).pop() ?? s.filePath,
-      line: s.line,
-    }));
-    for (const sink of sinks) sink.startCapture(rows);
-
     const result = await captureFingerprints(selectors, config, root, (e) => {
       for (const sink of sinks) sink.updateCapture(e.selectorId, e.status);
     });
     for (const sink of sinks) sink.finishCapture(result.captured, selectors.length);
-
     outputChannel.appendLine(
       `[${time()}] Captured ${result.captured}/${selectors.length} (${result.errors.length} errors)`,
     );
     vscode.window.showInformationMessage(
-      `Selector Healer: captured ${result.captured} of ${selectors.length} fingerprints.`,
+      `Selector Healer: captured ${result.captured} of ${selectors.length} fingerprint${selectors.length === 1 ? '' : 's'}.`,
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     outputChannel.appendLine(`[${time()}] Capture error: ${msg}`);
     vscode.window.showErrorMessage(`Selector Healer capture failed: ${msg}`);
   }
+}
+
+/** Capture only the selectors that don't yet have a baseline (merges into it). */
+async function runCaptureMissing(): Promise<void> {
+  const root = getWorkspaceRoot();
+  if (!root) return;
+  const config = await loadConfig();
+  if (!config) return;
+
+  const parseResult = parseDirectory(config.testDir, config.testGlob);
+  if (parseResult.isErr()) {
+    vscode.window.showErrorMessage(`Selector Healer parse error: ${parseResult.error.message}`);
+    return;
+  }
+  const fpResult = loadFingerprints(root);
+  const fingerprints = fpResult.isOk() ? fpResult.value : new Map<string, DomFingerprint>();
+  const missing = parseResult.value.selectors.filter((s) => !fingerprints.has(s.id));
+  if (missing.length === 0) {
+    vscode.window.showInformationMessage('Selector Healer: every selector already has a baseline.');
+    return;
+  }
+  outputChannel.appendLine(`[${time()}] Capturing ${missing.length} missing selector(s)…`);
+  await captureSelectors(missing, config, root);
 }
 
 /**

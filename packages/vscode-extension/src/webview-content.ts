@@ -77,6 +77,7 @@ export interface DashMessage {
   type:
     | 'verify'
     | 'capture'
+    | 'captureMissing'
     | 'applyAll'
     | 'open'
     | 'apply'
@@ -187,6 +188,9 @@ export async function handleWebviewMessage(msg: DashMessage): Promise<void> {
       break;
     case 'capture':
       await vscode.commands.executeCommand('selectorHealer.capture');
+      break;
+    case 'captureMissing':
+      await vscode.commands.executeCommand('selectorHealer.captureMissing');
       break;
     case 'init':
       await vscode.commands.executeCommand('selectorHealer.init');
@@ -408,6 +412,7 @@ function bind(){
   byId('cap-back',el=>{el.onclick=()=>{mode='results';render();};});
   byId('view-baseline',el=>el.onclick=()=>post('showBaseline'));
   byId('baseline-back',el=>{el.onclick=()=>{mode='results';render();};});
+  byId('capture-missing',el=>el.onclick=()=>post('captureMissing'));
   byId('p-verify',el=>el.onclick=()=>post('verify'));
   byId('p-capture',el=>el.onclick=()=>post('capture'));
   byId('p-watch',el=>el.onclick=()=>post('watchToggle'));
@@ -588,6 +593,7 @@ function renderBaseline(){
   }
   const tabs = [['all','All',rows.length],['captured','Captured',captured],['uncaptured','Uncaptured',uncaptured]];
   html += '<div class="filter">' + tabs.map(t => '<button class="seg' + (baselineFilter===t[0]?' on':'') + '" data-bfilter="' + t[0] + '">' + t[1] + (t[2]?'<span class="n">'+t[2]+'</span>':'') + '</button>').join('') + '</div>';
+  if(uncaptured > 0) html += '<button class="btn primary heal-all" id="capture-missing">'+ICON.heal+' Capture '+uncaptured+' missing selector'+(uncaptured>1?'s':'')+'</button>';
   const shown = rows.filter(r => baselineFilter==='captured' ? r.captured : baselineFilter==='uncaptured' ? !r.captured : true);
   if(!shown.length) html += '<div class="empty"><span class="big">✓</span>'+(baselineFilter==='uncaptured'?'Every selector has a baseline.':'Nothing here.')+'</div>';
   else html += '<div class="list">' + shown.map(baselineRow).join('') + '</div>';
