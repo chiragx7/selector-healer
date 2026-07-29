@@ -289,14 +289,20 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .tag { font-size: 9.5px; font-weight: 600; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
 .tag.pass { color: var(--ok); background: color-mix(in srgb, var(--ok) 18%, transparent); }
 .tag.fail { color: var(--broken); background: color-mix(in srgb, var(--broken) 18%, transparent); }
-.ob { padding: 10px 4px; line-height: 1.55; }
-.ob-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-.ob-lead { font-size: 12.5px; color: var(--vscode-descriptionForeground); margin-bottom: 16px; }
-.ob-note { font-size: 12px; margin-bottom: 12px; }
-.ob-step { display: flex; gap: 9px; font-size: 12.5px; margin-bottom: 9px; }
-.ob-num { flex: none; width: 19px; height: 19px; border-radius: 50%; background: var(--vscode-badge-background, rgba(128,128,128,.3)); color: var(--vscode-badge-foreground, var(--vscode-foreground)); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
-.ob-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-.ob-actions .btn { padding: 7px 14px; }
+.ob { max-width: 360px; margin: 0 auto; padding: 20px 6px; }
+.ob-hero { text-align: center; margin-bottom: 20px; }
+.ob-badge { width: 46px; height: 46px; border-radius: 13px; background: color-mix(in srgb, var(--run) 16%, transparent); color: var(--run); display: flex; align-items: center; justify-content: center; margin: 0 auto 13px; }
+.ob-h1 { font-size: 18px; font-weight: 600; margin-bottom: 9px; }
+.ob-lead { font-size: 12.5px; color: var(--vscode-descriptionForeground); line-height: 1.55; margin-bottom: 13px; }
+.ob-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--vscode-descriptionForeground); background: var(--vscode-badge-background, rgba(128,128,128,.16)); border-radius: 20px; padding: 4px 11px; }
+.ob-note { font-size: 12.5px; text-align: center; margin-bottom: 14px; line-height: 1.5; }
+.ob-steps { display: flex; flex-direction: column; gap: 13px; margin-bottom: 20px; }
+.ob-step { display: flex; gap: 11px; align-items: flex-start; }
+.ob-st { font-size: 13px; font-weight: 600; margin-bottom: 1px; }
+.ob-sd { font-size: 12px; }
+.ob-num { flex: none; width: 21px; height: 21px; border-radius: 50%; background: color-mix(in srgb, var(--run) 18%, transparent); color: var(--run); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; margin-top: 1px; }
+.ob-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.ob-cta { padding: 8px 18px; }
 /* ---- Panel (editor) mode: roomier, centered, multi-column ---- */
 .phead { display: flex; align-items: center; gap: 12px; padding: 13px 28px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25)); position: sticky; top: 0; background: var(--vscode-editor-background); z-index: 3; }
 .ptitle { font-size: 15px; font-weight: 600; }
@@ -325,7 +331,9 @@ const ICON = {
   check:'<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4.5 6.5 12 3 8.5"/></svg>',
   diff: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2 2 5l3 3M2 5h7a2 2 0 0 1 2 2v2M11 14l3-3-3-3M14 11H7a2 2 0 0 1-2-2V7"/></svg>',
   open: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3v10h10v-3M9.5 3H13v3.5M13 3 7.5 8.5"/></svg>',
-  heal: '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 1.2l1.35 3.28L13 5.1l-2.6 2.3.75 3.6L8 9.3 4.85 11l.75-3.6L3 5.1l3.65-.62z"/></svg>'
+  heal: '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M8 1.2l1.35 3.28L13 5.1l-2.6 2.3.75 3.6L8 9.3 4.85 11l.75-3.6L3 5.1l3.65-.62z"/></svg>',
+  shield:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.6-3.1 7.6-7 9-3.9-1.4-7-4.4-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+  lock:  '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.2" rx="1.6"/><path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7"/></svg>'
 };
 
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -354,19 +362,24 @@ function bind(){
 
 /* ---------- Onboarding (first run) ---------- */
 function onboarding(){
-  const intro = '<div class="ob-title">🛡️ Selector Healer</div>'
-    + '<div class="ob-lead">Catch broken test selectors before CI does — it snapshots each selector against your live DOM, flags the ones that broke, and suggests AST-based fixes. Fully local: no network, no telemetry.</div>';
+  const hero = '<div class="ob-hero"><div class="ob-badge">'+ICON.shield+'</div>'
+    + '<div class="ob-h1">Selector Healer</div>'
+    + '<div class="ob-lead">Catch broken test selectors before CI does. Snapshots each selector against your live DOM, flags what broke, and suggests AST-based fixes.</div>'
+    + '<div class="ob-pill">'+ICON.lock+' Local-first — no network, no telemetry</div></div>';
   if(!lastState.hasConfig){
-    return '<div class="ob">' + intro
-      + '<div class="ob-note muted">No config yet — create one. It auto-detects your framework, base URL, and test directory.</div>'
-      + '<button class="btn primary" id="create-config">＋ Create config</button></div>';
+    return '<div class="ob">' + hero
+      + '<div class="ob-note muted">Start by creating a config — it auto-detects your framework, base URL, and test directory.</div>'
+      + '<button class="btn primary ob-cta" id="create-config">Create config</button></div>';
   }
-  return '<div class="ob">' + intro
-    + '<div class="ob-step"><span class="ob-num">1</span><span>Capture a baseline — snapshot your selectors.</span></div>'
-    + '<div class="ob-step"><span class="ob-num">2</span><span>Verify — check them against the live DOM.</span></div>'
-    + '<div class="ob-step"><span class="ob-num">3</span><span>Heal — apply suggested fixes for any that broke.</span></div>'
-    + '<div class="ob-actions"><button class="btn primary" id="run-capture">Capture baseline</button>'
-    + '<button class="btn" id="run-verify">Verify now</button></div></div>';
+  const steps = [
+    ['Capture', 'Snapshot your selectors as a baseline.'],
+    ['Verify', 'Check them against the live DOM.'],
+    ['Heal', 'Apply suggested fixes for any that broke.'],
+  ];
+  return '<div class="ob">' + hero
+    + '<div class="ob-steps">' + steps.map((s,i)=>'<div class="ob-step"><span class="ob-num">'+(i+1)+'</span><div><div class="ob-st">'+s[0]+'</div><div class="ob-sd muted">'+s[1]+'</div></div></div>').join('') + '</div>'
+    + '<div class="ob-actions"><button class="btn primary ob-cta" id="run-capture">Capture baseline</button>'
+    + '<button class="btn ob-cta" id="run-verify">Verify now</button></div></div>';
 }
 
 /* ---------- Results ---------- */
