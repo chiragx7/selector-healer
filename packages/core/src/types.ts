@@ -122,12 +122,26 @@ export interface HealCandidate {
 }
 
 /**
+ * A single human-readable reason a selector broke, derived by diffing the
+ * stored fingerprint against what the element looks like now.
+ */
+export interface BreakReason {
+  /** Category of change, so the UI can icon and prioritise it. */
+  kind: 'removed' | 'tag' | 'testid' | 'id' | 'role' | 'text' | 'attribute' | 'moved' | 'position';
+  /** One-line explanation, e.g. `text changed from "Save changes" to "Update Profile"`. */
+  summary: string;
+}
+
+/**
  * Ranked replacement suggestions for a single broken selector. The healer
- * returns at most three candidates per selector, sorted by `confidence` desc.
+ * returns at most three candidates per selector, sorted by `confidence` desc,
+ * plus an `explanation` of what changed (why the selector broke).
  */
 export interface HealSuggestion {
   selectorId: string;
   candidates: HealCandidate[];
+  /** Why the selector broke — the meaningful diffs between baseline and now. */
+  explanation?: BreakReason[];
 }
 
 /**

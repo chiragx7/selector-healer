@@ -296,12 +296,15 @@ async function runVerify(): Promise<void> {
     const broken = results.filter((r) => r.status === 'broken');
 
     const suggestionMap = new Map<string, string>();
+    const explanationMap = new Map<string, string>();
     const allSuggestions: StoredSuggestion[] = [];
     const suggestionsByKey = new Map<string, StoredSuggestion[]>();
 
     if (broken.length > 0) {
       const healResults = await healSelectors(broken, { config, projectRoot: root });
       for (const h of healResults) {
+        // The top break reason (why it broke) — shown in the diagnostic message.
+        if (h.explanation?.[0]) explanationMap.set(h.selectorId, h.explanation[0].summary);
         const top = h.candidates[0];
         const sel = broken.find((r) => r.selector.id === h.selectorId)?.selector;
         if (!top || !sel) continue;
@@ -327,7 +330,7 @@ async function runVerify(): Promise<void> {
     }
 
     storeSuggestions(allSuggestions);
-    updateDiagnosticsFromResults(diagnosticCollection, results, suggestionMap);
+    updateDiagnosticsFromResults(diagnosticCollection, results, suggestionMap, explanationMap);
     healerState.setResults(results, suggestionsByKey);
 
     const c = countResults(results);

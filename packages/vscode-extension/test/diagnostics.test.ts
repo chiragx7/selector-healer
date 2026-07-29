@@ -51,6 +51,19 @@ describe('diagnostics', () => {
       expect(diag.message).toContain('getByTestId("submit")');
     });
 
+    it('includes the break reason in the broken diagnostic message', () => {
+      const sel = makeSelector();
+      const diag = selectorToDiagnostic(
+        sel,
+        'broken',
+        'getByTestId("submit")',
+        'text changed from "Save" to "Update"',
+      );
+
+      expect(diag.message).toContain('text changed from');
+      expect(diag.message).toContain('getByTestId("submit")');
+    });
+
     it('creates warning diagnostic for multiple-matches status', () => {
       const sel = makeSelector();
       const diag = selectorToDiagnostic(sel, 'multiple-matches');
@@ -129,6 +142,20 @@ describe('diagnostics', () => {
       const store = (collection as ReturnType<typeof languages.createDiagnosticCollection>)._store;
       const diags = store.get('/test/login.spec.ts');
       expect(diags?.[0]?.message).toContain('getByTestId("submit")');
+    });
+
+    it('attaches the break reason from the explanations map', () => {
+      const collection = createDiagnosticCollection();
+      const sel = makeSelector();
+      const results = [{ selector: sel, status: 'broken' as const }];
+      const suggestions = new Map([['sel_001', 'getByTestId("submit")']]);
+      const explanations = new Map([['sel_001', 'data-testid removed (was "submit")']]);
+
+      updateDiagnosticsFromResults(collection, results, suggestions, explanations);
+
+      const store = (collection as ReturnType<typeof languages.createDiagnosticCollection>)._store;
+      const diags = store.get('/test/login.spec.ts');
+      expect(diags?.[0]?.message).toContain('data-testid removed');
     });
 
     it('handles multiple-matches status', () => {

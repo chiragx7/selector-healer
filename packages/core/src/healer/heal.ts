@@ -12,6 +12,7 @@ import type {
   VerificationResult,
 } from '../types.js';
 import { scanCandidates } from './candidates.js';
+import { explainBreak } from './explain.js';
 import { generateReplacementCode, renderSelectorCode } from './replacement-code.js';
 import { scoreCandidate } from './scoring.js';
 
@@ -178,10 +179,19 @@ export async function healSelectors(
   return toHeal.map((result) => {
     const all = candidatesById.get(result.selector.id) ?? [];
     const framework: Framework = result.selector.framework ?? config.framework ?? 'playwright';
-    const deduped = dedupeByCode(all)
+    const ranked = dedupeByCode(all)
       .filter((c) => !isNoOpReplacement(result.selector, c.replacementCode, framework))
-      .sort((a, b) => b.confidence - a.confidence);
-    return { selectorId: result.selector.id, candidates: deduped.slice(0, MAX_CANDIDATES) };
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, MAX_CANDIDATES);
+    // Explain the break by diffing the baseline against the top candidate (what
+    // the element looks like now); undefined candidate ⇒ "removed".
+    const stored = storedById.get(result.selector.id);
+    const explanation = stored ? explainBreak(stored, ranked[0]?.matchedFingerprint) : [];
+    return {
+      selectorId: result.selector.id,
+      candidates: ranked,
+      ...(explanation.length > 0 ? { explanation } : {}),
+    };
   });
 }
 

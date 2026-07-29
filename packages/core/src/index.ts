@@ -21,6 +21,7 @@ export type { VerifyOptions, ComparisonResult, ComparisonDetail } from './verifi
 export {
   healSelectors,
   isNoOpReplacement,
+  explainBreak,
   scoreCandidate,
   getScoringRules,
   scanCandidates,

@@ -44,9 +44,15 @@ export function formatSuggestions(suggestions: HealSuggestion[]): string {
   const lines: string[] = [];
 
   for (const s of suggestions) {
-    if (s.candidates.length === 0) continue;
+    if (s.candidates.length === 0 && !s.explanation?.length) continue;
 
     lines.push(`  ${pc.cyan(s.selectorId)}:`);
+
+    // Why it broke — the top reason(s) from diffing the baseline against now.
+    for (const reason of (s.explanation ?? []).slice(0, 2)) {
+      lines.push(`     ${pc.dim('↳ why:')} ${reason.summary}`);
+    }
+
     for (let i = 0; i < s.candidates.length; i++) {
       const c = s.candidates[i];
       if (!c) continue;

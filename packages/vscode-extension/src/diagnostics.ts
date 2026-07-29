@@ -11,6 +11,7 @@ export function selectorToDiagnostic(
   selector: SelectorUsage,
   status: 'no-baseline' | 'broken' | 'multiple-matches',
   suggestion?: string,
+  reason?: string,
 ): vscode.Diagnostic {
   const range = new vscode.Range(
     new vscode.Position(selector.line - 1, selector.column - 1),
@@ -24,6 +25,9 @@ export function selectorToDiagnostic(
     case 'broken':
       severity = vscode.DiagnosticSeverity.Error;
       message = `Broken selector: ${selector.rawValue}`;
+      if (reason) {
+        message += ` — ${reason}`;
+      }
       if (suggestion) {
         message += ` — try ${suggestion}`;
       }
@@ -48,6 +52,7 @@ export function updateDiagnosticsFromResults(
   collection: vscode.DiagnosticCollection,
   results: VerificationResult[],
   suggestions: Map<string, string>,
+  explanations?: Map<string, string>,
 ): void {
   const byFile = new Map<string, vscode.Diagnostic[]>();
 
@@ -58,7 +63,14 @@ export function updateDiagnosticsFromResults(
     const list = byFile.get(uri) ?? [];
 
     if (r.status === 'broken') {
-      list.push(selectorToDiagnostic(r.selector, 'broken', suggestions.get(r.selector.id)));
+      list.push(
+        selectorToDiagnostic(
+          r.selector,
+          'broken',
+          suggestions.get(r.selector.id),
+          explanations?.get(r.selector.id),
+        ),
+      );
     } else if (r.status === 'multiple-matches') {
       list.push(selectorToDiagnostic(r.selector, 'multiple-matches'));
     } else if (r.status === 'skipped' && !r.error) {
