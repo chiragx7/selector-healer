@@ -136,18 +136,18 @@ suite('Extension Integration Tests', () => {
     });
   });
 
-  suite('Tree View', () => {
-    test('selectorHealerExplorer view is registered', async () => {
+  suite('Dashboard View', () => {
+    test('selectorHealerDashboard view is registered', async () => {
       // Attempt to focus the view — this will throw if not registered
       try {
-        await vscode.commands.executeCommand('selectorHealerExplorer.focus');
-        assert.ok(true, 'Tree view focus command succeeded');
+        await vscode.commands.executeCommand('selectorHealerDashboard.focus');
+        assert.ok(true, 'Dashboard view focus command succeeded');
       } catch {
         // On some VS Code versions, focus may not work in test env
         // but the command existing proves registration
         const commands = await vscode.commands.getCommands(true);
-        const hasViewCommand = commands.some((c) => c.includes('selectorHealerExplorer'));
-        assert.ok(hasViewCommand, 'Tree view should be registered');
+        const hasViewCommand = commands.some((c) => c.includes('selectorHealerDashboard'));
+        assert.ok(hasViewCommand, 'Dashboard view should be registered');
       }
     });
   });

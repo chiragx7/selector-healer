@@ -47,14 +47,12 @@ import {
   setRunning,
   setWatch,
 } from './status-bar.js';
-import { type SelectorItem, SelectorTreeProvider } from './tree-view.js';
 import { Debouncer, isTestFilePath } from './watch.js';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let statusBarItem: vscode.StatusBarItem;
 let watchStatusItem: vscode.StatusBarItem;
 let outputChannel: vscode.OutputChannel;
-let treeProvider: SelectorTreeProvider;
 let dashboard: DashboardViewProvider;
 
 // ── Watch mode: auto re-verify a test file when it's saved (opt-in) ──────────
@@ -83,7 +81,6 @@ export function activate(context: vscode.ExtensionContext): void {
   watchEnabled = context.workspaceState.get(WATCH_STATE_KEY, false);
   setWatch(watchStatusItem, watchEnabled ? 'on' : 'off');
   outputChannel = vscode.window.createOutputChannel('Selector Healer');
-  treeProvider = new SelectorTreeProvider();
   dashboard = new DashboardViewProvider(context.extensionUri);
   const healPreview = new HealPreviewProvider();
 
@@ -98,10 +95,6 @@ export function activate(context: vscode.ExtensionContext): void {
       // away and back doesn't blank the Verify/Capture tabs.
       webviewOptions: { retainContextWhenHidden: true },
     }),
-    vscode.window.createTreeView('selectorHealerExplorer', {
-      treeDataProvider: treeProvider,
-      showCollapseAll: true,
-    }),
     vscode.languages.registerCodeActionsProvider(
       DOC_SELECTOR,
       new SelectorHealerCodeActionProvider(),
@@ -113,7 +106,7 @@ export function activate(context: vscode.ExtensionContext): void {
     initDecorations(context.extensionUri),
   );
 
-  // Single source of truth: state changes drive the tree + status bar.
+  // Single source of truth: state changes drive the status bar.
   // (The dashboard, CodeLens, and decorations subscribe to state themselves.)
   context.subscriptions.push(
     healerState.onDidChange((snap) => {
@@ -121,10 +114,8 @@ export function activate(context: vscode.ExtensionContext): void {
         setRunning(statusBarItem);
       } else if (snap.phase === 'done') {
         setResults(statusBarItem, countResults(snap.results));
-        treeProvider.refresh(snap.results, snap.suggestionsByKey);
       } else {
         setIdle(statusBarItem);
-        treeProvider.clear();
       }
     }),
   );
@@ -150,9 +141,6 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.applyFixAt', (s: StoredSuggestion) =>
       applyAndReverify(s),
     ),
-    vscode.commands.registerCommand('selectorHealer.applyFixFromTree', (item: SelectorItem) => {
-      if (item?.suggestion) applyAndReverify(item.suggestion);
-    }),
     vscode.commands.registerCommand('selectorHealer.undoLastHeal', () => undoLastHeal()),
     vscode.commands.registerCommand('selectorHealer.showHealHistory', () => showHealHistory()),
     vscode.commands.registerCommand(WATCH_TOGGLE_COMMAND, () => toggleWatch(context)),
