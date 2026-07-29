@@ -190,6 +190,7 @@ function createMockOutputChannel() {
 let __docText = '';
 let __infoChoice: string | undefined;
 let __lastEdit: WorkspaceEdit | undefined;
+let __openShouldThrow = false;
 const __executedCommands: Array<{ command: string; args: unknown[] }> = [];
 
 export function __setDocText(text: string): void {
@@ -197,6 +198,10 @@ export function __setDocText(text: string): void {
 }
 export function __setInfoChoice(choice: string | undefined): void {
   __infoChoice = choice;
+}
+/** Make `workspace.openTextDocument` reject, simulating a missing/unreadable file. */
+export function __setOpenShouldThrow(shouldThrow: boolean): void {
+  __openShouldThrow = shouldThrow;
 }
 export function __getLastEdit(): WorkspaceEdit | undefined {
   return __lastEdit;
@@ -208,6 +213,7 @@ export function __reset(): void {
   __docText = '';
   __infoChoice = undefined;
   __lastEdit = undefined;
+  __openShouldThrow = false;
   __executedCommands.length = 0;
 }
 
@@ -231,11 +237,14 @@ export const workspace = {
   onDidSaveTextDocument: () => ({ dispose: () => {} }),
   onDidOpenTextDocument: () => ({ dispose: () => {} }),
   openTextDocument: (uri: Uri) =>
-    Promise.resolve({
-      uri,
-      getText: () => __docText,
-      offsetAt: (pos: Position) => pos.character,
-    }),
+    __openShouldThrow
+      ? Promise.reject(new Error('file not found'))
+      : Promise.resolve({
+          uri,
+          getText: () => __docText,
+          offsetAt: (pos: Position) => pos.character,
+          save: () => Promise.resolve(true),
+        }),
   applyEdit: (edit: WorkspaceEdit) => {
     __lastEdit = edit;
     return Promise.resolve(true);

@@ -53,7 +53,14 @@ describe('previewAndApplyHeal', () => {
       "getByTestId('save')",
       'button → getByTestId',
     );
-    expect(applied).toBe(true);
+    // Returns the applied edit's details (fuel for the heal history / undo).
+    expect(applied).toEqual({
+      filePath: '/t.spec.ts',
+      line: 1,
+      column: 12,
+      before: "getByRole('button')",
+      after: "getByTestId('save')",
+    });
     expect(__getExecutedCommands().some((c) => c.command === 'vscode.diff')).toBe(true);
     expect(__getLastEdit()?.getEdits()[0]?.newText).toBe("getByTestId('save')");
   });
@@ -68,7 +75,7 @@ describe('previewAndApplyHeal', () => {
       "getByTestId('save')",
       'label',
     );
-    expect(applied).toBe(false);
+    expect(applied).toBeNull();
     expect(__getLastEdit()).toBeUndefined();
   });
 

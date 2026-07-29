@@ -110,6 +110,16 @@
         "icon": "$(dashboard)"
       },
       {
+        "command": "selectorHealer.undoLastHeal",
+        "title": "Selector Healer: Undo Last Heal",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "selectorHealer.showHealHistory",
+        "title": "Selector Healer: Heal History",
+        "icon": "$(history)"
+      },
+      {
         "command": "selectorHealer.showMenu",
         "title": "Selector Healer: Menu"
       }
@@ -130,6 +140,11 @@
           "command": "selectorHealer.refresh",
           "when": "view == selectorHealerExplorer",
           "group": "navigation@3"
+        },
+        {
+          "command": "selectorHealer.showHealHistory",
+          "when": "view == selectorHealerExplorer",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { findCallExpressionRange, stripLeadingReceiver } from './code-actions.js';
 import type { StoredSuggestion } from './code-actions.js';
+import type { AppliedHeal } from './history.js';
 
 /**
  * Apply a single heal suggestion to its source file via a {@link vscode.WorkspaceEdit}.
@@ -8,40 +9,39 @@ import type { StoredSuggestion } from './code-actions.js';
  * with the suggested replacement, preserving the surrounding line.
  *
  * @param s - the stored suggestion to apply (carries file, line, column, replacement)
- * @returns `true` if the edit was applied successfully
+ * @returns the applied edit's details (for history/undo), or `null` if nothing was applied
  *
  * @example
- * const applied = await applySuggestion(suggestion); // true
+ * const applied = await applySuggestion(suggestion); // { filePath, line, column, before, after }
  */
-export async function applySuggestion(s: StoredSuggestion): Promise<boolean> {
+export async function applySuggestion(s: StoredSuggestion): Promise<AppliedHeal | null> {
   const uri = vscode.Uri.file(s.filePath);
   const doc = await vscode.workspace.openTextDocument(uri);
   const lineIdx = s.line - 1;
-  if (lineIdx < 0 || lineIdx >= doc.lineCount) return false;
+  if (lineIdx < 0 || lineIdx >= doc.lineCount) return null;
 
   const lineText = doc.lineAt(lineIdx).text;
   const callRange = findCallExpressionRange(lineText, s.column - 1);
 
-  const range = callRange
-    ? new vscode.Range(
-        new vscode.Position(lineIdx, callRange.start),
-        new vscode.Position(lineIdx, callRange.end),
-      )
-    : new vscode.Range(
-        new vscode.Position(lineIdx, s.column - 1),
-        new vscode.Position(lineIdx, s.column - 1 + s.rawValue.length),
-      );
+  const startCol = callRange ? callRange.start : s.column - 1;
+  const endCol = callRange ? callRange.end : s.column - 1 + s.rawValue.length;
+  const before = lineText.slice(startCol, endCol);
 
   // The callRange begins at the method name (after the receiver's dot), so drop
   // the replacement's own `page.`/`cy.` head to avoid `this.page.page.getBy…`.
-  const replacementText = callRange ? stripLeadingReceiver(s.replacementCode) : s.replacementCode;
+  const after = callRange ? stripLeadingReceiver(s.replacementCode) : s.replacementCode;
 
   const edit = new vscode.WorkspaceEdit();
-  edit.replace(uri, range, replacementText);
+  edit.replace(
+    uri,
+    new vscode.Range(new vscode.Position(lineIdx, startCol), new vscode.Position(lineIdx, endCol)),
+    after,
+  );
   const applied = await vscode.workspace.applyEdit(edit);
+  if (!applied) return null;
   // Persist to disk so a re-verify (which re-parses the file from disk) sees the fix.
-  if (applied) await doc.save();
-  return applied;
+  await doc.save();
+  return { filePath: s.filePath, line: s.line, column: startCol + 1, before, after };
 }
 
 /**

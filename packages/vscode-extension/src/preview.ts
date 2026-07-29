@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import type { AppliedHeal } from './history.js';
 
 /** Virtual-document scheme backing the heal diff preview (its right-hand pane). */
 export const HEAL_PREVIEW_SCHEME = 'selector-healer-preview';
@@ -45,7 +46,7 @@ export function spliceText(text: string, start: number, end: number, replacement
  * @param range - the range of the selector call to replace
  * @param replacement - the replacement source text
  * @param label - short human label (e.g. `old → new`), shown in the diff title
- * @returns true when the heal was applied
+ * @returns the applied edit's details (for history/undo), or `null` if dismissed or on error
  */
 export async function previewAndApplyHeal(
   provider: HealPreviewProvider,
@@ -53,18 +54,17 @@ export async function previewAndApplyHeal(
   range: vscode.Range,
   replacement: string,
   label: string,
-): Promise<boolean> {
+): Promise<AppliedHeal | null> {
   try {
     const doc = await vscode.workspace.openTextDocument(uri);
-    const after = spliceText(
-      doc.getText(),
-      doc.offsetAt(range.start),
-      doc.offsetAt(range.end),
-      replacement,
-    );
+    const source = doc.getText();
+    const startOffset = doc.offsetAt(range.start);
+    const endOffset = doc.offsetAt(range.end);
+    const before = source.slice(startOffset, endOffset);
+    const preview = spliceText(source, startOffset, endOffset, replacement);
 
     const previewUri = uri.with({ scheme: HEAL_PREVIEW_SCHEME });
-    provider.set(previewUri, after);
+    provider.set(previewUri, preview);
 
     await vscode.commands.executeCommand('vscode.diff', uri, previewUri, `Heal preview — ${label}`);
 
@@ -73,15 +73,24 @@ export async function previewAndApplyHeal(
       'Apply',
       'Dismiss',
     );
-    if (choice !== 'Apply') return false;
+    if (choice !== 'Apply') return null;
 
     const edit = new vscode.WorkspaceEdit();
     edit.replace(uri, range, replacement);
-    return await vscode.workspace.applyEdit(edit);
+    if (!(await vscode.workspace.applyEdit(edit))) return null;
+    // Persist so a re-verify (which re-parses from disk) sees the fix.
+    await doc.save();
+    return {
+      filePath: uri.fsPath,
+      line: range.start.line + 1,
+      column: range.start.character + 1,
+      before,
+      after: replacement,
+    };
   } catch (e) {
     vscode.window.showErrorMessage(
       `Selector Healer: couldn't preview the heal — ${e instanceof Error ? e.message : String(e)}`,
     );
-    return false;
+    return null;
   }
 }

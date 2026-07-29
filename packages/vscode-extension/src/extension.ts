@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   captureFingerprints,
   detectProjectConfig,
@@ -27,6 +27,8 @@ import {
   selectorToDiagnostic,
   updateDiagnosticsFromResults,
 } from './diagnostics.js';
+import { type HealHistoryEntry, healHistory, undoHeal } from './history.js';
+import type { AppliedHeal } from './history.js';
 import { lintDiagnostics } from './lint.js';
 import { HEAL_PREVIEW_SCHEME, HealPreviewProvider, previewAndApplyHeal } from './preview.js';
 import { countResults, healerState } from './state.js';
@@ -55,6 +57,8 @@ const DOC_SELECTOR: vscode.DocumentSelector = [
 const TS_LANGS = new Set(['typescript', 'typescriptreact', 'javascript', 'javascriptreact']);
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Heal history persists in the workspace's Memento (local-first, survives reloads).
+  healHistory.init(context.workspaceState);
   diagnosticCollection = createDiagnosticCollection();
   statusBarItem = createStatusBarItem();
   outputChannel = vscode.window.createOutputChannel('Selector Healer');
@@ -113,8 +117,13 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.focusDashboard', () => dashboard.focus()),
     vscode.commands.registerCommand(
       'selectorHealer.previewHeal',
-      (uri: vscode.Uri, range: vscode.Range, text: string, label: string) =>
-        previewAndApplyHeal(healPreview, uri, range, text, label),
+      async (uri: vscode.Uri, range: vscode.Range, text: string, label: string) => {
+        const applied = await previewAndApplyHeal(healPreview, uri, range, text, label);
+        if (applied) {
+          await healHistory.record({ ...applied, label });
+          await verifyTargeted([healToStored(applied)]);
+        }
+      },
     ),
     vscode.commands.registerCommand('selectorHealer.applyFixAt', (s: StoredSuggestion) =>
       applyAndReverify(s),
@@ -122,6 +131,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.applyFixFromTree', (item: SelectorItem) => {
       if (item?.suggestion) applyAndReverify(item.suggestion);
     }),
+    vscode.commands.registerCommand('selectorHealer.undoLastHeal', () => undoLastHeal()),
+    vscode.commands.registerCommand('selectorHealer.showHealHistory', () => showHealHistory()),
   );
 
   context.subscriptions.push(
@@ -413,6 +424,7 @@ async function runCapture(): Promise<void> {
 async function applyAndReverify(s: StoredSuggestion): Promise<void> {
   const applied = await applySuggestion(s);
   if (applied) {
+    await healHistory.record({ ...applied, label: healLabel(s), selectorId: s.selectorId });
     vscode.window.showInformationMessage(`Selector Healer: applied ${s.replacementCode}`);
     await verifyTargeted([s]);
   } else {
@@ -440,7 +452,11 @@ async function applyAllFixes(): Promise<void> {
 
   const applied: StoredSuggestion[] = [];
   for (const s of toApply) {
-    if (await applySuggestion(s)) applied.push(s);
+    const res = await applySuggestion(s);
+    if (res) {
+      await healHistory.record({ ...res, label: healLabel(s), selectorId: s.selectorId });
+      applied.push(s);
+    }
   }
 
   vscode.window.showInformationMessage(
@@ -527,6 +543,101 @@ function topSuggestionById(byKey: Map<string, StoredSuggestion[]>): Map<string, 
   return map;
 }
 
+/** Human label for a heal, e.g. `'button' → getByTestId('save')`. */
+function healLabel(s: StoredSuggestion): string {
+  return `${s.rawValue} → ${s.replacementCode}`;
+}
+
+/** Minimal StoredSuggestion for re-verifying a just-applied/undone selector by file+line. */
+function healToStored(h: AppliedHeal, selectorId = ''): StoredSuggestion {
+  return {
+    selectorId,
+    filePath: h.filePath,
+    line: h.line,
+    column: h.column,
+    rawValue: '',
+    replacementCode: h.after,
+    confidence: 0,
+  };
+}
+
+/** Compact "3m ago" style relative time for history entries. */
+function relTime(ms: number): string {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 60) return `${s}s ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+
+/** Revert one recorded heal, then drop it from history and offer to re-verify. */
+async function undoEntry(entry: HealHistoryEntry): Promise<void> {
+  const res = await undoHeal(entry);
+  if (!res.ok) {
+    const detail =
+      res.reason === 'file-missing'
+        ? 'its file could not be opened'
+        : res.reason === 'not-found'
+          ? "the healed code wasn't found (the file may have changed)"
+          : res.reason === 'ambiguous'
+            ? 'the healed code now appears in more than one place'
+            : 'the edit could not be applied';
+    vscode.window.showWarningMessage(`Selector Healer: couldn't undo ${entry.label} — ${detail}.`);
+    return;
+  }
+
+  await healHistory.remove(entry.id);
+  outputChannel.appendLine(
+    `[${time()}] Reverted ${entry.label} (${basename(entry.filePath)}:${entry.line})`,
+  );
+  const choice = await vscode.window.showInformationMessage(
+    `Selector Healer: reverted ${entry.label}.`,
+    'Verify now',
+  );
+  if (choice === 'Verify now') await runVerify();
+}
+
+/** Undo the most recently applied heal. */
+async function undoLastHeal(): Promise<void> {
+  const entry = healHistory.latest();
+  if (!entry) {
+    vscode.window.showInformationMessage('Selector Healer: no heals to undo yet.');
+    return;
+  }
+  await undoEntry(entry);
+}
+
+/** Browse the heal history in a QuickPick; pick an entry to undo it, or clear the log. */
+async function showHealHistory(): Promise<void> {
+  const entries = healHistory.all();
+  if (entries.length === 0) {
+    vscode.window.showInformationMessage('Selector Healer: no heal history yet.');
+    return;
+  }
+
+  type Item = vscode.QuickPickItem & { entry?: HealHistoryEntry; action?: 'clear' };
+  const items: Item[] = entries.map((e) => ({
+    label: e.label,
+    description: relTime(e.appliedAt),
+    detail: `${basename(e.filePath)}:${e.line}`,
+    entry: e,
+  }));
+  items.push({ label: '$(clear-all) Clear heal history', action: 'clear' });
+
+  const pick = await vscode.window.showQuickPick(items, {
+    placeHolder: 'Select a heal to undo',
+  });
+  if (!pick) return;
+  if (pick.action === 'clear') {
+    await healHistory.clear();
+    vscode.window.showInformationMessage('Selector Healer: heal history cleared.');
+    return;
+  }
+  if (pick.entry) await undoEntry(pick.entry);
+}
+
 async function showMenu(): Promise<void> {
   const items: Array<vscode.QuickPickItem & { cmd: string }> = [
     {
@@ -543,6 +654,16 @@ async function showMenu(): Promise<void> {
       label: '$(sparkle) Apply All High-Confidence Fixes',
       detail: 'Auto-heal selectors with ≥80% confidence',
       cmd: 'selectorHealer.applyAllFixes',
+    },
+    {
+      label: '$(discard) Undo Last Heal',
+      detail: 'Revert the most recently applied fix',
+      cmd: 'selectorHealer.undoLastHeal',
+    },
+    {
+      label: '$(history) Heal History',
+      detail: 'Browse and undo past fixes',
+      cmd: 'selectorHealer.showHealHistory',
     },
     {
       label: '$(dashboard) Open Dashboard',
