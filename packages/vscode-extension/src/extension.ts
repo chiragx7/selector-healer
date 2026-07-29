@@ -62,6 +62,7 @@ let dashboard: DashboardViewProvider;
 // ── Watch mode: auto re-verify a test file when it's saved (opt-in) ──────────
 const WATCH_DEBOUNCE_MS = 700;
 const WATCH_STATE_KEY = 'selectorHealer.watch';
+const SNAPSHOT_KEY = 'selectorHealer.lastSnapshot';
 let watchEnabled = false;
 let watchRunning = false;
 const watchDebouncer = new Debouncer(WATCH_DEBOUNCE_MS);
@@ -123,7 +124,13 @@ export function activate(context: vscode.ExtensionContext): void {
         setIdle(statusBarItem);
       }
     }),
+    // Persist every completed run so a window reload can restore it.
+    healerState.onDidChange(() => persistSnapshot(context)),
   );
+
+  // Restore the last verify results (if any) so a reload lands back on the
+  // health/cards view instead of the onboarding screen.
+  restoreSnapshot(context);
 
   context.subscriptions.push(
     vscode.commands.registerCommand('selectorHealer.init', () => runInit()),
@@ -642,6 +649,49 @@ function flattenSuggestions(byKey: Map<string, StoredSuggestion[]>): StoredSugge
   const out: StoredSuggestion[] = [];
   for (const list of byKey.values()) out.push(...list);
   return out;
+}
+
+/** JSON-safe form of a completed run, stored in workspaceState across reloads. */
+interface PersistedSnapshot {
+  results: VerificationResult[];
+  suggestions: Array<[string, StoredSuggestion[]]>;
+  explanations: Array<[string, string]>;
+  lastRunAt?: number;
+}
+
+/** Save the current completed run so a window reload can restore it. */
+function persistSnapshot(context: vscode.ExtensionContext): void {
+  const snap = healerState.snapshot;
+  if (snap.phase !== 'done') return;
+  const data: PersistedSnapshot = {
+    results: snap.results,
+    suggestions: [...snap.suggestionsByKey.entries()],
+    explanations: [...snap.explanationsById.entries()],
+    lastRunAt: snap.lastRunAt,
+  };
+  void context.workspaceState.update(SNAPSHOT_KEY, data);
+}
+
+/** Restore the last completed run into state, the suggestion store, and diagnostics. */
+function restoreSnapshot(context: vscode.ExtensionContext): void {
+  const data = context.workspaceState.get<PersistedSnapshot>(SNAPSHOT_KEY);
+  if (!data || !Array.isArray(data.results) || data.results.length === 0) return;
+
+  const suggestionsByKey = new Map(data.suggestions);
+  const explanationsById = new Map(data.explanations);
+  healerState.hydrate({
+    results: data.results,
+    suggestionsByKey,
+    explanationsById,
+    lastRunAt: data.lastRunAt,
+  });
+  storeSuggestions(flattenSuggestions(suggestionsByKey));
+  updateDiagnosticsFromResults(
+    diagnosticCollection,
+    data.results,
+    topSuggestionById(suggestionsByKey),
+    explanationsById,
+  );
 }
 
 /** Queue a debounced watch re-verify for the given saved files. */

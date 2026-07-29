@@ -46,3 +46,4 @@ test-results/
 # `.selector-healer/fingerprints.json` IS committed (the baseline).
 .selector-healer/report.html
 .selector-healer/screenshots/
+.playwright-mcp/

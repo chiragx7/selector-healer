@@ -1,6 +1,10 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { type VerificationResult, renderSelectorCode } from '@selector-healer/core';
+import {
+  type VerificationResult,
+  loadFingerprints,
+  renderSelectorCode,
+} from '@selector-healer/core';
 import * as vscode from 'vscode';
 import { revealSelector } from './apply.js';
 import type { StoredSuggestion } from './code-actions.js';
@@ -94,11 +98,24 @@ export function hasWorkspaceConfig(): boolean {
   return CONFIG_FILES.some((f) => existsSync(join(root, f)));
 }
 
+/**
+ * How many selectors have a captured baseline on disk. Lets the panel tell a
+ * genuinely-fresh project (offer Capture) apart from a reloaded one whose
+ * baseline already exists (offer Verify).
+ */
+export function baselineCount(): number {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!root) return 0;
+  const result = loadFingerprints(root);
+  return result.isOk() ? result.value.size : 0;
+}
+
 /** Shape a snapshot into the flat, sorted item list the webview renders. */
 export function serialize(snap: HealerSnapshot): {
   phase: string;
   counts: ReturnType<typeof countResults>;
   items: DashItem[];
+  lastRunAt?: number;
 } {
   const items: DashItem[] = snap.results.map((r) => {
     const sel = r.selector;
@@ -132,7 +149,12 @@ export function serialize(snap: HealerSnapshot): {
     return a.fileName.localeCompare(b.fileName) || a.line - b.line;
   });
 
-  return { phase: snap.phase, counts: countResults(snap.results), items };
+  return {
+    phase: snap.phase,
+    counts: countResults(snap.results),
+    items,
+    lastRunAt: snap.lastRunAt,
+  };
 }
 
 /**
@@ -245,6 +267,7 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .btn svg { flex: none; }
 .hpct { font-size: 30px; font-weight: 600; line-height: 1; }
 .hsub { font-size: 12px; color: var(--vscode-descriptionForeground); margin-left: 8px; }
+.lastrun { font-size: 11px; margin-top: 4px; }
 .hbar { display: flex; height: 8px; border-radius: 5px; overflow: hidden; margin: 11px 0 12px; background: rgba(128,128,128,.18); }
 .hbar > span { display: block; height: 100%; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
@@ -342,6 +365,7 @@ const ICON = {
 };
 
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function relTime(ms){ const s=Math.max(0,Math.round((Date.now()-ms)/1000)); if(s<60)return s+'s ago'; const m=Math.round(s/60); if(m<60)return m+'m ago'; const h=Math.round(m/60); if(h<24)return h+'h ago'; return Math.round(h/24)+'d ago'; }
 function barColor(p){return p>=80?'var(--ok)':p>=50?'var(--multi)':'var(--broken)';}
 function statusColor(s){return s==='broken'?'var(--broken)':s==='multiple-matches'?'var(--multi)':s==='ok'?'var(--ok)':'var(--skip)';}
 function post(type,extra){vscode.postMessage(Object.assign({type:type},extra||{}));}
@@ -376,6 +400,13 @@ function onboarding(){
       + '<div class="ob-note muted">Start by creating a config — it auto-detects your framework, base URL, and test directory.</div>'
       + '<button class="btn primary ob-cta" id="create-config">Create config</button></div>';
   }
+  // Baseline already on disk (e.g. after a reload) — offer Verify, not Capture.
+  if(lastState.baseline > 0){
+    return '<div class="ob">' + hero
+      + '<div class="ob-note muted"><b>'+lastState.baseline+'</b> selector'+(lastState.baseline===1?'':'s')+' have a captured baseline. Run Verify to check them against the live DOM.</div>'
+      + '<div class="ob-actions"><button class="btn primary ob-cta" id="run-verify">Verify now</button>'
+      + '<button class="btn ob-cta" id="run-capture">Re-capture</button></div></div>';
+  }
   const steps = [
     ['Capture', 'Snapshot your selectors as a baseline.'],
     ['Verify', 'Check them against the live DOM.'],
@@ -398,6 +429,7 @@ function renderResults(){
 
   let html = '<div><span class="hpct" style="color:'+barColor(c.healthPct)+'">'+c.healthPct+'%</span>'
     + '<span class="hsub">healthy · '+c.ok+' of '+c.total+' checked</span></div>';
+  if(lastState.lastRunAt) html += '<div class="lastrun muted">last verified '+relTime(lastState.lastRunAt)+'</div>';
   html += '<div class="hbar">'+seg(c.ok,'var(--ok)')+seg(c.broken,'var(--broken)')+seg(c.multi,'var(--multi)')+seg(c.skipped+c.failed,'var(--skip)')+'</div>';
   html += '<div class="chips">'+chip('var(--ok)',c.ok,'ok')
     + (c.broken?chip('var(--broken)',c.broken,'broken'):'')

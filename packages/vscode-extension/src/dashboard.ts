@@ -5,6 +5,7 @@ import {
   type CaptureSink,
   type CaptureStatus,
   type DashMessage,
+  baselineCount,
   buildWebviewHtml,
   handleWebviewMessage,
   hasWorkspaceConfig,
@@ -92,6 +93,7 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider, Captur
       payload: {
         ...serialize(healerState.snapshot),
         hasConfig: hasWorkspaceConfig(),
+        baseline: baselineCount(),
         watch: this.watchEnabled,
       },
       activate,

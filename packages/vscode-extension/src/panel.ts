@@ -5,6 +5,7 @@ import {
   type CaptureSink,
   type CaptureStatus,
   type DashMessage,
+  baselineCount,
   buildWebviewHtml,
   handleWebviewMessage,
   hasWorkspaceConfig,
@@ -111,6 +112,7 @@ export class DashboardPanel implements CaptureSink {
       payload: {
         ...serialize(healerState.snapshot),
         hasConfig: hasWorkspaceConfig(),
+        baseline: baselineCount(),
         watch: this.watchEnabled,
       },
       activate,

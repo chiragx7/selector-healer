@@ -171,6 +171,28 @@ class HealerStateStore {
     this.emitter.fire(this.current);
   }
 
+  /**
+   * Restore a previously-persisted "done" snapshot (e.g. after a window reload)
+   * so the panel lands back on the last verify results instead of onboarding.
+   *
+   * @param snapshot - the results, suggestions, explanations, and run time to restore
+   */
+  hydrate(snapshot: {
+    results: VerificationResult[];
+    suggestionsByKey: Map<string, StoredSuggestion[]>;
+    explanationsById: Map<string, string>;
+    lastRunAt?: number;
+  }): void {
+    this.current = {
+      phase: 'done',
+      results: snapshot.results,
+      suggestionsByKey: snapshot.suggestionsByKey,
+      explanationsById: snapshot.explanationsById,
+      lastRunAt: snapshot.lastRunAt,
+    };
+    this.emitter.fire(this.current);
+  }
+
   /** Clear all state back to idle. */
   reset(): void {
     this.current = emptySnapshot();
