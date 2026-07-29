@@ -654,7 +654,14 @@ async function runWatchVerify(files: string[]): Promise<void> {
   watchRunning = true;
   setWatch(watchStatusItem, 'running');
   try {
-    const results = await verifySelectors(selectors, { config, projectRoot: root });
+    // Verify by live match count (no baseline required) so selectors you're
+    // actively editing get instant valid/broken feedback. Heal still enriches
+    // any broken selector that does have a captured fingerprint.
+    const results = await verifySelectors(selectors, {
+      config,
+      projectRoot: root,
+      requireBaseline: false,
+    });
     const broken = results.filter((r) => r.status === 'broken');
     const built = await healToSuggestions(broken, config, root);
 
