@@ -373,6 +373,7 @@ let capture = null;      // { rows, summary }
 let baselineRows = null; // [{ display, captured, ... }] for the baseline view
 let mode = 'results';    // 'results' | 'capture' | 'baseline'
 let filter = 'all';      // all | broken | ambiguous | healthy
+let baselineFilter = 'all'; // all | captured | uncaptured
 
 const ICON = {
   why:  '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v3.4M8 4.7h.01" stroke-linecap="round"/></svg>',
@@ -411,6 +412,7 @@ function bind(){
   byId('p-capture',el=>el.onclick=()=>post('capture'));
   byId('p-watch',el=>el.onclick=()=>post('watchToggle'));
   document.querySelectorAll('[data-filter]').forEach(el=>el.onclick=()=>{filter=el.dataset.filter;render();});
+  document.querySelectorAll('[data-bfilter]').forEach(el=>el.onclick=()=>{baselineFilter=el.dataset.bfilter;render();});
   app.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('open',{filePath:d.file,line:+d.line,column:+d.col,rawValueLength:+d.len});});
   app.querySelectorAll('[data-apply]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('apply',{filePath:d.file,line:+d.line,column:+d.col,rawValue:d.raw,replacementCode:d.code});});
   app.querySelectorAll('[data-preview]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('preview',{filePath:d.file,line:+d.line,column:+d.col,rawValue:d.raw,replacementCode:d.code});});
@@ -577,17 +579,25 @@ function baselineRow(r){
 function renderBaseline(){
   const rows = baselineRows || [];
   const captured = rows.filter(r => r.captured).length;
+  const uncaptured = rows.length - captured;
   let html = '<div class="caphead"><div class="secttl" style="margin:0">Baseline</div><button class="link" id="baseline-back">← Results</button></div>';
   html += '<div class="muted" style="font-size:12px;margin-bottom:10px"><b>' + captured + '</b> of <b>' + rows.length + '</b> selectors captured</div>';
-  if(!rows.length) html += '<div class="empty muted">No selectors found — check the test directory in your config.</div>';
-  else html += '<div class="list">' + rows.map(baselineRow).join('') + '</div>';
+  if(!rows.length){
+    app.innerHTML = html + '<div class="empty muted">No selectors found — check the test directory in your config.</div>';
+    return;
+  }
+  const tabs = [['all','All',rows.length],['captured','Captured',captured],['uncaptured','Uncaptured',uncaptured]];
+  html += '<div class="filter">' + tabs.map(t => '<button class="seg' + (baselineFilter===t[0]?' on':'') + '" data-bfilter="' + t[0] + '">' + t[1] + (t[2]?'<span class="n">'+t[2]+'</span>':'') + '</button>').join('') + '</div>';
+  const shown = rows.filter(r => baselineFilter==='captured' ? r.captured : baselineFilter==='uncaptured' ? !r.captured : true);
+  if(!shown.length) html += '<div class="empty"><span class="big">✓</span>'+(baselineFilter==='uncaptured'?'Every selector has a baseline.':'Nothing here.')+'</div>';
+  else html += '<div class="list">' + shown.map(baselineRow).join('') + '</div>';
   app.innerHTML = html;
 }
 
 window.addEventListener('message', (e) => {
   const m = e.data;
   if(m.type==='state'){ lastState = m.payload; if(m.activate) mode='results'; render(); }
-  else if(m.type==='baselineData'){ baselineRows = m.rows; mode='baseline'; render(); }
+  else if(m.type==='baselineData'){ baselineRows = m.rows; baselineFilter='all'; mode='baseline'; render(); }
   else if(m.type==='captureSeed'){ capture = { rows: m.rows, summary: m.summary }; if(m.activate) mode='capture'; render(); }
   else if(m.type==='captureUpdate'){
     if(capture){ const r = capture.rows.find(x => x.selectorId===m.selectorId); if(r) r.status = m.status; }
