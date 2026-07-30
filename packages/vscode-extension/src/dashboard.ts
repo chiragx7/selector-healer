@@ -92,6 +92,11 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider, Captur
     this.postState(false);
   }
 
+  /** Show/hide the "re-verifying…" banner during a watch run. */
+  setVerifying(active: boolean, label?: string): void {
+    this.view?.webview.postMessage({ type: 'verifying', active, label });
+  }
+
   private postState(activate: boolean): void {
     this.view?.webview.postMessage({
       type: 'state',

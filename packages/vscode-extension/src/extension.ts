@@ -805,6 +805,11 @@ async function runWatchVerify(files: string[]): Promise<void> {
 
   watchRunning = true;
   setWatch(watchStatusItem, 'running');
+  const label =
+    testFiles.length === 1
+      ? `Re-verifying ${basename(testFiles[0] ?? '')}…`
+      : `Re-verifying ${testFiles.length} files…`;
+  notifyVerifying(true, label);
   try {
     // Verify by live match count (no baseline required) so selectors you're
     // actively editing get instant valid/broken feedback. Heal still enriches
@@ -837,10 +842,17 @@ async function runWatchVerify(files: string[]): Promise<void> {
     );
   } finally {
     watchRunning = false;
+    notifyVerifying(false);
     setWatch(watchStatusItem, watchEnabled ? 'on' : 'off');
     // Drain any saves that arrived mid-run.
     if (pendingWatchFiles.size > 0) scheduleWatchVerify([]);
   }
+}
+
+/** Show/hide the "re-verifying…" banner on every open surface. */
+function notifyVerifying(active: boolean, label?: string): void {
+  dashboard.setVerifying(active, label);
+  DashboardPanel.current?.setVerifying(active, label);
 }
 
 /** Toggle watch mode on/off, persisting the choice per workspace. */

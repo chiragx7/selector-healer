@@ -111,6 +111,11 @@ export class DashboardPanel implements CaptureSink {
     this.postState(false);
   }
 
+  /** Show/hide the "re-verifying…" banner during a watch run. */
+  setVerifying(active: boolean, label?: string): void {
+    this.panel.webview.postMessage({ type: 'verifying', active, label });
+  }
+
   private postState(activate: boolean): void {
     this.panel.webview.postMessage({
       type: 'state',

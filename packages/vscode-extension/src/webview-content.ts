@@ -267,6 +267,7 @@ export function buildWebviewHtml(cspSource: string, mode: WebviewMode): string {
 </head>
 <body data-mode="${mode}">
   ${header}
+  <div id="verifying-banner" class="vbanner" style="display:none"></div>
   <div id="app"><div class="empty">Loading…</div></div>
 <script nonce="${nonce}">${SCRIPT}</script>
 </body>
@@ -296,6 +297,7 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 9px; border-radius: 8px; background: var(--vscode-badge-background, rgba(128,128,128,.16)); }
 .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.vbanner { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px; color: var(--vscode-foreground); background: color-mix(in srgb, var(--run) 16%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--run) 34%, transparent); }
 .watch { display: flex; align-items: center; gap: 8px; background: color-mix(in srgb, var(--run) 13%, transparent); border: 1px solid color-mix(in srgb, var(--run) 32%, transparent); border-radius: 8px; padding: 7px 10px; margin-bottom: 14px; font-size: 12px; }
 .watch .dot { background: var(--run); animation: pulse 1.7s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .3; } }
@@ -602,6 +604,13 @@ function renderBaseline(){
 
 window.addEventListener('message', (e) => {
   const m = e.data;
+  if(m.type==='verifying'){
+    const b = document.getElementById('verifying-banner');
+    if(!b) return;
+    if(m.active){ b.innerHTML = '<span class="spinner"></span><span>'+esc(m.label||'Re-verifying…')+'</span>'; b.style.display='flex'; }
+    else { b.style.display='none'; b.innerHTML=''; }
+    return;
+  }
   if(m.type==='state'){ lastState = m.payload; if(m.activate) mode='results'; render(); }
   else if(m.type==='baselineData'){ baselineRows = m.rows; baselineFilter='all'; mode='baseline'; render(); }
   else if(m.type==='captureSeed'){ capture = { rows: m.rows, summary: m.summary }; if(m.activate) mode='capture'; render(); }
