@@ -3,6 +3,8 @@
  * `vscode` API so the path-matching and debounce timing are unit-testable.
  */
 
+import type { SelectorUsage } from '@selector-healer/core';
+
 const TEST_FILE_EXT = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
 
 /** Normalise a path for comparison: forward slashes, no trailing slash, lower-case. */
@@ -27,6 +29,47 @@ export function isTestFilePath(filePath: string, testDir: string): boolean {
   const f = norm(filePath);
   const d = norm(testDir);
   return f === d || f.startsWith(`${d}/`);
+}
+
+/**
+ * A signature capturing everything about a selector usage that affects what it
+ * matches. The core `id` only hashes `file:line:rawValue`, so for `getByRole`
+ * (whose accessible name lives in `options`, not `rawValue`) editing just the
+ * name — `{ name: 'Sign up' }` → `{ name: 'Sign down' }` — leaves the id
+ * unchanged. Appending `selectorType` + `options` makes such edits visible to
+ * change-detection, which would otherwise conclude "nothing changed".
+ *
+ * @param s - the selector usage to fingerprint
+ * @returns a stable string that differs whenever the selector's match target does
+ *
+ * @example
+ * selectorSignature({ id: 'x', selectorType: 'role', options: { name: 'Sign up' }, ... });
+ */
+export function selectorSignature(s: SelectorUsage): string {
+  return `${s.id}|${s.selectorType}|${JSON.stringify(s.options ?? {})}`;
+}
+
+/**
+ * The selectors the user actually edited since the last run: those whose
+ * {@link selectorSignature} at a given `file:line` differs from before (or are
+ * new). Lets watch re-verify only what changed and keep every untouched
+ * selector's existing result — so it never re-checks (or wrongly flags)
+ * auth-/interaction-gated selectors that weren't touched.
+ *
+ * @param prior - selectors from the last verified snapshot
+ * @param current - selectors freshly parsed from the saved file(s)
+ * @returns the subset of `current` whose signature changed (or is new)
+ *
+ * @example
+ * const changed = selectorsChangedSince(snapshot.map((r) => r.selector), parsed);
+ */
+export function selectorsChangedSince(
+  prior: readonly SelectorUsage[],
+  current: readonly SelectorUsage[],
+): SelectorUsage[] {
+  const priorSig = new Map<string, string>();
+  for (const s of prior) priorSig.set(`${s.filePath}:${s.line}`, selectorSignature(s));
+  return current.filter((s) => priorSig.get(`${s.filePath}:${s.line}`) !== selectorSignature(s));
 }
 
 /**

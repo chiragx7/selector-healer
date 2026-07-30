@@ -53,7 +53,7 @@ import {
   setRunning,
   setWatch,
 } from './status-bar.js';
-import { Debouncer, isTestFilePath } from './watch.js';
+import { Debouncer, isTestFilePath, selectorsChangedSince } from './watch.js';
 import type { BaselineRow, CaptureSink } from './webview-content.js';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
@@ -869,16 +869,15 @@ async function runWatchVerify(files: string[]): Promise<void> {
     return;
   }
 
-  // Re-verify ONLY the selectors the user actually changed — those whose identity
-  // (file:line:text) differs from what we last verified. Unchanged selectors keep
-  // their existing results, so watch never re-checks (or wrongly flags) auth- or
-  // interaction-gated selectors that weren't touched. A manual "Verify Now" still
-  // re-checks the whole suite thoroughly.
-  const priorIds = new Map<string, string>();
-  for (const r of healerState.snapshot.results) {
-    priorIds.set(`${r.selector.filePath}:${r.selector.line}`, r.selector.id);
-  }
-  const changed = selectors.filter((s) => priorIds.get(`${s.filePath}:${s.line}`) !== s.id);
+  // Re-verify ONLY the selectors the user actually changed (see
+  // selectorsChangedSince — full signature, so a getByRole `name` edit counts).
+  // Unchanged selectors keep their existing results, so watch never re-checks
+  // (or wrongly flags) auth-/interaction-gated selectors that weren't touched.
+  // A manual "Verify Now" still re-checks the whole suite.
+  const changed = selectorsChangedSince(
+    healerState.snapshot.results.map((r) => r.selector),
+    selectors,
+  );
   if (changed.length === 0) {
     outputChannel.appendLine(`[${time()}] watch: no selector changes to re-verify`);
     return;

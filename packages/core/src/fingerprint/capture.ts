@@ -2,6 +2,7 @@ import type { Page } from 'playwright';
 import { logger } from '../logger.js';
 import { launchBrowser, loadPlaywright } from '../playwright-loader.js';
 import type { DomFingerprint, HealerConfig, SelectorUsage } from '../types.js';
+import { toSourceFile } from './source-match.js';
 import { loadFingerprints, saveFingerprints } from './store.js';
 
 export interface CaptureResult {
@@ -41,6 +42,7 @@ async function captureElementFingerprint(
   page: Page,
   selector: SelectorUsage,
   pageUrl: string,
+  projectRoot: string,
 ): Promise<DomFingerprint | undefined> {
   const locator = buildLocator(page, selector);
 
@@ -113,6 +115,11 @@ async function captureElementFingerprint(
     ...snapshot,
     ...(boundingBox ? { boundingBox } : {}),
     pageUrl,
+    source: {
+      file: toSourceFile(projectRoot, selector.filePath),
+      line: selector.line,
+      column: selector.column,
+    },
   };
 }
 
@@ -195,7 +202,7 @@ export async function captureFingerprints(
     for (const sel of group) {
       onProgress?.({ selectorId: sel.id, status: 'capturing' });
       try {
-        const fp = await captureElementFingerprint(page, sel, url);
+        const fp = await captureElementFingerprint(page, sel, url, projectRoot);
         if (fp) {
           fingerprints.set(sel.id, fp);
           captured++;
@@ -256,7 +263,7 @@ export async function captureFingerprints(
           for (const sel of remaining) {
             onProgress?.({ selectorId: sel.id, status: 'capturing' });
             try {
-              const fp = await captureElementFingerprint(page, sel, currentUrl);
+              const fp = await captureElementFingerprint(page, sel, currentUrl, projectRoot);
               if (fp) {
                 fingerprints.set(sel.id, fp);
                 captured++;

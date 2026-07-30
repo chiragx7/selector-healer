@@ -1,4 +1,5 @@
 import type { Browser, BrowserContext, Page } from 'playwright';
+import { findOrphanBaseline } from '../fingerprint/source-match.js';
 import { loadFingerprints } from '../fingerprint/store.js';
 import { logger } from '../logger.js';
 import { launchBrowser, loadPlaywright } from '../playwright-loader.js';
@@ -74,7 +75,13 @@ export async function healSelectors(
 
   const storedById = new Map<string, DomFingerprint>();
   for (const result of toHeal) {
-    const stored = result.storedFingerprint ?? fingerprints.get(result.selector.id);
+    // Prefer the baseline verify already attached, then a direct lookup, then —
+    // for a renamed selector with no baseline of its own — the baseline captured
+    // for the previous value at this same line (see findOrphanBaseline).
+    const stored =
+      result.storedFingerprint ??
+      fingerprints.get(result.selector.id) ??
+      findOrphanBaseline(fingerprints, result.selector, projectRoot);
     if (stored) storedById.set(result.selector.id, stored);
   }
 
@@ -214,6 +221,24 @@ export async function healSelectors(
           'Failed to explain selector break',
         );
       }
+    }
+    // Lead with "renamed" only when we're *certain* the selector's own value was
+    // edited: the baseline we're using belongs to a different id at this same
+    // call site (findOrphanBaseline), which can only happen if the rawValue at
+    // this exact spot changed since capture. We deliberately do NOT infer a
+    // rename from "broken but the element looks unchanged" — that also matches an
+    // app-side change the fingerprint can't see (e.g. a getByLabel whose separate
+    // <label> element was renamed), and we won't tell the user they edited
+    // something they didn't. The suggestion is offered either way.
+    const recovered = stored !== undefined && stored.selectorId !== result.selector.id;
+    if (recovered && ranked.length > 0) {
+      explanation = [
+        {
+          kind: 'renamed',
+          summary: 'selector value changed since capture — this is the element it matched before',
+        },
+        ...explanation.filter((r) => r.kind !== 'removed' && r.kind !== 'renamed'),
+      ];
     }
     return {
       selectorId: result.selector.id,

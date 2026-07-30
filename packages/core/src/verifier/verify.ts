@@ -1,5 +1,6 @@
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { buildLocator } from '../fingerprint/capture.js';
+import { findOrphanBaseline } from '../fingerprint/source-match.js';
 import { loadFingerprints } from '../fingerprint/store.js';
 import { logger } from '../logger.js';
 import { launchBrowser, loadPlaywright } from '../playwright-loader.js';
@@ -56,7 +57,10 @@ export async function verifySelectors(
   const skippedResults: VerificationResult[] = [];
 
   for (const sel of selectors) {
-    const stored = fingerprints.get(sel.id);
+    // Direct baseline first; if the selector was renamed (its id changed), fall
+    // back to the baseline captured for the previous value at this same line so
+    // it's verified — and healed — rather than skipped as "unknown".
+    const stored = fingerprints.get(sel.id) ?? findOrphanBaseline(fingerprints, sel, projectRoot);
     if (stored) {
       toVerify.push({ selector: sel, stored });
     } else if (!requireBaseline) {

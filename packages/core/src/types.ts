@@ -78,6 +78,18 @@ export interface DomFingerprint {
   boundingBox?: { x: number; y: number; width: number; height: number };
   /** URL of the page where this element was captured. */
   pageUrl: string;
+  /**
+   * Source location of the selector this fingerprint was captured for: `file`
+   * is relative to the project root with forward slashes (portable across
+   * machines/OSes), `line`/`column` are the 1-indexed call site. Lets the healer
+   * recover a *renamed* selector: when the string inside a locator changes, its
+   * `selectorId` changes and the direct baseline lookup misses, but the
+   * fingerprint captured for the original value still sits at this
+   * `file:line:column` (renaming the argument doesn't move the call's start).
+   * Optional — absent on baselines captured before this feature, which simply
+   * won't be recoverable until re-captured.
+   */
+  source?: { file: string; line: number; column: number };
 }
 
 /**
@@ -127,7 +139,17 @@ export interface HealCandidate {
  */
 export interface BreakReason {
   /** Category of change, so the UI can icon and prioritise it. */
-  kind: 'removed' | 'tag' | 'testid' | 'id' | 'role' | 'text' | 'attribute' | 'moved' | 'position';
+  kind:
+    | 'removed'
+    | 'tag'
+    | 'testid'
+    | 'id'
+    | 'role'
+    | 'text'
+    | 'attribute'
+    | 'moved'
+    | 'position'
+    | 'renamed';
   /** One-line explanation, e.g. `text changed from "Save changes" to "Update Profile"`. */
   summary: string;
 }
