@@ -5,6 +5,7 @@ import {
   detectProjectConfig,
   healSelectors,
   loadFingerprints,
+  openHealerBrowser,
   parseDirectory,
   parseTestFile,
   renderConfigFile,
@@ -13,6 +14,7 @@ import {
 } from '@selector-healer/core';
 import type {
   DomFingerprint,
+  HealerBrowser,
   HealerConfig,
   SelectorUsage,
   VerificationResult,
@@ -68,6 +70,10 @@ let watchEnabled = false;
 let watchRunning = false;
 const watchDebouncer = new Debouncer(WATCH_DEBOUNCE_MS);
 const pendingWatchFiles = new Set<string>();
+// A warm browser kept alive while watch is on, reused across saves so each
+// re-verify skips the ~1s cold Chromium launch. Opened lazily, closed on
+// watch-off / config change / deactivate.
+let watchBrowser: HealerBrowser | undefined;
 
 const DOC_SELECTOR: vscode.DocumentSelector = [
   { language: 'typescript', scheme: 'file' },
@@ -170,6 +176,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
       maybeParse(doc);
+      // A config edit invalidates the warm watch browser (baseUrl / browser /
+      // globalSetup may have changed) — reopen on the next run.
+      if (CONFIG_FILES.includes(basename(doc.uri.fsPath))) void closeWatchBrowser();
       if (watchEnabled && TS_LANGS.has(doc.languageId)) scheduleWatchVerify([doc.uri.fsPath]);
     }),
     vscode.workspace.onDidOpenTextDocument((doc) => maybeParse(doc)),
@@ -187,6 +196,7 @@ export function activate(context: vscode.ExtensionContext): void {
 export function deactivate(): void {
   watchDebouncer.cancel();
   pendingWatchFiles.clear();
+  void closeWatchBrowser();
   clearSuggestions();
   healerState.reset();
 }
@@ -641,6 +651,7 @@ async function healToSuggestions(
   broken: VerificationResult[],
   config: HealerConfig,
   root: string,
+  context?: Awaited<ReturnType<typeof ensureWatchBrowser>>,
 ): Promise<BuiltHeal> {
   const suggestionMap = new Map<string, string>();
   const explanationMap = new Map<string, string>();
@@ -650,7 +661,7 @@ async function healToSuggestions(
     return { suggestionMap, explanationMap, suggestionsByKey, allSuggestions };
   }
 
-  const healResults = await healSelectors(broken, { config, projectRoot: root });
+  const healResults = await healSelectors(broken, { config, projectRoot: root, context });
   for (const h of healResults) {
     // The top break reason (why it broke) — shown in the diagnostic message.
     if (h.explanation?.[0]) explanationMap.set(h.selectorId, h.explanation[0].summary);
@@ -762,6 +773,34 @@ function restoreSnapshot(context: vscode.ExtensionContext): void {
   );
 }
 
+/** Lazily open (and reuse) the warm watch browser; returns its context, or undefined on failure. */
+async function ensureWatchBrowser(config: HealerConfig, root: string) {
+  if (!watchBrowser) {
+    try {
+      watchBrowser = await openHealerBrowser(config, root);
+      outputChannel.appendLine(`[${time()}] Watch: opened a warm browser session`);
+    } catch (e) {
+      outputChannel.appendLine(
+        `[${time()}] Watch: warm browser unavailable (${e instanceof Error ? e.message : String(e)}); using a fresh browser per run`,
+      );
+      watchBrowser = undefined;
+    }
+  }
+  return watchBrowser?.context;
+}
+
+/** Tear down the warm watch browser (on watch-off, config change, or deactivate). */
+async function closeWatchBrowser(): Promise<void> {
+  const session = watchBrowser;
+  if (!session) return;
+  watchBrowser = undefined;
+  try {
+    await session.close();
+  } catch {
+    // Already gone — nothing to do.
+  }
+}
+
 /** Queue a debounced watch re-verify for the given saved files. */
 function scheduleWatchVerify(files: string[]): void {
   for (const f of files) pendingWatchFiles.add(f);
@@ -811,6 +850,8 @@ async function runWatchVerify(files: string[]): Promise<void> {
       : `Re-verifying ${testFiles.length} files…`;
   notifyVerifying(true, label);
   try {
+    // Reuse the warm browser so this save skips the cold Chromium launch.
+    const context = await ensureWatchBrowser(config, root);
     // Verify by live match count (no baseline required) so selectors you're
     // actively editing get instant valid/broken feedback. Heal still enriches
     // any broken selector that does have a captured fingerprint.
@@ -818,9 +859,10 @@ async function runWatchVerify(files: string[]): Promise<void> {
       config,
       projectRoot: root,
       requireBaseline: false,
+      context,
     });
     const broken = results.filter((r) => r.status === 'broken');
-    const built = await healToSuggestions(broken, config, root);
+    const built = await healToSuggestions(broken, config, root, context);
 
     healerState.mergeResults(results, built.suggestionsByKey, built.explanationMap);
     // Rebuild the code-action store from the merged state so this file's new
@@ -840,6 +882,9 @@ async function runWatchVerify(files: string[]): Promise<void> {
     outputChannel.appendLine(
       `[${time()}] Watch error: ${e instanceof Error ? e.message : String(e)}`,
     );
+    // The warm browser may have crashed or been closed — discard it so the next
+    // save reopens a fresh one rather than failing on a dead context.
+    void closeWatchBrowser();
   } finally {
     watchRunning = false;
     notifyVerifying(false);
@@ -869,6 +914,7 @@ async function toggleWatch(context: vscode.ExtensionContext): Promise<void> {
   } else {
     watchDebouncer.cancel();
     pendingWatchFiles.clear();
+    void closeWatchBrowser();
     vscode.window.showInformationMessage('Selector Healer: watch off.');
   }
 }

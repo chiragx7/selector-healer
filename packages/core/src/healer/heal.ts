@@ -1,4 +1,4 @@
-import type { Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { loadFingerprints } from '../fingerprint/store.js';
 import { logger } from '../logger.js';
 import { launchBrowser, loadPlaywright } from '../playwright-loader.js';
@@ -26,6 +26,12 @@ export interface HealOptions {
    * re-timed-out) — a meaningful speedup on the broken-auth path.
    */
   unreachablePages?: Set<string>;
+  /**
+   * A pre-opened browser context to reuse (the extension's warm watch session).
+   * When provided, heal uses it and does **not** launch/close a browser or re-run
+   * `globalSetup`. When omitted, a fresh browser is launched and closed per call.
+   */
+  context?: BrowserContext;
 }
 
 const MAX_CANDIDATES = 3;
@@ -72,12 +78,20 @@ export async function healSelectors(
     if (stored) storedById.set(result.selector.id, stored);
   }
 
-  const pw = await loadPlaywright(projectRoot);
-  const browser = await launchBrowser(pw, config);
-  const context = await browser.newContext();
-
-  if (config.globalSetup) {
-    await config.globalSetup(context);
+  // Reuse a caller-provided context (warm watch session) when given; otherwise
+  // launch a fresh browser for this run and close it at the end.
+  const ownsBrowser = options.context === undefined;
+  let browser: Browser | undefined;
+  let context: BrowserContext;
+  if (options.context) {
+    context = options.context;
+  } else {
+    const pw = await loadPlaywright(projectRoot);
+    browser = await launchBrowser(pw, config);
+    context = await browser.newContext();
+    if (config.globalSetup) {
+      await config.globalSetup(context);
+    }
   }
 
   // selectorId -> every scored candidate found for it, across all pages scanned.
@@ -171,8 +185,10 @@ export async function healSelectors(
     }
   }
 
-  await context.close();
-  await browser.close();
+  if (ownsBrowser) {
+    await context.close();
+    await browser?.close();
+  }
 
   // One suggestion per selector: globally best candidates, deduped by code, with
   // any no-op "fix" (a candidate identical to the selector it would replace)

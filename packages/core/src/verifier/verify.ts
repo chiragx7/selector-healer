@@ -1,4 +1,4 @@
-import type { Page } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { buildLocator } from '../fingerprint/capture.js';
 import { loadFingerprints } from '../fingerprint/store.js';
 import { logger } from '../logger.js';
@@ -22,6 +22,14 @@ export interface VerifyOptions {
    * identity and therefore no baseline yet. Defaults to `true`.
    */
   requireBaseline?: boolean;
+  /**
+   * A pre-opened browser context to reuse (e.g. the extension's warm watch
+   * session from {@link openHealerBrowser}). When provided, verify uses it and
+   * does **not** launch/close a browser or re-run `globalSetup` — the caller owns
+   * that lifecycle. When omitted, a fresh browser is launched and closed per call
+   * (the default for the CLI and one-off runs).
+   */
+  context?: BrowserContext;
 }
 
 export async function verifySelectors(
@@ -73,12 +81,20 @@ export async function verifySelectors(
     return skippedResults;
   }
 
-  const pw = await loadPlaywright(projectRoot);
-  const browser = await launchBrowser(pw, config);
-  const context = await browser.newContext();
-
-  if (config.globalSetup) {
-    await config.globalSetup(context);
+  // Reuse a caller-provided context (warm watch session) when given; otherwise
+  // launch a fresh browser for this run and close it at the end.
+  const ownsBrowser = options.context === undefined;
+  let browser: Browser | undefined;
+  let context: BrowserContext;
+  if (options.context) {
+    context = options.context;
+  } else {
+    const pw = await loadPlaywright(projectRoot);
+    browser = await launchBrowser(pw, config);
+    context = await browser.newContext();
+    if (config.globalSetup) {
+      await config.globalSetup(context);
+    }
   }
 
   const results: VerificationResult[] = [];
@@ -239,8 +255,10 @@ export async function verifySelectors(
     }
   }
 
-  await context.close();
-  await browser.close();
+  if (ownsBrowser) {
+    await context.close();
+    await browser?.close();
+  }
 
   return [...results, ...skippedResults];
 }

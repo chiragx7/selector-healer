@@ -1,4 +1,4 @@
-import type { Browser } from 'playwright';
+import type { Browser, BrowserContext } from 'playwright';
 import type { HealerConfig } from './types.js';
 
 /** Minimal shape of the Playwright module we use (browser launchers). */
@@ -67,4 +67,45 @@ async function resolveFrom(
 export async function launchBrowser(pw: PlaywrightModule, config: HealerConfig): Promise<Browser> {
   const browserType = config.browser ?? 'chromium';
   return pw[browserType].launch({ headless: config.headless ?? true });
+}
+
+/** A reusable browser session: an open context plus a `close()` that tears down both. */
+export interface HealerBrowser {
+  context: BrowserContext;
+  close(): Promise<void>;
+}
+
+/**
+ * Open a browser context for **repeated** verify/heal runs (e.g. the VS Code
+ * watch session). Launches the configured browser, creates a context, and
+ * applies `globalSetup` once. Pass the returned `context` to
+ * {@link verifySelectors}/{@link healSelectors} to skip the ~1s cold launch on
+ * every run; call `close()` when done (e.g. when watch mode is turned off).
+ *
+ * @param config - healer config (browser, headless, globalSetup)
+ * @param projectRoot - project whose Playwright install to resolve
+ * @returns the open context and a `close()` that disposes the context + browser
+ *
+ * @example
+ * const session = await openHealerBrowser(config, root);
+ * await verifySelectors(sels, { config, projectRoot: root, context: session.context });
+ * await session.close();
+ */
+export async function openHealerBrowser(
+  config: HealerConfig,
+  projectRoot: string,
+): Promise<HealerBrowser> {
+  const pw = await loadPlaywright(projectRoot);
+  const browser = await launchBrowser(pw, config);
+  const context = await browser.newContext();
+  if (config.globalSetup) {
+    await config.globalSetup(context);
+  }
+  return {
+    context,
+    close: async () => {
+      await context.close();
+      await browser.close();
+    },
+  };
 }

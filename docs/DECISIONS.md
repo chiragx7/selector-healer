@@ -312,3 +312,11 @@ Format: append-only, newest at the bottom of each day's section. Never rewrite h
 ### Fragility diagnostics are Information severity, on the authoring path
 **Choice:** Fragility diagnostics use `Information` severity and are emitted from the on-open/on-save parse path (not the verify path). They never gate CI by default (`lint --strict` opts in).
 **Why:** Fragility is advice, not a failure — `Error`/`Warning` would cause noise and false CI breaks. Surfacing during authoring is where the nudge changes behavior; after a verify run, the broken/heal diagnostics take precedence.
+
+## 2026-07-30 — Warm browser for watch mode
+
+### Reuse one browser across watch re-verifies instead of relaunching
+**Choice:** `verifySelectors`/`healSelectors` gained an optional pre-opened `context`; a new `openHealerBrowser(config, root)` returns a reusable context (browser launched + `globalSetup` applied once) plus a `close()`. The VS Code extension keeps one such session alive while watch mode is on and passes its context to every watch re-verify, so each save skips the cold Chromium launch. The session opens lazily on the first watch run and closes on watch-off, config-file save, or deactivate; on a run error it's discarded and reopened next time (crash recovery). The CLI and manual runs pass no context, so their behaviour is unchanged (launch + close per call).
+**Why:** Each watch save was cold-launching Chromium for verify and again for heal (~1s each) — the dominant cost of the "why is this slow?" wait. A warm, reused context cuts that to zero after the first save. Verify and heal already close their pages, so a reused context doesn't leak.
+**Trade-off:** a headless Chromium stays alive while watch is on (~150 MB), closed the moment watch turns off. Standard for watch tooling, and opt-in (watch is off by default).
+**Alternatives considered:** (1) Share a browser only within a single run (verify + heal) — smaller win, no idle process, but still relaunches every save. (2) Skip heal in watch — drops instant suggestions. (3) Leave as-is — the slowness users reported.

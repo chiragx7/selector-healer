@@ -30,6 +30,8 @@ export {
   bestSelectorType,
 } from './healer/index.js';
 export type { HealOptions, ScoreResult, ScoringRule, RuleScore } from './healer/index.js';
+export { openHealerBrowser } from './playwright-loader.js';
+export type { HealerBrowser } from './playwright-loader.js';
 export { detectProjectConfig, renderConfigFile } from './init/index.js';
 export type { ProjectDetection, GeneratedConfig } from './init/index.js';
 export { rateSelectorRobustness, rateSelectorType, lintSelectors } from './lint/index.js';
