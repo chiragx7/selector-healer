@@ -890,6 +890,9 @@ async function runWatchVerify(files: string[]): Promise<void> {
       projectRoot: root,
       requireBaseline: false,
       context,
+      // Watch is a fast page-level check — skip the expensive config-page
+      // (auth/setup) sweep; a manual Verify covers those thoroughly.
+      skipConfiguredPages: true,
     });
     const tVerify = Date.now();
     const broken = results.filter((r) => r.status === 'broken');

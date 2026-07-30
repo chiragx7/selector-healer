@@ -30,6 +30,14 @@ export interface VerifyOptions {
    * (the default for the CLI and one-off runs).
    */
   context?: BrowserContext;
+  /**
+   * Skip the Phase-2 retry that re-runs every `config.pages` setup (e.g. logging
+   * in) to reach auth/interaction-gated selectors. That sweep is expensive — a
+   * full setup + navigation per configured page — so watch mode skips it for a
+   * fast page-level check; selectors only reachable behind a setup stay whatever
+   * Phase 1 found. Defaults to `false` (the thorough behaviour for manual/CLI runs).
+   */
+  skipConfiguredPages?: boolean;
 }
 
 export async function verifySelectors(
@@ -108,7 +116,7 @@ export async function verifySelectors(
       await page.goto(url, { timeout: config.timeout ?? 30_000, waitUntil: 'domcontentloaded' });
       // SPA settle: count() does not auto-wait, so let client-rendered apps finish
       // rendering before we count matches. Non-fatal if networkidle never fires.
-      await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+      await page.waitForLoadState('networkidle', { timeout: 1_000 }).catch(() => {});
     } catch (e) {
       for (const { selector, stored } of group) {
         results.push({
@@ -140,8 +148,10 @@ export async function verifySelectors(
     await page.close();
   }
 
-  // Phase 2: Retry non-ok selectors on configured pages (auth, interactions)
-  if (config.pages && config.pages.length > 0) {
+  // Phase 2: Retry non-ok selectors on configured pages (auth, interactions).
+  // Skipped in watch mode — that sweep re-runs every page's setup (login, etc.)
+  // and is the dominant cost; watch trades it for speed.
+  if (!options.skipConfiguredPages && config.pages && config.pages.length > 0) {
     const verifiedIds = new Set<string>();
     for (const r of results) {
       if (r.status === 'ok') {
@@ -202,7 +212,7 @@ export async function verifySelectors(
           continue;
         }
 
-        await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+        await page.waitForLoadState('networkidle', { timeout: 1_000 }).catch(() => {});
         const currentUrl = page.url();
         logger.info(
           { page: pageConfig.name ?? pageConfig.url, url: currentUrl, selectors: remaining.length },
