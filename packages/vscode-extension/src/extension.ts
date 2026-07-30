@@ -868,7 +868,24 @@ async function runWatchVerify(files: string[]): Promise<void> {
     );
     return;
   }
-  outputChannel.appendLine(`[${time()}] watch: verifying ${selectors.length} selector(s)…`);
+
+  // Re-verify ONLY the selectors the user actually changed — those whose identity
+  // (file:line:text) differs from what we last verified. Unchanged selectors keep
+  // their existing results, so watch never re-checks (or wrongly flags) auth- or
+  // interaction-gated selectors that weren't touched. A manual "Verify Now" still
+  // re-checks the whole suite thoroughly.
+  const priorIds = new Map<string, string>();
+  for (const r of healerState.snapshot.results) {
+    priorIds.set(`${r.selector.filePath}:${r.selector.line}`, r.selector.id);
+  }
+  const changed = selectors.filter((s) => priorIds.get(`${s.filePath}:${s.line}`) !== s.id);
+  if (changed.length === 0) {
+    outputChannel.appendLine(`[${time()}] watch: no selector changes to re-verify`);
+    return;
+  }
+  outputChannel.appendLine(
+    `[${time()}] watch: verifying ${changed.length} changed of ${selectors.length} selector(s)…`,
+  );
 
   watchRunning = true;
   setWatch(watchStatusItem, 'running');
@@ -885,14 +902,11 @@ async function runWatchVerify(files: string[]): Promise<void> {
     // Verify by live match count (no baseline required) so selectors you're
     // actively editing get instant valid/broken feedback. Heal still enriches
     // any broken selector that does have a captured fingerprint.
-    const results = await verifySelectors(selectors, {
+    const results = await verifySelectors(changed, {
       config,
       projectRoot: root,
       requireBaseline: false,
       context,
-      // Watch is a fast page-level check — skip the expensive config-page
-      // (auth/setup) sweep; a manual Verify covers those thoroughly.
-      skipConfiguredPages: true,
     });
     const tVerify = Date.now();
     const broken = results.filter((r) => r.status === 'broken');
