@@ -63,7 +63,7 @@ let outputChannel: vscode.OutputChannel;
 let dashboard: DashboardViewProvider;
 
 // ── Watch mode: auto re-verify a test file when it's saved (opt-in) ──────────
-const WATCH_DEBOUNCE_MS = 700;
+const WATCH_DEBOUNCE_MS = 400;
 const WATCH_STATE_KEY = 'selectorHealer.watch';
 const SNAPSHOT_KEY = 'selectorHealer.lastSnapshot';
 let watchEnabled = false;
@@ -849,9 +849,11 @@ async function runWatchVerify(files: string[]): Promise<void> {
       ? `Re-verifying ${basename(testFiles[0] ?? '')}…`
       : `Re-verifying ${testFiles.length} files…`;
   notifyVerifying(true, label);
+  const t0 = Date.now();
   try {
     // Reuse the warm browser so this save skips the cold Chromium launch.
     const context = await ensureWatchBrowser(config, root);
+    const tReady = Date.now();
     // Verify by live match count (no baseline required) so selectors you're
     // actively editing get instant valid/broken feedback. Heal still enriches
     // any broken selector that does have a captured fingerprint.
@@ -861,8 +863,10 @@ async function runWatchVerify(files: string[]): Promise<void> {
       requireBaseline: false,
       context,
     });
+    const tVerify = Date.now();
     const broken = results.filter((r) => r.status === 'broken');
     const built = await healToSuggestions(broken, config, root, context);
+    const tHeal = Date.now();
 
     healerState.mergeResults(results, built.suggestionsByKey, built.explanationMap);
     // Rebuild the code-action store from the merged state so this file's new
@@ -875,8 +879,11 @@ async function runWatchVerify(files: string[]): Promise<void> {
       topSuggestionById(snap.suggestionsByKey),
       snap.explanationsById,
     );
+    // Per-phase timings so the bottleneck is visible in the Output channel.
     outputChannel.appendLine(
-      `[${time()}] Watch: re-verified ${testFiles.map((f) => basename(f)).join(', ')} — ${broken.length} broken`,
+      `[${time()}] Watch: ${broken.length} broken in ${testFiles.map((f) => basename(f)).join(', ')} · ` +
+        `browser ${tReady - t0}ms · verify ${tVerify - tReady}ms (${selectors.length} sel) · ` +
+        `heal ${tHeal - tVerify}ms (${broken.length} broken) · total ${tHeal - t0}ms`,
     );
   } catch (e) {
     outputChannel.appendLine(
