@@ -93,6 +93,7 @@ export function activate(context: vscode.ExtensionContext): void {
   watchEnabled = context.workspaceState.get(WATCH_STATE_KEY, false);
   setWatch(watchStatusItem, watchEnabled ? 'on' : 'off');
   outputChannel = vscode.window.createOutputChannel('Selector Healer');
+  outputChannel.appendLine(`[${time()}] Selector Healer activated · watch-diagnostics build`);
   dashboard = new DashboardViewProvider(context.extensionUri);
   dashboard.setWatch(watchEnabled);
   const healPreview = new HealPreviewProvider();
@@ -179,7 +180,12 @@ export function activate(context: vscode.ExtensionContext): void {
       // A config edit invalidates the warm watch browser (baseUrl / browser /
       // globalSetup may have changed) — reopen on the next run.
       if (CONFIG_FILES.includes(basename(doc.uri.fsPath))) void closeWatchBrowser();
-      if (watchEnabled && TS_LANGS.has(doc.languageId)) scheduleWatchVerify([doc.uri.fsPath]);
+      if (TS_LANGS.has(doc.languageId)) {
+        outputChannel.appendLine(
+          `[${time()}] saved ${basename(doc.uri.fsPath)} · watch=${watchEnabled ? 'on' : 'off'}`,
+        );
+        if (watchEnabled) scheduleWatchVerify([doc.uri.fsPath]);
+      }
     }),
     vscode.workspace.onDidOpenTextDocument((doc) => maybeParse(doc)),
     // Scan the file the user switches to — `onDidOpen` does NOT fire for editors
@@ -818,29 +824,51 @@ function scheduleWatchVerify(files: string[]): void {
  * status item shows a spinner while it runs.
  */
 async function runWatchVerify(files: string[]): Promise<void> {
+  outputChannel.appendLine(
+    `[${time()}] watch fired for ${files.map((f) => basename(f)).join(', ')}`,
+  );
   // A watch verify is already in flight — requeue and let the current run drain it.
   if (watchRunning) {
+    outputChannel.appendLine(`[${time()}] watch skip: a run is already in progress`);
     for (const f of files) pendingWatchFiles.add(f);
     return;
   }
   // A manual "Verify Now" or an apply re-verify is running — it already covers
   // this file, so drop the watch request rather than double-verifying.
-  if (healerState.snapshot.phase === 'running') return;
+  if (healerState.snapshot.phase === 'running') {
+    outputChannel.appendLine(`[${time()}] watch skip: a verify is already running`);
+    return;
+  }
 
   const root = getWorkspaceRoot();
-  if (!root) return;
+  if (!root) {
+    outputChannel.appendLine(`[${time()}] watch skip: no workspace folder`);
+    return;
+  }
   const config = await loadConfig(true);
-  if (!config) return;
+  if (!config) {
+    outputChannel.appendLine(`[${time()}] watch skip: no config found`);
+    return;
+  }
 
   const testFiles = files.filter((f) => isTestFilePath(f, config.testDir));
-  if (testFiles.length === 0) return;
+  if (testFiles.length === 0) {
+    outputChannel.appendLine(`[${time()}] watch skip: not under testDir (${config.testDir})`);
+    return;
+  }
 
   const selectors: SelectorUsage[] = [];
   for (const f of testFiles) {
     const parsed = parseTestFile(f);
     if (parsed.isOk()) selectors.push(...parsed.value);
   }
-  if (selectors.length === 0) return;
+  if (selectors.length === 0) {
+    outputChannel.appendLine(
+      `[${time()}] watch skip: no selectors parsed from ${testFiles.length} file(s)`,
+    );
+    return;
+  }
+  outputChannel.appendLine(`[${time()}] watch: verifying ${selectors.length} selector(s)…`);
 
   watchRunning = true;
   setWatch(watchStatusItem, 'running');
