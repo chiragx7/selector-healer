@@ -10,6 +10,8 @@ export interface StoredSuggestion {
   rawValue: string;
   replacementCode: string;
   confidence: number;
+  /** Why this candidate scored as it did (from the healer). Shown when comparing alternatives. */
+  reasoning?: string;
 }
 
 const suggestionStore = new Map<string, StoredSuggestion[]>();

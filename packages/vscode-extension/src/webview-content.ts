@@ -25,6 +25,8 @@ export interface DashItem {
   status: VerificationResult['status'];
   matchCount: number;
   suggestion?: { code: string; pct: number };
+  /** Runner-up heal candidates (2nd, 3rd), so the user can pick a different fix. */
+  alternatives?: Array<{ code: string; pct: number; reasoning?: string }>;
   /** Top "why it broke" reason, shown inline on the card. */
   reason?: string;
   error?: string;
@@ -138,7 +140,8 @@ export function serialize(snap: HealerSnapshot): {
 } {
   const items: DashItem[] = snap.results.map((r) => {
     const sel = r.selector;
-    const top = snap.suggestionsByKey.get(`${sel.filePath}:${sel.line}`)?.[0];
+    const cands = snap.suggestionsByKey.get(`${sel.filePath}:${sel.line}`) ?? [];
+    const [top, ...rest] = cands;
     return {
       selectorId: sel.id,
       filePath: sel.filePath,
@@ -155,6 +158,14 @@ export function serialize(snap: HealerSnapshot): {
       matchCount: r.matchCount,
       suggestion: top
         ? { code: top.replacementCode, pct: Math.round(top.confidence * 100) }
+        : undefined,
+      // Runner-up candidates (deduped by code against the top) for "preview all".
+      alternatives: rest.length
+        ? rest.map((c) => ({
+            code: c.replacementCode,
+            pct: Math.round(c.confidence * 100),
+            reasoning: c.reasoning,
+          }))
         : undefined,
       reason: snap.explanationsById.get(sel.id),
       error: r.error,
@@ -324,6 +335,13 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .actions { display: flex; gap: 6px; margin-top: 9px; }
 .actions .btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; }
 .actions .btn.icon { flex: 0 0 32px; padding: 5px; }
+.alts { margin-top: 9px; }
+.alts > summary { cursor: pointer; font-size: 11px; color: var(--vscode-textLink-foreground); padding: 3px 0; user-select: none; }
+.alts > summary:hover { text-decoration: underline; }
+.alt { border-top: 1px dashed var(--vscode-panel-border, rgba(128,128,128,.25)); padding: 8px 0 2px; margin-top: 8px; }
+.alt .fixhead { font-size: 10.5px; }
+.alt .code { margin-top: 4px; }
+.alt-why { font-size: 11px; margin-top: 6px; line-height: 1.4; display: flex; }
 .compact { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.1)); }
 .compact .csel { margin-left: auto; max-width: 52%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .hint { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; }
@@ -499,7 +517,8 @@ function filtered(items){
 }
 
 function badgeText(s){ return s==='broken'?'broken':s==='multiple-matches'?'ambiguous':s==='page-load-failed'?'page failed':'no baseline'; }
-function dataAttrs(it){ return 'data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-raw="'+esc(it.rawValue)+'" data-code="'+esc(it.suggestion.code)+'"'; }
+function applyAttrs(it,code){ return 'data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-raw="'+esc(it.rawValue)+'" data-code="'+esc(code)+'"'; }
+function dataAttrs(it){ return applyAttrs(it, it.suggestion.code); }
 function openAttrs(it){ return 'data-open data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-len="'+it.rawValueLength+'"'; }
 
 function card(it){
@@ -519,6 +538,24 @@ function card(it){
       + '<button class="btn" data-preview '+dataAttrs(it)+'>'+ICON.diff+' Preview</button>'
       + '<button class="btn icon" title="Open in editor" '+openAttrs(it)+'>'+ICON.open+'</button>'
       + '</div>';
+    // Runner-up candidates — collapsed by default so the top fix stays the focus,
+    // but one click away when the best guess isn't the one you want.
+    if(it.alternatives && it.alternatives.length){
+      const n = it.alternatives.length;
+      h += '<details class="alts"><summary>'+n+' other match'+(n>1?'es':'')+'</summary>'
+        + it.alternatives.map(a => {
+            const apc = barColor(a.pct), aok = a.pct>=50;
+            return '<div class="alt"><div class="fixhead"><span class="muted">alternative</span><span style="color:'+apc+'">'+a.pct+'%</span></div>'
+              + '<div class="code mono" style="color:var(--vscode-foreground)">'+esc(a.code)+'</div>'
+              + '<div class="confbar"><span style="width:'+a.pct+'%;background:'+apc+'"></span></div>'
+              + (a.reasoning ? '<div class="alt-why muted">'+esc(a.reasoning)+'</div>' : '')
+              + '<div class="actions">'
+              + (aok ? '<button class="btn primary" data-apply '+applyAttrs(it,a.code)+'>'+ICON.check+' Apply</button>' : '')
+              + '<button class="btn" data-preview '+applyAttrs(it,a.code)+'>'+ICON.diff+' Preview</button>'
+              + '</div></div>';
+          }).join('')
+        + '</details>';
+    }
   } else if(it.status==='broken') h += '<div class="hint">No replacement found — the element may be gone, hidden, or only present after a setup step.</div>';
   else if(it.status==='multiple-matches') h += '<div class="hint">Matches '+it.matchCount+' elements — make this selector more specific.</div>';
   else if(it.status==='page-load-failed') h += '<div class="hint">'+esc(it.error || "Couldn't reach this page.")+'</div>';
