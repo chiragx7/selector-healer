@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { healerState } from './state.js';
+import { activeResults } from './webview-content.js';
 
 /**
  * Editor gutter + overview-ruler decorations that mark each selector line with a
@@ -68,7 +69,8 @@ function applyTo(editor: vscode.TextEditor): void {
     skipped: [],
   };
 
-  for (const r of healerState.snapshot.results) {
+  // activeResults, not .results: a Skipped selector loses its gutter dot too.
+  for (const r of activeResults(healerState.snapshot)) {
     if (r.selector.filePath !== path) continue;
     const lineIdx = r.selector.line - 1;
     if (lineIdx < 0 || lineIdx >= lineCount) continue;

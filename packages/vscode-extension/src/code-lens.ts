@@ -1,6 +1,7 @@
 import type { VerificationResult } from '@selector-healer/core';
 import * as vscode from 'vscode';
 import { healerState } from './state.js';
+import { activeResults } from './webview-content.js';
 
 /**
  * Shows an inline CodeLens above every verified selector:
@@ -24,7 +25,8 @@ export class SelectorCodeLensProvider implements vscode.CodeLensProvider {
     const lineCount = document.lineCount;
     const lenses: vscode.CodeLens[] = [];
 
-    for (const r of healerState.snapshot.results) {
+    // activeResults, not .results: a Skipped selector shows no CodeLens either.
+    for (const r of activeResults(healerState.snapshot)) {
       if (r.selector.filePath !== path) continue;
       const lineIdx = r.selector.line - 1;
       if (lineIdx < 0 || lineIdx >= lineCount) continue;

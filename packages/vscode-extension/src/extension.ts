@@ -58,6 +58,9 @@ import { activeResults } from './webview-content.js';
 import type { BaselineRow, CaptureSink, HistoryRow } from './webview-content.js';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
+// Verify diagnostics (rebuilt wholesale on state change) live in their own
+// collection so they never clobber the on-save fragility/no-baseline lint below.
+let lintDiagnosticCollection: vscode.DiagnosticCollection;
 let statusBarItem: vscode.StatusBarItem;
 let watchStatusItem: vscode.StatusBarItem;
 let outputChannel: vscode.OutputChannel;
@@ -90,6 +93,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Heal history persists in the workspace's Memento (local-first, survives reloads).
   healHistory.init(context.workspaceState);
   diagnosticCollection = createDiagnosticCollection();
+  lintDiagnosticCollection = vscode.languages.createDiagnosticCollection('selector-healer-lint');
   statusBarItem = createStatusBarItem();
   watchStatusItem = createWatchStatusItem();
   watchEnabled = context.workspaceState.get(WATCH_STATE_KEY, false);
@@ -102,6 +106,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     diagnosticCollection,
+    lintDiagnosticCollection,
     statusBarItem,
     watchStatusItem,
     outputChannel,
@@ -138,6 +143,25 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     // Persist every completed run so a window reload can restore it.
     healerState.onDidChange(() => persistSnapshot(context)),
+    // Keep editor diagnostics (Problems panel + squiggles) in sync with state —
+    // including Skip/restore, which only mutates the dismissed set. activeResults
+    // drops Skipped selectors, so they're silenced in the editor too, not just
+    // the dashboard. This one subscription is the single builder of diagnostics.
+    healerState.onDidChange((snap) => {
+      updateDiagnosticsFromResults(
+        diagnosticCollection,
+        activeResults(snap),
+        topSuggestionById(snap.suggestionsByKey),
+        snap.explanationsById,
+      );
+      // A file that has verify results shouldn't also carry the on-save lint
+      // diagnostics (they'd double up on the same selectors). maybeParse skips
+      // such files going forward; this clears any lint left from before results
+      // arrived. Verify's own collection.clear() no longer touches lint.
+      for (const path of new Set(snap.results.map((r) => r.selector.filePath))) {
+        lintDiagnosticCollection.delete(vscode.Uri.file(path));
+      }
+    }),
   );
 
   // Seed the user's "Skip" dismissals before restoring results, so the restored
@@ -250,7 +274,7 @@ function parseSingleFile(doc: vscode.TextDocument): void {
 
   const selectors = result.value;
   if (selectors.length === 0) {
-    diagnosticCollection.delete(doc.uri);
+    lintDiagnosticCollection.delete(doc.uri);
     return;
   }
 
@@ -270,7 +294,7 @@ function parseSingleFile(doc: vscode.TextDocument): void {
   // Proactive fragility lint (Information): flags text/CSS/XPath locators and,
   // when a baseline exists, suggests a sturdier replacement via a quick-fix.
   const fragile = lintDiagnostics(doc.uri.fsPath, selectors, fingerprints);
-  diagnosticCollection.set(doc.uri, [...diagnostics, ...fragile]);
+  lintDiagnosticCollection.set(doc.uri, [...diagnostics, ...fragile]);
 }
 
 async function loadConfig(quiet = false): Promise<HealerConfig | undefined> {
@@ -390,12 +414,7 @@ async function runVerify(): Promise<void> {
 
     const built = await healToSuggestions(broken, config, root);
     storeSuggestions(built.allSuggestions);
-    updateDiagnosticsFromResults(
-      diagnosticCollection,
-      results,
-      built.suggestionMap,
-      built.explanationMap,
-    );
+    // Diagnostics are rebuilt reactively by the onDidChange subscription in activate.
     healerState.setResults(results, built.suggestionsByKey, built.explanationMap);
 
     // Log the full picture (diagnostic); surface the *actionable* count in the
@@ -648,14 +667,7 @@ async function verifyTargeted(suggestions: StoredSuggestion[]): Promise<void> {
       requireBaseline: false,
     });
     healerState.mergeResults(results);
-
-    const snap = healerState.snapshot;
-    updateDiagnosticsFromResults(
-      diagnosticCollection,
-      snap.results,
-      topSuggestionById(snap.suggestionsByKey),
-      snap.explanationsById,
-    );
+    // Diagnostics rebuild reactively (see the onDidChange subscription in activate).
 
     const okNow = results.filter((r) => r.status === 'ok').length;
     outputChannel.appendLine(`[${time()}] Re-verify done — ${okNow}/${results.length} now OK`);
@@ -680,8 +692,6 @@ function topSuggestionById(byKey: Map<string, StoredSuggestion[]>): Map<string, 
 }
 
 interface BuiltHeal {
-  /** selector id → top replacement code (for diagnostic messages). */
-  suggestionMap: Map<string, string>;
   /** selector id → top "why it broke" reason. */
   explanationMap: Map<string, string>;
   /** `file:line` → ranked suggestions (code actions + tree). */
@@ -700,12 +710,11 @@ async function healToSuggestions(
   root: string,
   context?: Awaited<ReturnType<typeof ensureWatchBrowser>>,
 ): Promise<BuiltHeal> {
-  const suggestionMap = new Map<string, string>();
   const explanationMap = new Map<string, string>();
   const suggestionsByKey = new Map<string, StoredSuggestion[]>();
   const allSuggestions: StoredSuggestion[] = [];
   if (broken.length === 0) {
-    return { suggestionMap, explanationMap, suggestionsByKey, allSuggestions };
+    return { explanationMap, suggestionsByKey, allSuggestions };
   }
 
   const healResults = await healSelectors(broken, { config, projectRoot: root, context });
@@ -716,7 +725,6 @@ async function healToSuggestions(
     const sel = broken.find((r) => r.selector.id === h.selectorId)?.selector;
     if (!top || !sel) continue;
 
-    suggestionMap.set(h.selectorId, top.replacementCode);
     const key = `${sel.filePath}:${sel.line}`;
     const list = suggestionsByKey.get(key) ?? [];
     for (const c of h.candidates) {
@@ -735,7 +743,7 @@ async function healToSuggestions(
     }
     suggestionsByKey.set(key, list);
   }
-  return { suggestionMap, explanationMap, suggestionsByKey, allSuggestions };
+  return { explanationMap, suggestionsByKey, allSuggestions };
 }
 
 /** Flatten the state's per-key suggestions into one list for the code-action store. */
@@ -813,12 +821,7 @@ function restoreSnapshot(context: vscode.ExtensionContext): void {
     lastRunAt: data.lastRunAt,
   });
   storeSuggestions(flattenSuggestions(suggestionsByKey));
-  updateDiagnosticsFromResults(
-    diagnosticCollection,
-    data.results,
-    topSuggestionById(suggestionsByKey),
-    explanationsById,
-  );
+  // Diagnostics rebuild reactively: healerState.hydrate above fired onDidChange.
 }
 
 /** Lazily open (and reuse) the warm watch browser; returns its context, or undefined on failure. */
@@ -959,12 +962,7 @@ async function runWatchVerify(files: string[]): Promise<void> {
     // suggestions are usable without wiping other files'.
     const snap = healerState.snapshot;
     storeSuggestions(flattenSuggestions(snap.suggestionsByKey));
-    updateDiagnosticsFromResults(
-      diagnosticCollection,
-      snap.results,
-      topSuggestionById(snap.suggestionsByKey),
-      snap.explanationsById,
-    );
+    // Diagnostics rebuild reactively: mergeResults above fired onDidChange.
     // Per-phase timings so the bottleneck is visible in the Output channel.
     outputChannel.appendLine(
       `[${time()}] Watch: ${broken.length} broken in ${testFiles.map((f) => basename(f)).join(', ')} · ` +
