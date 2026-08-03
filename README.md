@@ -35,7 +35,7 @@ npx selector-healer report     # Generate HTML report
 
 3. **Verify** — Re-runs each selector against the current DOM. If a selector no longer matches, it's flagged as broken.
 
-4. **Heal** — For broken selectors, the healer scans the DOM for candidates matching the stored fingerprint using a 7-rule weighted scoring engine (data-testid, id, role, tag, text, parent structure, sibling position). Returns up to 3 ranked replacement suggestions.
+4. **Heal** — For broken selectors, the healer scans the DOM for candidates matching the stored fingerprint using a 10-rule weighted scoring engine (data-testid, id, role, tag, text, class overlap, aria, parent structure, sibling position, attribute coverage). Returns up to 3 ranked replacement suggestions, each with an inspectable per-rule confidence breakdown.
 
 ## Packages
 
@@ -92,19 +92,17 @@ export default {
 
 ## VS Code Extension
 
-The extension activates in workspaces containing `selector-healer.config.ts`.
+The extension activates in workspaces containing a `selector-healer.config.*`. See [its README](packages/vscode-extension/README.md) for the full feature tour.
 
-**Features:**
-- Parses test files on save/open and shows info diagnostics for uncaptured selectors
-- "Verify Now" command runs full Playwright-based verification
-- Broken selectors appear as errors in the Problems panel
-- Quick Fix (Ctrl+.) on broken selectors offers ranked replacement suggestions
-- Status bar shows selector health at a glance
+**Highlights:**
+- **Unified dashboard** (sidebar or full editor tab) — health %, filterable selector list, inline heal actions, plus **Baseline** and **Heal History** views.
+- **Watch mode** — auto re-verify a test file the moment you save it.
+- **Explainable heals** — why a selector broke, all ranked candidates side by side, a **"Why NN%?"** per-rule confidence breakdown, and a **diff preview** before Apply.
+- **Skip** a broken selector to silence it everywhere (list, health, "Heal all", *and* the editor squiggles/gutter/CodeLens) — restorable, and it returns when you edit the selector.
+- **Heal History + one-click Undo** — every fix is reversible.
+- **Editor integration** — Quick Fixes (`Ctrl+.`), per-selector CodeLens, gutter dots, Problems-panel diagnostics, and proactive **fragility lint** for brittle locators.
 
-**Commands (Ctrl+Shift+P):**
-- `Selector Healer: Verify Now` — Run full verification
-- `Selector Healer: Capture Baseline` — Capture fingerprints
-- `Selector Healer: Apply All High-Confidence Fixes` — Batch apply fixes
+**Key commands (`Ctrl+Shift+P`):** `Verify Now` · `Capture Baseline` · `Open Dashboard` · `Toggle Watch Mode` · `Apply All High-Confidence Fixes` · `Heal History` · `Undo Last Heal`.
 
 ## CI Integration
 
