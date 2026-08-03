@@ -737,6 +737,7 @@ async function healToSuggestions(
         replacementCode: c.replacementCode,
         confidence: c.confidence,
         reasoning: c.reasoning,
+        ruleScores: c.ruleScores,
       };
       allSuggestions.push(stored);
       list.push(stored);

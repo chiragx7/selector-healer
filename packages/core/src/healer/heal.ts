@@ -261,11 +261,12 @@ async function collectScoredCandidates(
 
   return candidates
     .map((candidateFp) => {
-      const { confidence, reasoning } = scoreCandidate(stored, candidateFp);
+      const { confidence, reasoning, ruleScores } = scoreCandidate(stored, candidateFp);
       return {
         replacementCode: generateReplacementCode(candidateFp, framework),
         confidence,
         reasoning,
+        ruleScores,
         matchedFingerprint: candidateFp,
       };
     })

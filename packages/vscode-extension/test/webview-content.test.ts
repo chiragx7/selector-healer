@@ -17,7 +17,12 @@ const SEL = {
   rawValue: 'Email',
 };
 
-function cand(code: string, confidence: number, reasoning?: string): StoredSuggestion {
+function cand(
+  code: string,
+  confidence: number,
+  reasoning?: string,
+  ruleScores?: StoredSuggestion['ruleScores'],
+): StoredSuggestion {
   return {
     selectorId: 's1',
     filePath: '/p/login.spec.ts',
@@ -27,6 +32,7 @@ function cand(code: string, confidence: number, reasoning?: string): StoredSugge
     replacementCode: code,
     confidence,
     reasoning,
+    ruleScores,
   };
 }
 
@@ -77,6 +83,27 @@ describe('serialize — heal candidates', () => {
     const { items } = serialize(snap);
     expect(items[0]?.suggestion).toBeUndefined();
     expect(items[0]?.alternatives).toBeUndefined();
+  });
+});
+
+describe('serialize — confidence breakdown', () => {
+  it('builds the top suggestion breakdown from ruleScores, biggest first, quality>0 only', () => {
+    const top = cand("page.getByTestId('x')", 0.88, undefined, [
+      { name: 'text similarity', quality: 0.8, weighted: 0.08 },
+      { name: 'data-testid match', quality: 1, weighted: 0.3 },
+      { name: 'class overlap', quality: 0, weighted: 0 }, // dropped (didn't fire)
+    ]);
+    const { items } = serialize(snapshotWith([top]));
+    expect(items[0]?.suggestion?.breakdown).toEqual([
+      { name: 'data-testid match', pct: 100 }, // highest weighted contribution first
+      { name: 'text similarity', pct: 80 },
+    ]);
+  });
+
+  it('leaves breakdown undefined when the candidate has no ruleScores', () => {
+    const { items } = serialize(snapshotWith([cand("page.getByTestId('x')", 0.9)]));
+    expect(items[0]?.suggestion?.pct).toBe(90);
+    expect(items[0]?.suggestion?.breakdown).toBeUndefined();
   });
 });
 

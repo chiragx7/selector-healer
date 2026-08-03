@@ -1,3 +1,4 @@
+import type { RuleScore } from '@selector-healer/core';
 import * as vscode from 'vscode';
 import { DIAGNOSTIC_SOURCE } from './diagnostics.js';
 import { FRAGILE_CODE, getLintUpgrade } from './lint.js';
@@ -12,6 +13,8 @@ export interface StoredSuggestion {
   confidence: number;
   /** Why this candidate scored as it did (from the healer). Shown when comparing alternatives. */
   reasoning?: string;
+  /** Per-rule score breakdown behind the confidence, for the "Why NN%?" explainer. */
+  ruleScores?: RuleScore[];
 }
 
 const suggestionStore = new Map<string, StoredSuggestion[]>();

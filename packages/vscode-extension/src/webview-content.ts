@@ -25,7 +25,12 @@ export interface DashItem {
   display: string;
   status: VerificationResult['status'];
   matchCount: number;
-  suggestion?: { code: string; pct: number };
+  suggestion?: {
+    code: string;
+    pct: number;
+    /** Per-rule contributions behind `pct`, biggest first — the "Why NN%?" explainer. */
+    breakdown?: Array<{ name: string; pct: number }>;
+  };
   /** Runner-up heal candidates (2nd, 3rd), so the user can pick a different fix. */
   alternatives?: Array<{ code: string; pct: number; reasoning?: string }>;
   /** Top "why it broke" reason, shown inline on the card. */
@@ -154,6 +159,24 @@ export function baselineCount(): number {
   return result.isOk() ? result.value.size : 0;
 }
 
+/**
+ * The rules that actually contributed to a candidate's confidence, biggest
+ * contribution first, as `{ name, pct }` where `pct` is the rule's match
+ * quality. Powers the inline "Why NN%?" breakdown. Returns undefined when there's
+ * nothing to show (e.g. a restored suggestion with no stored rule data).
+ */
+function confidenceBreakdown(
+  ruleScores: StoredSuggestion['ruleScores'],
+): Array<{ name: string; pct: number }> | undefined {
+  if (!ruleScores?.length) return undefined;
+  const rows = ruleScores
+    .filter((r) => r.quality > 0)
+    .sort((a, b) => b.weighted - a.weighted)
+    .slice(0, 6)
+    .map((r) => ({ name: r.name, pct: Math.round(r.quality * 100) }));
+  return rows.length ? rows : undefined;
+}
+
 /** Map one verification result into the flat row the webview renders. */
 function toDashItem(r: VerificationResult, snap: HealerSnapshot): DashItem {
   const sel = r.selector;
@@ -174,7 +197,11 @@ function toDashItem(r: VerificationResult, snap: HealerSnapshot): DashItem {
     status: r.status,
     matchCount: r.matchCount,
     suggestion: top
-      ? { code: top.replacementCode, pct: Math.round(top.confidence * 100) }
+      ? {
+          code: top.replacementCode,
+          pct: Math.round(top.confidence * 100),
+          breakdown: confidenceBreakdown(top.ruleScores),
+        }
       : undefined,
     // Runner-up candidates (deduped by code against the top) for "preview all".
     alternatives: rest.length
@@ -404,6 +431,14 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .fixhead { display: flex; justify-content: space-between; font-size: 10.5px; margin-bottom: 4px; }
 .confbar { height: 3px; border-radius: 2px; background: rgba(128,128,128,.25); margin-top: 6px; overflow: hidden; }
 .confbar > span { display: block; height: 100%; }
+.whyconf { margin-top: 7px; }
+.whyconf > summary { cursor: pointer; font-size: 10.5px; color: var(--vscode-descriptionForeground); user-select: none; }
+.whyconf > summary:hover { color: var(--vscode-foreground); }
+.rule { display: flex; align-items: center; gap: 7px; margin-top: 5px; font-size: 10.5px; }
+.rname { flex: 0 0 44%; color: var(--vscode-descriptionForeground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rbar { flex: 1; height: 3px; border-radius: 2px; background: rgba(128,128,128,.22); overflow: hidden; }
+.rbar > span { display: block; height: 100%; }
+.rpct { flex: 0 0 30px; text-align: right; }
 .actions { display: flex; gap: 6px; margin-top: 9px; }
 .actions .btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; }
 .actions .btn.icon { flex: 0 0 32px; padding: 5px; }
@@ -621,6 +656,15 @@ function badgeText(s){ return s==='broken'?'broken':s==='multiple-matches'?'ambi
 function applyAttrs(it,code){ return 'data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-raw="'+esc(it.rawValue)+'" data-code="'+esc(code)+'"'; }
 function dataAttrs(it){ return applyAttrs(it, it.suggestion.code); }
 function openAttrs(it){ return 'data-open data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-len="'+it.rawValueLength+'"'; }
+// Expandable "Why NN%?" — the per-rule contributions behind the confidence.
+function confidenceDetails(sug){
+  if(!sug.breakdown || !sug.breakdown.length) return '';
+  const rows = sug.breakdown.map(r =>
+    '<div class="rule"><span class="rname">'+esc(r.name)+'</span>'
+    + '<span class="rbar"><span style="width:'+r.pct+'%;background:'+barColor(r.pct)+'"></span></span>'
+    + '<span class="rpct muted">'+r.pct+'%</span></div>').join('');
+  return '<details class="whyconf"><summary>Why '+sug.pct+'%?</summary>'+rows+'</details>';
+}
 
 function isAttention(s){ return s==='broken'||s==='multiple-matches'||s==='page-load-failed'; }
 
@@ -637,7 +681,9 @@ function card(it){
     const pct = it.suggestion.pct, applyable = pct>=50, pc = barColor(pct);
     h += '<div class="fix"><div class="fixhead"><span style="color:'+pc+'">suggested fix</span><span class="muted">'+pct+'%'+(applyable?'':' · low, review first')+'</span></div>'
       + '<div class="code mono" style="color:var(--vscode-foreground)">'+esc(it.suggestion.code)+'</div>'
-      + '<div class="confbar"><span style="width:'+pct+'%;background:'+pc+'"></span></div></div>'
+      + '<div class="confbar"><span style="width:'+pct+'%;background:'+pc+'"></span></div>'
+      + confidenceDetails(it.suggestion)
+      + '</div>'
       + '<div class="actions">'
       + (applyable ? '<button class="btn primary" data-apply '+dataAttrs(it)+'>'+ICON.check+' Apply</button>' : '')
       + '<button class="btn" data-preview '+dataAttrs(it)+'>'+ICON.diff+' Preview</button>'

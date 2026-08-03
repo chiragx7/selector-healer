@@ -121,6 +121,19 @@ export interface VerificationResult {
 }
 
 /**
+ * One scoring rule's contribution to a candidate's confidence — the raw
+ * material behind "why this percent". Surfaced in the UI as a per-rule breakdown.
+ */
+export interface RuleScore {
+  /** Human name of the rule, e.g. `'data-testid match'`. */
+  name: string;
+  /** How well this rule matched, in `[0, 1]` (0 = no match, 1 = perfect). */
+  quality: number;
+  /** Weighted contribution to the raw score: `quality × rule weight`. */
+  weighted: number;
+}
+
+/**
  * A single ranked replacement candidate for a broken selector.
  */
 export interface HealCandidate {
@@ -130,6 +143,8 @@ export interface HealCandidate {
   confidence: number;
   /** Human-readable explanation of why this candidate scored as it did. */
   reasoning: string;
+  /** Per-rule score breakdown behind the confidence (for "explain this %"). */
+  ruleScores?: RuleScore[];
   matchedFingerprint: DomFingerprint;
 }
 

@@ -1,18 +1,12 @@
-import type { DomFingerprint } from '../types.js';
+import type { DomFingerprint, RuleScore } from '../types.js';
+
+export type { RuleScore };
 
 export interface ScoringRule {
   name: string;
   weight: number;
   /** Returns match quality in [0, 1]. 0 = no match, 1 = perfect match. */
   score: (stored: DomFingerprint, candidate: DomFingerprint) => number;
-}
-
-export interface RuleScore {
-  name: string;
-  /** Raw quality score in [0, 1]. */
-  quality: number;
-  /** Weighted contribution: quality × weight. */
-  weighted: number;
 }
 
 const RULES: ScoringRule[] = [
