@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { revealSelector } from './apply.js';
 import type { StoredSuggestion } from './code-actions.js';
 import { type HealerSnapshot, countResults } from './state.js';
+import { selectorSignature } from './watch.js';
 
 /** One selector row as the webview renders it. */
 export interface DashItem {
@@ -58,6 +59,19 @@ export interface BaselineRow {
   pageUrl?: string;
 }
 
+/** One applied-heal entry in the history view. */
+export interface HistoryRow {
+  id: string;
+  /** Short human summary, e.g. `'button' → getByTestId('save')`. */
+  label: string;
+  fileName: string;
+  filePath: string;
+  line: number;
+  column: number;
+  /** Epoch ms when the heal was applied. */
+  appliedAt: number;
+}
+
 export type CaptureStatus = 'pending' | 'capturing' | 'captured' | 'missed';
 
 /**
@@ -87,13 +101,22 @@ export interface DashMessage {
     | 'watchToggle'
     | 'showBaseline'
     | 'ready'
-    | 'init';
+    | 'init'
+    | 'dismiss'
+    | 'restore'
+    | 'showHistory'
+    | 'undo'
+    | 'clearHistory';
   filePath?: string;
   line?: number;
   column?: number;
   rawValue?: string;
   rawValueLength?: number;
   replacementCode?: string;
+  /** Selector id for a dismiss/restore action. */
+  selectorId?: string;
+  /** History entry id for an undo action. */
+  entryId?: string;
 }
 
 const STATUS_ORDER: Record<string, number> = {
@@ -131,58 +154,98 @@ export function baselineCount(): number {
   return result.isOk() ? result.value.size : 0;
 }
 
-/** Shape a snapshot into the flat, sorted item list the webview renders. */
+/** Map one verification result into the flat row the webview renders. */
+function toDashItem(r: VerificationResult, snap: HealerSnapshot): DashItem {
+  const sel = r.selector;
+  const cands = snap.suggestionsByKey.get(`${sel.filePath}:${sel.line}`) ?? [];
+  const [top, ...rest] = cands;
+  return {
+    selectorId: sel.id,
+    filePath: sel.filePath,
+    fileName: sel.filePath.split(/[/\\]/).pop() ?? sel.filePath,
+    line: sel.line,
+    column: sel.column,
+    rawValueLength: sel.rawValue.length,
+    selectorType: sel.selectorType,
+    rawValue: sel.rawValue,
+    // Reconstruct the full original locator so the card reads the same as the
+    // suggested fix below it; fall back to the raw value for non-Playwright.
+    display: renderSelectorCode(sel, sel.framework) ?? sel.rawValue,
+    status: r.status,
+    matchCount: r.matchCount,
+    suggestion: top
+      ? { code: top.replacementCode, pct: Math.round(top.confidence * 100) }
+      : undefined,
+    // Runner-up candidates (deduped by code against the top) for "preview all".
+    alternatives: rest.length
+      ? rest.map((c) => ({
+          code: c.replacementCode,
+          pct: Math.round(c.confidence * 100),
+          reasoning: c.reasoning,
+        }))
+      : undefined,
+    reason: snap.explanationsById.get(sel.id),
+    error: r.error,
+  };
+}
+
+const ATTENTION_STATUSES: ReadonlySet<VerificationResult['status']> = new Set([
+  'broken',
+  'multiple-matches',
+  'page-load-failed',
+]);
+
+/** True when a result is currently Skipped (dismissed) *and* still needs attention. */
+function isDismissedAttention(r: VerificationResult, snap: HealerSnapshot): boolean {
+  return (
+    ATTENTION_STATUSES.has(r.status) && snap.dismissedSignatures.has(selectorSignature(r.selector))
+  );
+}
+
+/**
+ * Results minus the ones the user has Skipped — the set every "attention" surface
+ * (dashboard health, status bar count, Heal-All) should agree on, so a dismissed
+ * selector doesn't get counted or auto-healed behind the user's back.
+ */
+export function activeResults(snap: HealerSnapshot): VerificationResult[] {
+  return snap.results.filter((r) => !isDismissedAttention(r, snap));
+}
+
+function byStatusThenLocation(a: DashItem, b: DashItem): number {
+  const sa = STATUS_ORDER[a.status] ?? 9;
+  const sb = STATUS_ORDER[b.status] ?? 9;
+  if (sa !== sb) return sa - sb;
+  return a.fileName.localeCompare(b.fileName) || a.line - b.line;
+}
+
+/**
+ * Shape a snapshot into the sorted rows the webview renders. Selectors the user
+ * has "Skipped" (their signature is in `dismissedSignatures`) that are still in
+ * an attention state are pulled out of `items` (and the health counts) into a
+ * separate `dismissed` list; everything else stays active. An edited selector
+ * has a new signature, so it re-surfaces automatically.
+ */
 export function serialize(snap: HealerSnapshot): {
   phase: string;
   counts: ReturnType<typeof countResults>;
   items: DashItem[];
+  dismissed: DashItem[];
   lastRunAt?: number;
 } {
-  const items: DashItem[] = snap.results.map((r) => {
-    const sel = r.selector;
-    const cands = snap.suggestionsByKey.get(`${sel.filePath}:${sel.line}`) ?? [];
-    const [top, ...rest] = cands;
-    return {
-      selectorId: sel.id,
-      filePath: sel.filePath,
-      fileName: sel.filePath.split(/[/\\]/).pop() ?? sel.filePath,
-      line: sel.line,
-      column: sel.column,
-      rawValueLength: sel.rawValue.length,
-      selectorType: sel.selectorType,
-      rawValue: sel.rawValue,
-      // Reconstruct the full original locator so the card reads the same as the
-      // suggested fix below it; fall back to the raw value for non-Playwright.
-      display: renderSelectorCode(sel, sel.framework) ?? sel.rawValue,
-      status: r.status,
-      matchCount: r.matchCount,
-      suggestion: top
-        ? { code: top.replacementCode, pct: Math.round(top.confidence * 100) }
-        : undefined,
-      // Runner-up candidates (deduped by code against the top) for "preview all".
-      alternatives: rest.length
-        ? rest.map((c) => ({
-            code: c.replacementCode,
-            pct: Math.round(c.confidence * 100),
-            reasoning: c.reasoning,
-          }))
-        : undefined,
-      reason: snap.explanationsById.get(sel.id),
-      error: r.error,
-    };
-  });
+  const active: VerificationResult[] = [];
+  const dismissed: VerificationResult[] = [];
+  for (const r of snap.results) {
+    (isDismissedAttention(r, snap) ? dismissed : active).push(r);
+  }
 
-  items.sort((a, b) => {
-    const sa = STATUS_ORDER[a.status] ?? 9;
-    const sb = STATUS_ORDER[b.status] ?? 9;
-    if (sa !== sb) return sa - sb;
-    return a.fileName.localeCompare(b.fileName) || a.line - b.line;
-  });
+  const items = active.map((r) => toDashItem(r, snap)).sort(byStatusThenLocation);
+  const dismissedItems = dismissed.map((r) => toDashItem(r, snap)).sort(byStatusThenLocation);
 
   return {
     phase: snap.phase,
-    counts: countResults(snap.results),
+    counts: countResults(active),
     items,
+    dismissed: dismissedItems,
     lastRunAt: snap.lastRunAt,
   };
 }
@@ -211,6 +274,14 @@ export async function handleWebviewMessage(msg: DashMessage): Promise<void> {
       break;
     case 'watchToggle':
       await vscode.commands.executeCommand('selectorHealer.toggleWatch');
+      break;
+    case 'dismiss':
+      if (msg.selectorId)
+        await vscode.commands.executeCommand('selectorHealer.dismiss', msg.selectorId);
+      break;
+    case 'restore':
+      if (msg.selectorId)
+        await vscode.commands.executeCommand('selectorHealer.restore', msg.selectorId);
       break;
     case 'open':
       if (msg.filePath && msg.line && msg.column) {
@@ -300,6 +371,7 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .btn.primary:hover { background: var(--vscode-button-hoverBackground); }
 .btn svg { flex: none; }
 .rhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.rlinks { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; flex: none; }
 .hpct { font-size: 30px; font-weight: 600; line-height: 1; }
 .hsub { font-size: 12px; color: var(--vscode-descriptionForeground); margin-left: 8px; }
 .lastrun { font-size: 11px; margin-top: 4px; }
@@ -342,6 +414,12 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .alt .fixhead { font-size: 10.5px; }
 .alt .code { margin-top: 4px; }
 .alt-why { font-size: 11px; margin-top: 6px; line-height: 1.4; display: flex; }
+.skip { margin-left: 8px; flex: none; cursor: pointer; border: none; background: transparent; color: var(--vscode-descriptionForeground); font-size: 10.5px; padding: 2px 7px; border-radius: 5px; }
+.skip:hover { color: var(--vscode-foreground); background: rgba(128,128,128,.16); }
+.dismissed { margin-top: 14px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.2)); padding-top: 8px; }
+.dismissed > summary { cursor: pointer; font-size: 11.5px; color: var(--vscode-descriptionForeground); padding: 3px 0; user-select: none; }
+.dismissed > summary:hover { color: var(--vscode-foreground); }
+.dismissed .compact:last-child { border-bottom: none; }
 .compact { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.1)); }
 .compact .csel { margin-left: auto; max-width: 52%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .hint { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; }
@@ -395,7 +473,8 @@ const MODE = document.body.dataset.mode || 'sidebar';
 let lastState = null;    // verify payload (+ watch, hasConfig)
 let capture = null;      // { rows, summary }
 let baselineRows = null; // [{ display, captured, ... }] for the baseline view
-let mode = 'results';    // 'results' | 'capture' | 'baseline'
+let historyEntries = null; // [{ id, label, fileName, line, appliedAt }] for the history view
+let mode = 'results';    // 'results' | 'capture' | 'baseline' | 'history'
 let filter = 'all';      // all | broken | ambiguous | healthy
 let baselineFilter = 'all'; // all | captured | uncaptured
 
@@ -418,6 +497,7 @@ function post(type,extra){vscode.postMessage(Object.assign({type:type},extra||{}
 function render(){
   if(mode==='capture' && capture) renderCapture();
   else if(mode==='baseline' && baselineRows) renderBaseline();
+  else if(mode==='history' && historyEntries) renderHistory();
   else renderResults();
   bind();
 }
@@ -433,6 +513,9 @@ function bind(){
   byId('view-baseline',el=>el.onclick=()=>post('showBaseline'));
   byId('baseline-back',el=>{el.onclick=()=>{mode='results';render();};});
   byId('capture-missing',el=>el.onclick=()=>post('captureMissing'));
+  byId('view-history',el=>el.onclick=()=>post('showHistory'));
+  byId('history-back',el=>{el.onclick=()=>{mode='results';render();};});
+  byId('clear-history',el=>el.onclick=()=>post('clearHistory'));
   byId('p-verify',el=>el.onclick=()=>post('verify'));
   byId('p-capture',el=>el.onclick=()=>post('capture'));
   byId('p-watch',el=>el.onclick=()=>post('watchToggle'));
@@ -441,6 +524,9 @@ function bind(){
   app.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('open',{filePath:d.file,line:+d.line,column:+d.col,rawValueLength:+d.len});});
   app.querySelectorAll('[data-apply]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('apply',{filePath:d.file,line:+d.line,column:+d.col,rawValue:d.raw,replacementCode:d.code});});
   app.querySelectorAll('[data-preview]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('preview',{filePath:d.file,line:+d.line,column:+d.col,rawValue:d.raw,replacementCode:d.code});});
+  app.querySelectorAll('[data-dismiss]').forEach(el=>el.onclick=()=>post('dismiss',{selectorId:el.dataset.sel}));
+  app.querySelectorAll('[data-restore]').forEach(el=>el.onclick=()=>post('restore',{selectorId:el.dataset.sel}));
+  app.querySelectorAll('[data-undo]').forEach(el=>el.onclick=()=>post('undo',{entryId:el.dataset.entry}));
 }
 
 /* ---------- Onboarding (first run) ---------- */
@@ -483,7 +569,8 @@ function renderResults(){
 
   let html = '<div class="rhead"><div><span class="hpct" style="color:'+barColor(c.healthPct)+'">'+c.healthPct+'%</span>'
     + '<span class="hsub">healthy · '+c.ok+' of '+c.total+' checked</span></div>'
-    + '<button class="link" id="view-baseline">Baseline ›</button></div>';
+    + '<div class="rlinks"><button class="link" id="view-baseline">Baseline ›</button>'
+    + '<button class="link" id="view-history">History ›</button></div></div>';
   if(lastState.lastRunAt) html += '<div class="lastrun muted">last verified '+relTime(lastState.lastRunAt)+'</div>';
   html += '<div class="hbar">'+seg(c.ok,'var(--ok)')+seg(c.broken,'var(--broken)')+seg(c.multi,'var(--multi)')+seg(c.skipped+c.failed,'var(--skip)')+'</div>';
   html += '<div class="chips">'+chip('var(--ok)',c.ok,'ok')
@@ -506,7 +593,21 @@ function renderResults(){
   } else {
     html += '<div class="list">' + items.map(it => (it.status==='ok') ? compactRow(it) : card(it)).join('') + '</div>';
   }
+  const dismissed = lastState.dismissed || [];
+  if(dismissed.length){
+    html += '<details class="dismissed"><summary>Dismissed ('+dismissed.length+')</summary>'
+      + '<div class="hint" style="margin:4px 2px 8px">Set aside and not counted above — they return if you edit the selector.</div>'
+      + '<div class="list">' + dismissed.map(dismissedRow).join('') + '</div></details>';
+  }
   app.innerHTML = html;
+}
+
+function dismissedRow(it){
+  const col = statusColor(it.status);
+  return '<div class="compact"><span class="dot" style="background:'+col+'"></span>'
+    + '<a class="loc" '+openAttrs(it)+'>'+esc(it.fileName)+':'+it.line+'</a>'
+    + '<span class="csel mono muted">'+esc(it.display)+'</span>'
+    + '<button class="link" data-restore data-sel="'+esc(it.selectorId)+'">Restore</button></div>';
 }
 
 function filtered(items){
@@ -521,11 +622,15 @@ function applyAttrs(it,code){ return 'data-file="'+esc(it.filePath)+'" data-line
 function dataAttrs(it){ return applyAttrs(it, it.suggestion.code); }
 function openAttrs(it){ return 'data-open data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-len="'+it.rawValueLength+'"'; }
 
+function isAttention(s){ return s==='broken'||s==='multiple-matches'||s==='page-load-failed'; }
+
 function card(it){
   const col = statusColor(it.status);
   let h = '<div class="card"><div class="chead"><span class="dot" style="background:'+col+'"></span>'
     + '<a class="loc" '+openAttrs(it)+'>'+esc(it.fileName)+':'+it.line+'</a>'
-    + '<span class="badge" style="color:'+col+';background:color-mix(in srgb,'+col+' 16%,transparent)">'+badgeText(it.status)+'</span></div>'
+    + '<span class="badge" style="color:'+col+';background:color-mix(in srgb,'+col+' 16%,transparent)">'+badgeText(it.status)+'</span>'
+    + (isAttention(it.status) ? '<button class="skip" data-dismiss data-sel="'+esc(it.selectorId)+'" title="Skip — set aside and stop flagging until you edit this selector">Skip</button>' : '')
+    + '</div>'
     + '<div class="code mono">'+esc(it.display)+'</div>';
   if(it.reason) h += '<div class="why">'+ICON.why+'<span>'+esc(it.reason)+'</span></div>';
   if(it.status==='broken' && it.suggestion){
@@ -639,6 +744,26 @@ function renderBaseline(){
   app.innerHTML = html;
 }
 
+/* ---------- History (applied heals) ---------- */
+function historyRow(e){
+  return '<div class="caprow"><span class="capicon" style="color:var(--ok)">'+ICON.check+'</span>'
+    + '<a class="capsel mono loc" data-open data-file="'+esc(e.filePath)+'" data-line="'+e.line+'" data-col="'+e.column+'" data-len="1">'+esc(e.label)+'</a>'
+    + '<span class="caploc">'+esc(e.fileName)+':'+e.line+' · '+relTime(e.appliedAt)+'</span>'
+    + '<button class="link" data-undo data-entry="'+esc(e.id)+'">Undo</button></div>';
+}
+function renderHistory(){
+  const rows = historyEntries || [];
+  let html = '<div class="caphead"><div class="secttl" style="margin:0">Heal history</div><button class="link" id="history-back">← Results</button></div>';
+  if(!rows.length){
+    app.innerHTML = html + '<div class="empty muted"><span class="big">↩</span>No heals applied yet.<br>Fixes you Apply will appear here with a one-click Undo.</div>';
+    return;
+  }
+  html += '<div class="caphead" style="margin-bottom:10px"><span class="muted" style="font-size:12px"><b>'+rows.length+'</b> applied fix'+(rows.length>1?'es':'')+' · newest first</span>'
+    + '<button class="link" id="clear-history">Clear history</button></div>';
+  html += '<div class="list">'+rows.map(historyRow).join('')+'</div>';
+  app.innerHTML = html;
+}
+
 window.addEventListener('message', (e) => {
   const m = e.data;
   if(m.type==='verifying'){
@@ -650,6 +775,7 @@ window.addEventListener('message', (e) => {
   }
   if(m.type==='state'){ lastState = m.payload; if(m.activate) mode='results'; render(); }
   else if(m.type==='baselineData'){ baselineRows = m.rows; baselineFilter='all'; mode='baseline'; render(); }
+  else if(m.type==='historyData'){ historyEntries = m.entries; mode='history'; render(); }
   else if(m.type==='captureSeed'){ capture = { rows: m.rows, summary: m.summary }; if(m.activate) mode='capture'; render(); }
   else if(m.type==='captureUpdate'){
     if(capture){ const r = capture.rows.find(x => x.selectorId===m.selectorId); if(r) r.status = m.status; }

@@ -53,8 +53,9 @@ import {
   setRunning,
   setWatch,
 } from './status-bar.js';
-import { Debouncer, isTestFilePath, selectorsChangedSince } from './watch.js';
-import type { BaselineRow, CaptureSink } from './webview-content.js';
+import { Debouncer, isTestFilePath, selectorSignature, selectorsChangedSince } from './watch.js';
+import { activeResults } from './webview-content.js';
+import type { BaselineRow, CaptureSink, HistoryRow } from './webview-content.js';
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let statusBarItem: vscode.StatusBarItem;
@@ -66,6 +67,7 @@ let dashboard: DashboardViewProvider;
 const WATCH_DEBOUNCE_MS = 400;
 const WATCH_STATE_KEY = 'selectorHealer.watch';
 const SNAPSHOT_KEY = 'selectorHealer.lastSnapshot';
+const DISMISSED_KEY = 'selectorHealer.dismissed';
 let watchEnabled = false;
 let watchRunning = false;
 const watchDebouncer = new Debouncer(WATCH_DEBOUNCE_MS);
@@ -127,7 +129,9 @@ export function activate(context: vscode.ExtensionContext): void {
       if (snap.phase === 'running') {
         setRunning(statusBarItem);
       } else if (snap.phase === 'done') {
-        setResults(statusBarItem, countResults(snap.results));
+        // Count the active set so the status bar agrees with the dashboard health
+        // (Skipped selectors are set aside, not counted as needing attention).
+        setResults(statusBarItem, countResults(activeResults(snap)));
       } else {
         setIdle(statusBarItem);
       }
@@ -135,6 +139,10 @@ export function activate(context: vscode.ExtensionContext): void {
     // Persist every completed run so a window reload can restore it.
     healerState.onDidChange(() => persistSnapshot(context)),
   );
+
+  // Seed the user's "Skip" dismissals before restoring results, so the restored
+  // snapshot preserves them.
+  healerState.hydrateDismissed(new Set(context.workspaceState.get<string[]>(DISMISSED_KEY, [])));
 
   // Restore the last verify results (if any) so a reload lands back on the
   // health/cards view instead of the onboarding screen.
@@ -171,6 +179,17 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.undoLastHeal', () => undoLastHeal()),
     vscode.commands.registerCommand('selectorHealer.showHealHistory', () => showHealHistory()),
     vscode.commands.registerCommand('selectorHealer.getBaseline', () => gatherBaseline()),
+    vscode.commands.registerCommand('selectorHealer.dismiss', (id: string) =>
+      setSelectorDismissed(id, true, context),
+    ),
+    vscode.commands.registerCommand('selectorHealer.restore', (id: string) =>
+      setSelectorDismissed(id, false, context),
+    ),
+    vscode.commands.registerCommand('selectorHealer.getHistory', () => getHistoryRows()),
+    vscode.commands.registerCommand('selectorHealer.undoHistoryEntry', (id: string) =>
+      undoHistoryEntry(id),
+    ),
+    vscode.commands.registerCommand('selectorHealer.clearHistory', () => clearHealHistory()),
     vscode.commands.registerCommand(WATCH_TOGGLE_COMMAND, () => toggleWatch(context)),
   );
 
@@ -379,18 +398,21 @@ async function runVerify(): Promise<void> {
     );
     healerState.setResults(results, built.suggestionsByKey, built.explanationMap);
 
+    // Log the full picture (diagnostic); surface the *actionable* count in the
+    // toast — Skipped selectors are set aside, so they match the dashboard.
     const c = countResults(results);
     outputChannel.appendLine(
       `[${time()}] Done — ${c.ok} ok, ${c.broken} broken, ${c.multi} ambiguous, ${c.skipped + c.failed} skipped`,
     );
+    const shown = countResults(activeResults(healerState.snapshot));
 
-    if (c.broken > 0) {
+    if (shown.broken > 0) {
       vscode.window.showWarningMessage(
-        `Selector Healer: ${c.broken} broken selector${c.broken > 1 ? 's' : ''} — open the dashboard to heal.`,
+        `Selector Healer: ${shown.broken} broken selector${shown.broken > 1 ? 's' : ''} — open the dashboard to heal.`,
       );
     } else {
       vscode.window.showInformationMessage(
-        `Selector Healer: ${c.healthPct}% healthy (${c.ok}/${c.total} OK).`,
+        `Selector Healer: ${shown.healthPct}% healthy (${shown.ok}/${shown.total} OK).`,
       );
     }
   } catch (e) {
@@ -526,9 +548,28 @@ async function applyAndReverify(s: StoredSuggestion): Promise<void> {
   }
 }
 
+/**
+ * Skip (dismiss) or restore a broken selector by id. Resolves the selector from
+ * the current results, computes its signature (so editing the selector later
+ * re-surfaces it), toggles the dismissal in state, and persists it across
+ * reloads. No-op if the selector is no longer in the results.
+ */
+function setSelectorDismissed(
+  selectorId: string,
+  dismissed: boolean,
+  context: vscode.ExtensionContext,
+): void {
+  const result = healerState.snapshot.results.find((r) => r.selector.id === selectorId);
+  if (!result) return;
+  healerState.setDismissed(selectorSignature(result.selector), dismissed);
+  void context.workspaceState.update(DISMISSED_KEY, [...healerState.snapshot.dismissedSignatures]);
+}
+
 async function applyAllFixes(): Promise<void> {
   const snap = healerState.snapshot;
-  const broken = snap.results.filter((r) => r.status === 'broken');
+  // Exclude Skipped selectors — the user set them aside, so "Heal all" must not
+  // silently auto-apply fixes to them (and this matches the dashboard's count).
+  const broken = activeResults(snap).filter((r) => r.status === 'broken');
   const threshold = 0.8;
 
   const toApply: StoredSuggestion[] = [];
@@ -989,19 +1030,8 @@ function healToStored(h: AppliedHeal, selectorId = ''): StoredSuggestion {
   };
 }
 
-/** Compact "3m ago" style relative time for history entries. */
-function relTime(ms: number): string {
-  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
-}
-
 /** Revert one recorded heal, then drop it from history and offer to re-verify. */
-async function undoEntry(entry: HealHistoryEntry): Promise<void> {
+async function undoEntry(entry: HealHistoryEntry, opts: { silent?: boolean } = {}): Promise<void> {
   const res = await undoHeal(entry);
   if (!res.ok) {
     const detail =
@@ -1020,6 +1050,12 @@ async function undoEntry(entry: HealHistoryEntry): Promise<void> {
   outputChannel.appendLine(
     `[${time()}] Reverted ${entry.label} (${basename(entry.filePath)}:${entry.line})`,
   );
+  // From the history view: a quiet, non-blocking toast so the view can refresh
+  // in place. From the command palette: offer to re-verify.
+  if (opts.silent) {
+    vscode.window.showInformationMessage(`Selector Healer: reverted ${entry.label}.`);
+    return;
+  }
   const choice = await vscode.window.showInformationMessage(
     `Selector Healer: reverted ${entry.label}.`,
     'Verify now',
@@ -1037,33 +1073,39 @@ async function undoLastHeal(): Promise<void> {
   await undoEntry(entry);
 }
 
-/** Browse the heal history in a QuickPick; pick an entry to undo it, or clear the log. */
+/** Open the Heal History view in the dashboard (a persistent panel, not a dropdown). */
 async function showHealHistory(): Promise<void> {
-  const entries = healHistory.all();
-  if (entries.length === 0) {
-    vscode.window.showInformationMessage('Selector Healer: no heal history yet.');
-    return;
-  }
+  await dashboard.showHistory();
+}
 
-  type Item = vscode.QuickPickItem & { entry?: HealHistoryEntry; action?: 'clear' };
-  const items: Item[] = entries.map((e) => ({
+/** Applied heals, newest first, shaped for the history view. */
+function getHistoryRows(): HistoryRow[] {
+  return healHistory.all().map((e) => ({
+    id: e.id,
     label: e.label,
-    description: relTime(e.appliedAt),
-    detail: `${basename(e.filePath)}:${e.line}`,
-    entry: e,
+    fileName: basename(e.filePath),
+    filePath: e.filePath,
+    line: e.line,
+    column: e.column,
+    appliedAt: e.appliedAt,
   }));
-  items.push({ label: '$(clear-all) Clear heal history', action: 'clear' });
+}
 
-  const pick = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select a heal to undo',
-  });
-  if (!pick) return;
-  if (pick.action === 'clear') {
-    await healHistory.clear();
-    vscode.window.showInformationMessage('Selector Healer: heal history cleared.');
-    return;
-  }
-  if (pick.entry) await undoEntry(pick.entry);
+/** Undo one recorded heal by id (from the history view's Undo button). */
+async function undoHistoryEntry(id: string): Promise<void> {
+  const entry = healHistory.all().find((e) => e.id === id);
+  if (entry) await undoEntry(entry, { silent: true });
+}
+
+/** Clear the heal history log (the applied fixes stay; only the undo log is forgotten). */
+async function clearHealHistory(): Promise<void> {
+  if (healHistory.all().length === 0) return;
+  const choice = await vscode.window.showWarningMessage(
+    'Clear all heal history? The applied fixes stay in your files — you just lose one-click undo for them.',
+    { modal: true },
+    'Clear',
+  );
+  if (choice === 'Clear') await healHistory.clear();
 }
 
 async function showMenu(): Promise<void> {

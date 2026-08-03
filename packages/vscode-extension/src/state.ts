@@ -25,6 +25,12 @@ export interface HealerSnapshot {
   suggestionsByKey: Map<string, StoredSuggestion[]>;
   /** Top "why it broke" reason per selector id — survives targeted/watch merges. */
   explanationsById: Map<string, string>;
+  /**
+   * Selector signatures the user chose to "Skip" (dismiss). A dismissed
+   * attention-state selector is set aside from the active list + counts until its
+   * signature changes (i.e. the selector is edited). Persisted across reloads.
+   */
+  dismissedSignatures: Set<string>;
   /** Epoch ms of the last completed run, if any. */
   lastRunAt?: number;
   /** Optional transient message (e.g. what the running phase is doing). */
@@ -32,7 +38,13 @@ export interface HealerSnapshot {
 }
 
 function emptySnapshot(): HealerSnapshot {
-  return { phase: 'idle', results: [], suggestionsByKey: new Map(), explanationsById: new Map() };
+  return {
+    phase: 'idle',
+    results: [],
+    suggestionsByKey: new Map(),
+    explanationsById: new Map(),
+    dismissedSignatures: new Set(),
+  };
 }
 
 /**
@@ -114,6 +126,7 @@ class HealerStateStore {
       results,
       suggestionsByKey,
       explanationsById,
+      dismissedSignatures: this.current.dismissedSignatures,
       lastRunAt: Date.now(),
     };
     this.emitter.fire(this.current);
@@ -166,8 +179,30 @@ class HealerStateStore {
       results: merged,
       suggestionsByKey,
       explanationsById,
+      dismissedSignatures: this.current.dismissedSignatures,
       lastRunAt: Date.now(),
     };
+    this.emitter.fire(this.current);
+  }
+
+  /**
+   * Set or clear a selector's "dismissed" (Skip) state by signature, preserving
+   * the rest of the snapshot. Fires a change so every surface re-renders.
+   *
+   * @param signature - the selector signature to toggle
+   * @param dismissed - true to dismiss (Skip), false to restore
+   */
+  setDismissed(signature: string, dismissed: boolean): void {
+    const next = new Set(this.current.dismissedSignatures);
+    if (dismissed) next.add(signature);
+    else next.delete(signature);
+    this.current = { ...this.current, dismissedSignatures: next };
+    this.emitter.fire(this.current);
+  }
+
+  /** Seed the dismissed set from persisted storage on activation. */
+  hydrateDismissed(signatures: Set<string>): void {
+    this.current = { ...this.current, dismissedSignatures: signatures };
     this.emitter.fire(this.current);
   }
 
@@ -188,14 +223,15 @@ class HealerStateStore {
       results: snapshot.results,
       suggestionsByKey: snapshot.suggestionsByKey,
       explanationsById: snapshot.explanationsById,
+      dismissedSignatures: this.current.dismissedSignatures,
       lastRunAt: snapshot.lastRunAt,
     };
     this.emitter.fire(this.current);
   }
 
-  /** Clear all state back to idle. */
+  /** Clear run state back to idle, but keep the user's dismissals (a preference). */
   reset(): void {
-    this.current = emptySnapshot();
+    this.current = { ...emptySnapshot(), dismissedSignatures: this.current.dismissedSignatures };
     this.emitter.fire(this.current);
   }
 

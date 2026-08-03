@@ -28,6 +28,8 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider, Captur
   private captureSummary?: { captured: number; total: number };
   private hasCapture = false;
   private watchEnabled = false;
+  private webviewReady = false;
+  private pendingHistory = false;
 
   constructor(private readonly extensionUri: vscode.Uri) {
     healerState.onDidChange(() => this.postState(true));
@@ -35,19 +37,41 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider, Captur
 
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
+    this.webviewReady = false; // a fresh webview isn't listening until it posts 'ready'
     view.webview.options = { enableScripts: true, localResourceRoots: [this.extensionUri] };
     view.webview.html = buildWebviewHtml(view.webview.cspSource, 'sidebar');
 
     view.webview.onDidReceiveMessage(async (msg: DashMessage) => {
       if (msg.type === 'ready') {
         // The webview's listener is live — (re)send state so it doesn't stay blank.
+        this.webviewReady = true;
         this.postState(false);
         if (this.hasCapture) this.postCapture(false);
+        if (this.pendingHistory) {
+          this.pendingHistory = false;
+          await this.postHistory();
+        }
         return;
       }
       if (msg.type === 'showBaseline') {
         const rows = await vscode.commands.executeCommand('selectorHealer.getBaseline');
         this.view?.webview.postMessage({ type: 'baselineData', rows });
+        return;
+      }
+      if (msg.type === 'showHistory') {
+        await this.postHistory();
+        return;
+      }
+      if (msg.type === 'undo') {
+        if (msg.entryId) {
+          await vscode.commands.executeCommand('selectorHealer.undoHistoryEntry', msg.entryId);
+        }
+        await this.postHistory();
+        return;
+      }
+      if (msg.type === 'clearHistory') {
+        await vscode.commands.executeCommand('selectorHealer.clearHistory');
+        await this.postHistory();
         return;
       }
       await handleWebviewMessage(msg);
@@ -60,6 +84,23 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider, Captur
   /** Reveal/focus the sidebar view. */
   async focus(): Promise<void> {
     await vscode.commands.executeCommand(`${DashboardViewProvider.viewType}.focus`);
+  }
+
+  /** Open the sidebar and switch it to the Heal History view (for the menu command). */
+  async showHistory(): Promise<void> {
+    await this.focus();
+    if (this.webviewReady) {
+      // View is live and listening — switch it now.
+      await this.postHistory();
+    } else {
+      // Not resolved yet; 'ready' will post (and clear the flag) once it loads.
+      this.pendingHistory = true;
+    }
+  }
+
+  private async postHistory(): Promise<void> {
+    const entries = await vscode.commands.executeCommand('selectorHealer.getHistory');
+    this.view?.webview.postMessage({ type: 'historyData', entries });
   }
 
   /** Begin a capture run: seed the live list and switch to the capture view. */

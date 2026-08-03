@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('vscode', () => import('./__mocks__/vscode.js'));
 
-const { serialize } = await import('../src/webview-content.js');
+const { serialize, activeResults } = await import('../src/webview-content.js');
+const { selectorSignature } = await import('../src/watch.js');
 type StoredSuggestion = import('../src/code-actions.js').StoredSuggestion;
 type HealerSnapshot = import('../src/state.js').HealerSnapshot;
 
@@ -29,14 +30,19 @@ function cand(code: string, confidence: number, reasoning?: string): StoredSugge
   };
 }
 
-function snapshotWith(candidates: StoredSuggestion[]): HealerSnapshot {
+function snapshotWith(
+  candidates: StoredSuggestion[],
+  extra: Partial<HealerSnapshot> = {},
+): HealerSnapshot {
   const results: VerificationResult[] = [{ selector: SEL, status: 'broken', matchCount: 0 }];
   return {
     phase: 'done',
     results,
     suggestionsByKey: new Map([[`${SEL.filePath}:${SEL.line}`, candidates]]),
     explanationsById: new Map(),
+    dismissedSignatures: new Set(),
     lastRunAt: 1,
+    ...extra,
   };
 }
 
@@ -71,5 +77,53 @@ describe('serialize — heal candidates', () => {
     const { items } = serialize(snap);
     expect(items[0]?.suggestion).toBeUndefined();
     expect(items[0]?.alternatives).toBeUndefined();
+  });
+});
+
+describe('serialize — dismissed (Skip)', () => {
+  const sig = selectorSignature(SEL);
+
+  it('moves a dismissed broken selector out of items + counts into the dismissed list', () => {
+    const out = serialize(
+      snapshotWith([cand("page.getByTestId('x')", 0.9)], { dismissedSignatures: new Set([sig]) }),
+    );
+    expect(out.items).toHaveLength(0);
+    expect(out.dismissed).toHaveLength(1);
+    expect(out.dismissed[0]?.status).toBe('broken');
+    expect(out.counts.broken).toBe(0);
+    expect(out.counts.total).toBe(0);
+  });
+
+  it('keeps the selector active when its signature is not dismissed', () => {
+    const out = serialize(snapshotWith([cand("page.getByTestId('x')", 0.9)]));
+    expect(out.items).toHaveLength(1);
+    expect(out.dismissed).toHaveLength(0);
+  });
+
+  it('never hides an ok selector, even if its signature is dismissed', () => {
+    const snap = snapshotWith([], { dismissedSignatures: new Set([sig]) });
+    snap.results = [{ selector: SEL, status: 'ok', matchCount: 1 }];
+    const out = serialize(snap);
+    expect(out.items).toHaveLength(1);
+    expect(out.dismissed).toHaveLength(0);
+  });
+});
+
+describe('activeResults — what Heal-All and the status bar count', () => {
+  const sig = selectorSignature(SEL);
+
+  it('drops a dismissed broken selector (so Heal-All + status bar ignore it)', () => {
+    const snap = snapshotWith([], { dismissedSignatures: new Set([sig]) });
+    expect(activeResults(snap)).toHaveLength(0);
+  });
+
+  it('keeps a dismissed selector that is currently ok (dismissal only hides attention states)', () => {
+    const snap = snapshotWith([], { dismissedSignatures: new Set([sig]) });
+    snap.results = [{ selector: SEL, status: 'ok', matchCount: 1 }];
+    expect(activeResults(snap)).toHaveLength(1);
+  });
+
+  it('keeps everything when nothing is dismissed', () => {
+    expect(activeResults(snapshotWith([]))).toHaveLength(1);
   });
 });

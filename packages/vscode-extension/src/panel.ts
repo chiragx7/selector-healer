@@ -73,6 +73,22 @@ export class DashboardPanel implements CaptureSink {
           this.panel.webview.postMessage({ type: 'baselineData', rows });
           return;
         }
+        if (msg.type === 'showHistory') {
+          await this.postHistory();
+          return;
+        }
+        if (msg.type === 'undo') {
+          if (msg.entryId) {
+            await vscode.commands.executeCommand('selectorHealer.undoHistoryEntry', msg.entryId);
+          }
+          await this.postHistory();
+          return;
+        }
+        if (msg.type === 'clearHistory') {
+          await vscode.commands.executeCommand('selectorHealer.clearHistory');
+          await this.postHistory();
+          return;
+        }
         await handleWebviewMessage(msg);
       },
       null,
@@ -85,6 +101,11 @@ export class DashboardPanel implements CaptureSink {
 
   async focus(): Promise<void> {
     this.panel.reveal();
+  }
+
+  private async postHistory(): Promise<void> {
+    const entries = await vscode.commands.executeCommand('selectorHealer.getHistory');
+    this.panel.webview.postMessage({ type: 'historyData', entries });
   }
 
   startCapture(rows: CaptureRow[]): void {
