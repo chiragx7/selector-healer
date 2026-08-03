@@ -1,7 +1,7 @@
 {
   "name": "selector-healer-vscode",
   "displayName": "Selector Healer",
-  "description": "Detect broken test selectors, get AI-powered healing suggestions, and apply AST-based quick fixes — supports Playwright, Cypress, WebdriverIO, and TestCafe.",
+  "description": "Detect broken test selectors, get confidence-scored healing suggestions, and apply AST-based quick fixes — local-first (no LLM, no telemetry). Supports Playwright, Cypress, WebdriverIO, and TestCafe.",
   "version": "0.1.0",
   "publisher": "YOUR_PUBLISHER_ID",
   "license": "MIT",
