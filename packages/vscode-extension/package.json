@@ -200,7 +200,8 @@
             "id": "heal",
             "title": "Heal what broke",
             "description": "For each broken selector, apply a ranked, explainable fix — from the dashboard, a Quick Fix (Ctrl+.), or a CodeLens.\n[Open Dashboard](command:selectorHealer.focusDashboard)",
-            "media": { "markdown": "media/walkthrough/heal.md" }
+            "media": { "markdown": "media/walkthrough/heal.md" },
+            "completionEvents": ["onCommand:selectorHealer.focusDashboard"]
           }
         ]
       }
