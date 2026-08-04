@@ -39,6 +39,7 @@ import {
 } from './diagnostics.js';
 import { type HealHistoryEntry, healHistory, undoHeal } from './history.js';
 import type { AppliedHeal } from './history.js';
+import { SelectorHoverProvider } from './hover.js';
 import { lintDiagnostics } from './lint.js';
 import { DashboardPanel } from './panel.js';
 import { HEAL_PREVIEW_SCHEME, HealPreviewProvider, previewAndApplyHeal } from './preview.js';
@@ -124,6 +125,7 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     ),
     vscode.languages.registerCodeLensProvider(DOC_SELECTOR, new SelectorCodeLensProvider()),
+    vscode.languages.registerHoverProvider(DOC_SELECTOR, new SelectorHoverProvider()),
     initDecorations(context.extensionUri),
   );
 
