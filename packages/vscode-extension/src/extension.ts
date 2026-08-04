@@ -74,7 +74,8 @@ const SNAPSHOT_KEY = 'selectorHealer.lastSnapshot';
 const DISMISSED_KEY = 'selectorHealer.dismissed';
 let watchEnabled = false;
 let watchRunning = false;
-const watchDebouncer = new Debouncer(WATCH_DEBOUNCE_MS);
+// Constructed in activate() from the configurable `selectorHealer.watch.debounceMs`.
+let watchDebouncer: Debouncer;
 const pendingWatchFiles = new Set<string>();
 // A warm browser kept alive while watch is on, reused across saves so each
 // re-verify skips the ~1s cold Chromium launch. Opened lazily, closed on
@@ -93,6 +94,10 @@ const TS_LANGS = new Set(['typescript', 'typescriptreact', 'javascript', 'javasc
 export function activate(context: vscode.ExtensionContext): void {
   // Heal history persists in the workspace's Memento (local-first, survives reloads).
   healHistory.init(context.workspaceState);
+  // Watch debounce is user-configurable (reload to apply a change).
+  watchDebouncer = new Debouncer(
+    vscode.workspace.getConfiguration('selectorHealer').get('watch.debounceMs', WATCH_DEBOUNCE_MS),
+  );
   diagnosticCollection = createDiagnosticCollection();
   lintDiagnosticCollection = vscode.languages.createDiagnosticCollection('selector-healer-lint');
   statusBarItem = createStatusBarItem();
@@ -238,6 +243,14 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       if (editor) maybeParse(editor.document);
     }),
+    // Toggling fragility lint takes effect immediately: clear, then re-scan
+    // whatever's open (re-adds warnings if now enabled, keeps them gone if off).
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('selectorHealer.lint.enabled')) {
+        lintDiagnosticCollection.clear();
+        for (const ed of vscode.window.visibleTextEditors) maybeParse(ed.document);
+      }
+    }),
   );
 
   // Scan whatever is open right now (covers the just-reloaded case).
@@ -295,7 +308,9 @@ function parseSingleFile(doc: vscode.TextDocument): void {
   }
   // Proactive fragility lint (Information): flags text/CSS/XPath locators and,
   // when a baseline exists, suggests a sturdier replacement via a quick-fix.
-  const fragile = lintDiagnostics(doc.uri.fsPath, selectors, fingerprints);
+  // Opt-out via the `selectorHealer.lint.enabled` setting (read fresh each parse).
+  const lintEnabled = vscode.workspace.getConfiguration('selectorHealer').get('lint.enabled', true);
+  const fragile = lintEnabled ? lintDiagnostics(doc.uri.fsPath, selectors, fingerprints) : [];
   lintDiagnosticCollection.set(doc.uri, [...diagnostics, ...fragile]);
 }
 

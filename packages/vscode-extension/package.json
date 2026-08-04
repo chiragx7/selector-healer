@@ -152,7 +152,59 @@
           "when": "false"
         }
       ]
-    }
+    },
+    "configuration": {
+      "title": "Selector Healer",
+      "properties": {
+        "selectorHealer.lint.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show proactive fragility warnings for brittle locators (visible text, structural CSS, XPath) as you edit test files."
+        },
+        "selectorHealer.watch.debounceMs": {
+          "type": "number",
+          "default": 400,
+          "minimum": 0,
+          "markdownDescription": "Delay (in milliseconds) before Watch mode re-verifies a test file after you save it. Reload the window to apply a change."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "selectorHealerGettingStarted",
+        "title": "Get Started with Selector Healer",
+        "description": "Catch broken test selectors before CI — capture a baseline, verify against the live DOM, and heal what broke. All local, no telemetry.",
+        "steps": [
+          {
+            "id": "createConfig",
+            "title": "Create a config",
+            "description": "Point Selector Healer at your app — it auto-detects your framework, base URL, and test directory.\n[Create Config](command:selectorHealer.init)",
+            "media": { "markdown": "media/walkthrough/create-config.md" },
+            "completionEvents": ["onCommand:selectorHealer.init"]
+          },
+          {
+            "id": "capture",
+            "title": "Capture a baseline",
+            "description": "Snapshot each selector against your live DOM, so the tool knows what a correct match looks like.\n[Capture Baseline](command:selectorHealer.capture)",
+            "media": { "markdown": "media/walkthrough/capture.md" },
+            "completionEvents": ["onCommand:selectorHealer.capture"]
+          },
+          {
+            "id": "verify",
+            "title": "Verify your selectors",
+            "description": "Re-check every selector against the current DOM. Anything that no longer resolves is flagged as broken.\n[Verify Now](command:selectorHealer.verify)",
+            "media": { "markdown": "media/walkthrough/verify.md" },
+            "completionEvents": ["onCommand:selectorHealer.verify"]
+          },
+          {
+            "id": "heal",
+            "title": "Heal what broke",
+            "description": "For each broken selector, apply a ranked, explainable fix — from the dashboard, a Quick Fix (Ctrl+.), or a CodeLens.\n[Open Dashboard](command:selectorHealer.focusDashboard)",
+            "media": { "markdown": "media/walkthrough/heal.md" }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

@@ -87,6 +87,17 @@ The extension reads `selector-healer.config.{ts,js,cjs,mjs}` from your workspace
 | `globalSetup` | — | Pre-verification hook for auth/cookies |
 | `pages` | — | Extra page states (with setup/login hooks) to visit |
 
+## Extension settings
+
+A couple of behaviours are configurable from VS Code **Settings** (search "Selector Healer"):
+
+| Setting | Default | What it does |
+|---|---|---|
+| `selectorHealer.lint.enabled` | `true` | Show proactive fragility warnings for brittle locators (visible text, structural CSS, XPath) as you edit |
+| `selectorHealer.watch.debounceMs` | `400` | Delay before Watch mode re-verifies a saved test file (reload to apply) |
+
+New here? Open **Help → Get Started** and pick the **"Get Started with Selector Healer"** walkthrough for a guided Config → Capture → Verify → Heal.
+
 ## How it works
 
 1. **Parse** — walks the AST of your test files and extracts every selector call (`getByTestId`, `getByRole`, `page.locator`, `cy.get`, …).
