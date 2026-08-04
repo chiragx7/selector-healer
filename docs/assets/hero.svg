@@ -1,0 +1,55 @@
+<svg width="1280" height="360" viewBox="0 0 1280 360" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif">
+  <rect width="1280" height="360" rx="20" fill="#1e1e1e"/>
+  <rect x="0.5" y="0.5" width="1279" height="359" rx="19.5" stroke="#3c3c3c"/>
+
+  <!-- shield mark -->
+  <g transform="translate(64,74)">
+    <path d="M22 2 L40 9 V24 C40 35 32 43 22 46 C12 43 4 35 4 24 V9 Z" fill="#132a1f" stroke="#3fb950" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M14 23 l6 6 l11 -13" fill="none" stroke="#3fb950" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- wordmark + tagline -->
+  <text x="126" y="108" fill="#ffffff" font-size="50" font-weight="700" letter-spacing="-0.5">Selector Healer</text>
+  <text x="66" y="158" fill="#c9d1d9" font-size="23">Catch broken test selectors before CI does.</text>
+  <text x="66" y="190" fill="#8b949e" font-size="16">Verify against the live DOM · explain what broke · apply AST-based fixes · all local-first.</text>
+
+  <!-- framework chips -->
+  <g font-size="14" fill="#c9d1d9">
+    <g transform="translate(66,222)"><rect width="98" height="30" rx="15" fill="#21262d" stroke="#30363d"/><text x="49" y="20" text-anchor="middle">Playwright</text></g>
+    <g transform="translate(174,222)"><rect width="78" height="30" rx="15" fill="#21262d" stroke="#30363d"/><text x="39" y="20" text-anchor="middle">Cypress</text></g>
+    <g transform="translate(262,222)"><rect width="112" height="30" rx="15" fill="#21262d" stroke="#30363d"/><text x="56" y="20" text-anchor="middle">WebdriverIO</text></g>
+    <g transform="translate(384,222)"><rect width="86" height="30" rx="15" fill="#21262d" stroke="#30363d"/><text x="43" y="20" text-anchor="middle">TestCafe</text></g>
+  </g>
+
+  <!-- local-first tag -->
+  <g transform="translate(66,278)">
+    <circle cx="7" cy="7" r="6" fill="none" stroke="#58a6ff" stroke-width="1.6"/>
+    <path d="M4.5 7 l1.7 1.7 l3.3 -3.8" stroke="#58a6ff" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    <text x="22" y="12" fill="#8b949e" font-size="15">No network beyond your own app · no telemetry · AST-only edits (recast + Babel)</text>
+  </g>
+
+  <!-- heal card -->
+  <g transform="translate(770,64)">
+    <rect width="446" height="232" rx="14" fill="#252526" stroke="#3c3c3c"/>
+    <text x="22" y="34" fill="#8b949e" font-size="13" letter-spacing="0.4">A UI CHANGE BROKE A SELECTOR — HEALED</text>
+
+    <!-- broken -->
+    <rect x="20" y="52" width="406" height="48" rx="9" fill="#2d1113" stroke="#5c2427"/>
+    <circle cx="42" cy="76" r="6" fill="#f85149"/>
+    <text x="62" y="81" fill="#c9d1d9" font-size="16" font-family="ui-monospace, 'Cascadia Code', Consolas, monospace">getByText('Log in')</text>
+    <line x1="62" y1="76" x2="242" y2="76" stroke="#f85149" stroke-width="1.4"/>
+    <text x="404" y="81" fill="#f85149" font-size="13" text-anchor="end">0 matches</text>
+
+    <!-- arrow -->
+    <path d="M223 104 v18 m0 0 l-6 -6 m6 6 l6 -6" stroke="#8b949e" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+
+    <!-- healed -->
+    <rect x="20" y="130" width="406" height="48" rx="9" fill="#0f2a1a" stroke="#238636"/>
+    <path d="M36 154 l5 5 l10 -12" stroke="#3fb950" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="62" y="159" fill="#e6edf3" font-size="16" font-family="ui-monospace, 'Cascadia Code', Consolas, monospace">getByTestId('login')</text>
+    <g transform="translate(360,142)"><rect width="46" height="24" rx="12" fill="#238636"/><text x="23" y="16" fill="#ffffff" font-size="12" font-weight="700" text-anchor="middle">92%</text></g>
+
+    <!-- footer meta -->
+    <text x="22" y="206" fill="#8b949e" font-size="13">matched by test-id + text · recast preserves your formatting</text>
+  </g>
+</svg>

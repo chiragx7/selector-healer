@@ -6,8 +6,8 @@ Works with **Playwright**, **Cypress**, **WebdriverIO**, and **TestCafe** test f
 
 ## Features
 
-### Unified dashboard
-One panel — in the sidebar, or opened full-screen in an editor tab — showing overall **selector health**, a filterable list (broken / ambiguous / healthy), and inline heal actions on every card. A live **Baseline** view lists which selectors are captured, and a **Heal History** view lists every fix you've applied.
+### Analytics Overview dashboard
+An **Overview** home — in the sidebar, or full-screen in an editor tab — ties everything together: a **selector-health** ring, a live **baseline** donut with one-click **prune** of stale fingerprints, a **robustness gauge**, **health-over-time**, selector **composition**, a **per-page** breakdown, and a project **tooling** strip. Persistent tabs switch to a filterable **Results** list (broken / ambiguous / healthy) with inline heal actions, a **Baseline** inventory, and a **Heal History** view — so you're never stuck on one page.
 
 ### Live verify + watch mode
 Run **Verify Now** to check every selector against the live DOM, or turn on **Watch** to auto re-verify a test file the moment you save it — so breakage surfaces as you type, not the next morning in CI.
@@ -28,6 +28,7 @@ Every applied fix is recorded in **Heal History** with a one-click **Undo** — 
 ### Deep editor integration
 - **Quick Fixes** (`Ctrl+.` / `Cmd+.`) on any broken selector, ranked, with the best marked preferred.
 - **Per-selector CodeLens** — `✓ OK` / `✨ Heal → …` inline above each selector.
+- **Hover cards** — hover any selector to see its status, the matched element, and a heal action.
 - **Gutter dots** + **Problems panel** diagnostics for broken/ambiguous selectors.
 - **Fragility lint** — proactively flags brittle locators (raw text, structural CSS, XPath) and offers a sturdier replacement, even before anything breaks.
 - **Status bar** health indicator.
