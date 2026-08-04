@@ -8,8 +8,10 @@ import {
   openHealerBrowser,
   parseDirectory,
   parseTestFile,
+  pruneFingerprints,
   renderConfigFile,
   renderSelectorCode,
+  saveFingerprints,
   verifySelectors,
 } from '@selector-healer/core';
 import type {
@@ -221,6 +223,7 @@ export function activate(context: vscode.ExtensionContext): void {
       undoHistoryEntry(id),
     ),
     vscode.commands.registerCommand('selectorHealer.clearHistory', () => clearHealHistory()),
+    vscode.commands.registerCommand('selectorHealer.pruneStale', () => runPruneStale()),
     vscode.commands.registerCommand(WATCH_TOGGLE_COMMAND, () => toggleWatch(context)),
   );
 
@@ -541,6 +544,75 @@ async function runCaptureMissing(): Promise<void> {
   }
   outputChannel.appendLine(`[${time()}] Capturing ${missing.length} missing selector(s)…`);
   await captureSelectors(missing, config, root);
+}
+
+/**
+ * Remove baseline fingerprints for selectors that no longer exist (renamed,
+ * moved, or deleted). Reachable rename-recovery orphans are kept. Asks first,
+ * then rewrites `fingerprints.json`.
+ */
+async function runPruneStale(): Promise<void> {
+  const root = getWorkspaceRoot();
+  if (!root) return;
+  const config = await loadConfig();
+  if (!config) return;
+
+  const parseResult = parseDirectory(config.testDir, config.testGlob);
+  if (parseResult.isErr()) {
+    vscode.window.showErrorMessage(`Selector Healer parse error: ${parseResult.error.message}`);
+    return;
+  }
+  const fpResult = loadFingerprints(root);
+  if (fpResult.isErr()) {
+    vscode.window.showErrorMessage(`Selector Healer: ${fpResult.error.message}`);
+    return;
+  }
+
+  const { kept, removed } = pruneFingerprints(fpResult.value, parseResult.value.selectors, root);
+  if (removed.length === 0) {
+    vscode.window.showInformationMessage(
+      'Selector Healer: baseline is already clean — no stale fingerprints.',
+    );
+    return;
+  }
+
+  // Safety: never prune from an untrustworthy current-selector list. Parse errors
+  // (an incomplete list) or zero selectors (a misconfigured testDir) would make live
+  // fingerprints look orphaned and delete valid baselines. `removed > 0` here.
+  if (parseResult.value.errors.length > 0) {
+    const n = parseResult.value.errors.length;
+    vscode.window.showWarningMessage(
+      `Selector Healer: ${n} test file${n === 1 ? '' : 's'} failed to parse, so the selector list is incomplete. Fix ${n === 1 ? 'it' : 'them'} and re-run Prune — otherwise valid baselines could be removed.`,
+    );
+    return;
+  }
+  if (parseResult.value.selectors.length === 0) {
+    vscode.window.showWarningMessage(
+      `Selector Healer: no selectors found in ${config.testDir}. Refusing to prune — this would remove the entire baseline. Check your testDir.`,
+    );
+    return;
+  }
+
+  const plural = removed.length === 1 ? '' : 's';
+  const choice = await vscode.window.showWarningMessage(
+    `Remove ${removed.length} stale fingerprint${plural}? These are baselines for selectors that no longer exist. The file is committed to git, so this is reversible.`,
+    { modal: true },
+    'Remove',
+  );
+  if (choice !== 'Remove') return;
+
+  const saveResult = saveFingerprints(root, kept);
+  if (saveResult.isErr()) {
+    vscode.window.showErrorMessage(`Selector Healer: could not save — ${saveResult.error.message}`);
+    return;
+  }
+  outputChannel.appendLine(
+    `[${time()}] Pruned ${removed.length} stale fingerprint(s), ${kept.size} kept`,
+  );
+  vscode.window.showInformationMessage(
+    `Selector Healer: removed ${removed.length} stale fingerprint${plural}, ${kept.size} kept.`,
+  );
+  dashboard.refresh();
 }
 
 /**
@@ -1150,6 +1222,11 @@ async function showMenu(): Promise<void> {
       label: '$(history) Heal History',
       detail: 'Browse and undo past fixes',
       cmd: 'selectorHealer.showHealHistory',
+    },
+    {
+      label: '$(trash) Prune Stale Baseline',
+      detail: 'Remove fingerprints for selectors that no longer exist',
+      cmd: 'selectorHealer.pruneStale',
     },
     {
       label: watchEnabled ? '$(eye) Watch: On — click to turn off' : '$(eye-closed) Watch: Off',

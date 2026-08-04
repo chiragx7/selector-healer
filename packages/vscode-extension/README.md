@@ -61,6 +61,7 @@ Every applied fix is recorded in **Heal History** with a one-click **Undo** — 
 | `Selector Healer: Apply All High-Confidence Fixes` | Batch-apply fixes above the auto-apply threshold |
 | `Selector Healer: Heal History` | Browse applied fixes and undo any of them |
 | `Selector Healer: Undo Last Heal` | Revert the most recent fix |
+| `Selector Healer: Prune Stale Baseline` | Remove fingerprints for selectors that no longer exist |
 | `Selector Healer: Create Config` | Generate a `selector-healer.config` for your project |
 
 ## Requirements

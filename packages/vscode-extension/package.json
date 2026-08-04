@@ -114,6 +114,11 @@
         "icon": "$(eye)"
       },
       {
+        "command": "selectorHealer.pruneStale",
+        "title": "Selector Healer: Prune Stale Baseline",
+        "icon": "$(trash)"
+      },
+      {
         "command": "selectorHealer.showMenu",
         "title": "Selector Healer: Menu"
       }

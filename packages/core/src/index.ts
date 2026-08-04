@@ -8,6 +8,7 @@ export {
   loadFingerprints,
   saveFingerprints,
   getStorePath,
+  pruneFingerprints,
 } from './fingerprint/index.js';
 export type {
   CaptureResult,
@@ -15,6 +16,7 @@ export type {
   CaptureProgressEvent,
   CaptureProgress,
   StoreError,
+  PruneResult,
 } from './fingerprint/index.js';
 export { verifySelectors, compareFingerprints } from './verifier/index.js';
 export type { VerifyOptions, ComparisonResult, ComparisonDetail } from './verifier/index.js';

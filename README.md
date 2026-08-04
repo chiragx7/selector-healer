@@ -53,6 +53,7 @@ npx selector-healer report     # Generate HTML report
 | `selector-healer capture` | Parse test files and capture DOM fingerprints |
 | `selector-healer verify` | Verify selectors against live DOM, show healing suggestions |
 | `selector-healer verify --fix` | Auto-apply suggestions above the auto-apply threshold |
+| `selector-healer prune` | Remove baseline fingerprints for selectors that no longer exist (`--dry-run` to preview) |
 | `selector-healer report` | Generate a self-contained HTML report |
 
 ### Options
