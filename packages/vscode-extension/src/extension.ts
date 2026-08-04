@@ -43,6 +43,7 @@ import { type HealHistoryEntry, healHistory, undoHeal } from './history.js';
 import type { AppliedHeal } from './history.js';
 import { SelectorHoverProvider } from './hover.js';
 import { lintDiagnostics } from './lint.js';
+import { type OverviewData, buildOverview } from './overview.js';
 import { DashboardPanel } from './panel.js';
 import { HEAL_PREVIEW_SCHEME, HealPreviewProvider, previewAndApplyHeal } from './preview.js';
 import { countResults, healerState } from './state.js';
@@ -56,6 +57,7 @@ import {
   setRunning,
   setWatch,
 } from './status-bar.js';
+import { healthTrend } from './trend.js';
 import { Debouncer, isTestFilePath, selectorSignature, selectorsChangedSince } from './watch.js';
 import { activeResults } from './webview-content.js';
 import type { BaselineRow, CaptureSink, HistoryRow } from './webview-content.js';
@@ -96,6 +98,8 @@ const TS_LANGS = new Set(['typescript', 'typescriptreact', 'javascript', 'javasc
 export function activate(context: vscode.ExtensionContext): void {
   // Heal history persists in the workspace's Memento (local-first, survives reloads).
   healHistory.init(context.workspaceState);
+  // Health-over-time trend for the Overview sparkline (same local-first Memento).
+  healthTrend.init(context.workspaceState);
   // Watch debounce is user-configurable (reload to apply a change).
   watchDebouncer = new Debouncer(
     vscode.workspace.getConfiguration('selectorHealer').get('watch.debounceMs', WATCH_DEBOUNCE_MS),
@@ -212,6 +216,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.undoLastHeal', () => undoLastHeal()),
     vscode.commands.registerCommand('selectorHealer.showHealHistory', () => showHealHistory()),
     vscode.commands.registerCommand('selectorHealer.getBaseline', () => gatherBaseline()),
+    vscode.commands.registerCommand('selectorHealer.getOverview', () => gatherOverview()),
     vscode.commands.registerCommand('selectorHealer.dismiss', (id: string) =>
       setSelectorDismissed(id, true, context),
     ),
@@ -408,6 +413,7 @@ async function runInit(): Promise<void> {
 
   // Config now exists — refresh the dashboard so onboarding switches to "Get started".
   dashboard.refresh();
+  DashboardPanel.current?.refresh();
 }
 
 async function runVerify(): Promise<void> {
@@ -444,6 +450,8 @@ async function runVerify(): Promise<void> {
       `[${time()}] Done — ${c.ok} ok, ${c.broken} broken, ${c.multi} ambiguous, ${c.skipped + c.failed} skipped`,
     );
     const shown = countResults(activeResults(healerState.snapshot));
+    // Record one point per full verify for the Overview health-over-time trend.
+    healthTrend.record(shown.healthPct);
 
     if (shown.broken > 0) {
       vscode.window.showWarningMessage(
@@ -613,6 +621,7 @@ async function runPruneStale(): Promise<void> {
     `Selector Healer: removed ${removed.length} stale fingerprint${plural}, ${kept.size} kept.`,
   );
   dashboard.refresh();
+  DashboardPanel.current?.refresh();
 }
 
 /**
@@ -849,6 +858,19 @@ interface PersistedSnapshot {
   suggestions: Array<[string, StoredSuggestion[]]>;
   explanations: Array<[string, string]>;
   lastRunAt?: number;
+}
+
+/**
+ * Assemble the dashboard Overview payload (project + tooling, baseline live/stale,
+ * selector composition, robustness, pages, health trend). Returns null when
+ * there's no workspace or config so the webview can fall back to onboarding.
+ */
+async function gatherOverview(): Promise<OverviewData | null> {
+  const root = getWorkspaceRoot();
+  if (!root) return null;
+  const config = await loadConfig(true);
+  if (!config) return null;
+  return buildOverview(config, root, healthTrend.all(), healHistory.all().length);
 }
 
 /**

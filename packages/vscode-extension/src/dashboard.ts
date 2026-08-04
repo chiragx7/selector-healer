@@ -53,6 +53,11 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider, Captur
         }
         return;
       }
+      if (msg.type === 'showOverview') {
+        const payload = await vscode.commands.executeCommand('selectorHealer.getOverview');
+        this.view?.webview.postMessage({ type: 'overviewData', payload });
+        return;
+      }
       if (msg.type === 'showBaseline') {
         const rows = await vscode.commands.executeCommand('selectorHealer.getBaseline');
         this.view?.webview.postMessage({ type: 'baselineData', rows });

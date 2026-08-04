@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('vscode', () => import('./__mocks__/vscode.js'));
 
-const { serialize, activeResults } = await import('../src/webview-content.js');
+const { serialize, activeResults, buildWebviewHtml } = await import('../src/webview-content.js');
 const { selectorSignature } = await import('../src/watch.js');
 type StoredSuggestion = import('../src/code-actions.js').StoredSuggestion;
 type HealerSnapshot = import('../src/state.js').HealerSnapshot;
@@ -133,6 +133,30 @@ describe('serialize — dismissed (Skip)', () => {
     const out = serialize(snap);
     expect(out.items).toHaveLength(1);
     expect(out.dismissed).toHaveLength(0);
+  });
+});
+
+describe('buildWebviewHtml — client script integrity', () => {
+  const html = buildWebviewHtml('vscode-webview://x', 'panel');
+  const script = html.slice(html.indexOf('<script'), html.lastIndexOf('</script>'));
+
+  // The client script is one big string, so tsc/unit tests never parse it. A
+  // duplicate `function foo(){}` silently shadows the earlier one at runtime —
+  // exactly the bug where the Overview's `card()` collided with the result-card
+  // `card()` and rendered "undefined:undefined". Guard against the whole class.
+  it('declares no duplicate top-level function names', () => {
+    const counts = new Map<string, number>();
+    for (const m of script.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)\s*\(/g)) {
+      counts.set(m[1], (counts.get(m[1]) ?? 0) + 1);
+    }
+    const dupes = [...counts.entries()].filter(([, n]) => n > 1).map(([name]) => name);
+    expect(dupes).toEqual([]);
+  });
+
+  it('embeds the overview render entrypoints', () => {
+    expect(script).toContain('function renderOverview(');
+    expect(script).toContain('function ovCard(');
+    expect(script).toContain('function switchTab(');
   });
 });
 

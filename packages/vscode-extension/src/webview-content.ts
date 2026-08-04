@@ -105,6 +105,8 @@ export interface DashMessage {
     | 'preview'
     | 'watchToggle'
     | 'showBaseline'
+    | 'showOverview'
+    | 'prune'
     | 'ready'
     | 'init'
     | 'dismiss'
@@ -302,6 +304,9 @@ export async function handleWebviewMessage(msg: DashMessage): Promise<void> {
     case 'watchToggle':
       await vscode.commands.executeCommand('selectorHealer.toggleWatch');
       break;
+    case 'prune':
+      await vscode.commands.executeCommand('selectorHealer.pruneStale');
+      break;
     case 'dismiss':
       if (msg.selectorId)
         await vscode.commands.executeCommand('selectorHealer.dismiss', msg.selectorId);
@@ -377,6 +382,7 @@ export function buildWebviewHtml(cspSource: string, mode: WebviewMode): string {
 <body data-mode="${mode}">
   ${header}
   <div id="verifying-banner" class="vbanner" style="display:none"></div>
+  <nav id="tabs" class="tabs" style="display:none"></nav>
   <div id="app"><div class="empty">Loading…</div></div>
 <script nonce="${nonce}">${SCRIPT}</script>
 </body>
@@ -384,7 +390,7 @@ export function buildWebviewHtml(cspSource: string, mode: WebviewMode): string {
 }
 
 const STYLES = /* css */ `
-:root { --ok: var(--vscode-charts-green, #3fb950); --broken: var(--vscode-charts-red, #f85149); --multi: var(--vscode-charts-yellow, #d29922); --skip: var(--vscode-descriptionForeground, #8b949e); --run: var(--vscode-charts-blue, #58a6ff); }
+:root { --ok: var(--vscode-charts-green, #3fb950); --broken: var(--vscode-charts-red, #f85149); --multi: var(--vscode-charts-yellow, #d29922); --skip: var(--vscode-descriptionForeground, #8b949e); --run: var(--vscode-charts-blue, #58a6ff); --stale: var(--vscode-charts-orange, #db6d28); }
 * { box-sizing: border-box; }
 body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vscode-foreground); margin: 0; padding: 0; }
 .muted { color: var(--vscode-descriptionForeground); }
@@ -498,6 +504,74 @@ body[data-mode="panel"] .chip { font-size: 12.5px; padding: 5px 11px; }
 body[data-mode="panel"] .heal-all { width: auto; padding: 9px 20px; }
 body[data-mode="panel"] .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; align-items: start; }
 body[data-mode="panel"] .compact { grid-column: 1 / -1; }
+
+/* ---------- Overview (analytics home) ---------- */
+.tabs { display: flex; gap: 2px; padding: 8px 12px 0; }
+body[data-mode="panel"] .tabs { max-width: 1120px; margin: 0 auto; padding: 14px 28px 0; }
+.navtab { flex: none; background: none; border: none; cursor: pointer; font-size: 12.5px; color: var(--vscode-descriptionForeground); padding: 6px 12px; border-radius: 6px 6px 0 0; }
+.navtab:hover { color: var(--vscode-foreground); }
+.navtab.on { color: var(--vscode-foreground); background: var(--vscode-editorWidget-background, rgba(128,128,128,.1)); box-shadow: inset 0 -2px 0 var(--run); }
+.ov-proj { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; font-size: 12px; color: var(--vscode-descriptionForeground); }
+.ov-projname { color: var(--vscode-foreground); font-weight: 600; font-size: 13px; }
+.ov-badge { font-size: 11px; color: var(--vscode-foreground); background: var(--vscode-badge-background, rgba(128,128,128,.16)); padding: 2px 8px; border-radius: 20px; }
+.ov-badge-fw { background: color-mix(in srgb, var(--run) 20%, transparent); }
+.ov-purl { font-size: 11.5px; color: var(--vscode-descriptionForeground); }
+.ov-spacer { flex: 1; }
+.ov-last { font-size: 11.5px; }
+.ov-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+body[data-mode="panel"] .ov-grid { grid-template-columns: repeat(3, 1fr); }
+.ov-card { border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.22)); border-radius: 10px; padding: 12px 13px; background: var(--vscode-editorWidget-background, transparent); display: flex; flex-direction: column; }
+.ov-card-h { font-size: 12px; font-weight: 600; margin-bottom: 11px; display: flex; align-items: center; gap: 7px; flex: none; }
+.ov-cardbody { flex: 1; display: flex; flex-direction: column; }
+.ov-cardbody.ov-center { justify-content: center; }
+.ov-hchip { font-weight: 400; font-size: 10.5px; color: var(--vscode-descriptionForeground); background: rgba(128,128,128,.14); padding: 1px 6px; border-radius: 4px; }
+.ov-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 11px; }
+.ov-ring { width: 96px; height: 96px; flex: none; }
+.ov-ring-n { fill: var(--vscode-foreground); font-size: 21px; font-weight: 700; }
+.ov-ring-s { fill: var(--vscode-descriptionForeground); font-size: 10px; }
+.ov-legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; min-width: 0; }
+.ov-lg { display: flex; align-items: center; gap: 7px; }
+.ov-lg i { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.ov-hint { font-size: 10.5px; color: var(--vscode-descriptionForeground); line-height: 1.35; max-width: 160px; }
+.ov-foot { margin-top: auto; width: 100%; justify-content: center; }
+.ov-warn { color: var(--stale); border-color: color-mix(in srgb, var(--stale) 55%, transparent); background: color-mix(in srgb, var(--stale) 12%, transparent); font-weight: 600; }
+.ov-warn:hover { background: color-mix(in srgb, var(--stale) 20%, transparent); }
+.ov-cta { margin-top: 8px; }
+.ov-empty2 { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; font-size: 12px; padding: 4px 0 2px; }
+.ov-big { font-size: 32px; font-weight: 700; line-height: 1; margin-bottom: 11px; }
+.ov-big-s { font-size: 12px; font-weight: 400; color: var(--vscode-descriptionForeground); margin-left: 7px; }
+.ov-stack { display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: rgba(128,128,128,.18); margin-bottom: 10px; }
+.ov-stack > span { display: block; height: 100%; }
+.ov-tierlegend { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 11px; color: var(--vscode-descriptionForeground); }
+.ov-tl { display: inline-flex; align-items: center; gap: 5px; }
+.ov-tl i { width: 8px; height: 8px; border-radius: 2px; }
+.ov-spark { width: 100%; height: 42px; display: block; margin-bottom: 8px; }
+.ov-trend-foot { display: flex; align-items: baseline; gap: 8px; }
+.ov-big2 { font-size: 22px; font-weight: 700; }
+.ov-delta { font-size: 11.5px; }
+.ov-bars { display: flex; flex-direction: column; gap: 7px; }
+.ov-bar { display: grid; grid-template-columns: 96px 1fr 24px; align-items: center; gap: 9px; font-size: 11.5px; }
+.ov-bl { color: var(--vscode-descriptionForeground); font-size: 10.5px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-bt { background: rgba(128,128,128,.15); border-radius: 4px; height: 13px; overflow: hidden; }
+.ov-bt i { display: block; height: 100%; border-radius: 4px; }
+.ov-bn { font-weight: 600; text-align: right; }
+.ov-files { display: flex; flex-direction: column; gap: 8px; }
+.ov-file { display: grid; grid-template-columns: 118px 1fr 26px; align-items: center; gap: 9px; font-size: 12px; }
+.ov-fn { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-fbar { background: rgba(128,128,128,.15); border-radius: 4px; height: 7px; overflow: hidden; }
+.ov-fbar i { display: block; height: 100%; }
+.ov-fc { text-align: right; font-weight: 700; }
+.ov-stats2 { display: flex; gap: 18px; margin-bottom: 11px; }
+.ov-stat-n { font-size: 28px; font-weight: 700; line-height: 1; }
+.ov-stat-l { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 3px; }
+.ov-mini { display: flex; flex-direction: column; gap: 5px; margin-bottom: 11px; }
+.ov-mini-row { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--vscode-descriptionForeground); }
+.ov-mini-row b { color: var(--vscode-foreground); }
+.ov-tooling { display: flex; flex-wrap: wrap; margin-top: 12px; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.22)); border-radius: 10px; overflow: hidden; }
+.ov-tool { flex: 1; min-width: 140px; padding: 10px 13px; border-right: 1px solid var(--vscode-panel-border, rgba(128,128,128,.16)); display: flex; flex-direction: column; gap: 3px; }
+.ov-tool:last-child { border-right: none; }
+.ov-tk { font-size: 9.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--vscode-descriptionForeground); }
+.ov-tv { font-size: 11.5px; }
 `;
 
 const SCRIPT = /* js */ `
@@ -509,7 +583,9 @@ let lastState = null;    // verify payload (+ watch, hasConfig)
 let capture = null;      // { rows, summary }
 let baselineRows = null; // [{ display, captured, ... }] for the baseline view
 let historyEntries = null; // [{ id, label, fileName, line, appliedAt }] for the history view
-let mode = 'results';    // 'results' | 'capture' | 'baseline' | 'history'
+let overview = null;     // OverviewData for the analytics home
+let overviewRequested = false; // guards a single initial fetch of the overview
+let mode = 'overview';   // 'overview' | 'results' | 'capture' | 'baseline' | 'history'
 let filter = 'all';      // all | broken | ambiguous | healthy
 let baselineFilter = 'all'; // all | captured | uncaptured
 
@@ -530,11 +606,35 @@ function statusColor(s){return s==='broken'?'var(--broken)':s==='multiple-matche
 function post(type,extra){vscode.postMessage(Object.assign({type:type},extra||{}));}
 
 function render(){
-  if(mode==='capture' && capture) renderCapture();
+  renderTabs();
+  if(mode==='overview') renderOverview();
+  else if(mode==='capture' && capture) renderCapture();
   else if(mode==='baseline' && baselineRows) renderBaseline();
   else if(mode==='history' && historyEntries) renderHistory();
   else renderResults();
   bind();
+}
+
+/* Persistent top nav. Hidden on first-run (no config) and during a capture run. */
+function renderTabs(){
+  const t = document.getElementById('tabs');
+  if(!t) return;
+  const show = lastState && lastState.hasConfig && mode!=='capture';
+  if(!show){ t.style.display='none'; t.innerHTML=''; return; }
+  t.style.display='flex';
+  const tabs=[['overview','Overview'],['results','Results'],['baseline','Baseline'],['history','History']];
+  t.innerHTML = tabs.map(x=>'<button class="navtab'+(mode===x[0]?' on':'')+'" data-tab="'+x[0]+'">'+x[1]+'</button>').join('');
+}
+
+/* Switch tabs. Baseline/History fetch their data (the reply sets the mode); the
+   Overview is always re-fetched so its baseline/stale/trend stay fresh. */
+function switchTab(t){
+  // Baseline/History: the data reply flips the mode (avoids a flash of the empty
+  // list before rows arrive). Overview: switch now and show a skeleton until data.
+  if(t==='baseline'){ post('showBaseline'); }
+  else if(t==='history'){ post('showHistory'); }
+  else if(t==='overview'){ mode='overview'; overview=null; post('showOverview'); render(); }
+  else { mode='results'; render(); }
 }
 
 function bind(){
@@ -554,6 +654,8 @@ function bind(){
   byId('p-verify',el=>el.onclick=()=>post('verify'));
   byId('p-capture',el=>el.onclick=()=>post('capture'));
   byId('p-watch',el=>el.onclick=()=>post('watchToggle'));
+  byId('ov-prune',el=>el.onclick=()=>post('prune'));
+  document.querySelectorAll('[data-tab]').forEach(el=>el.onclick=()=>switchTab(el.dataset.tab));
   document.querySelectorAll('[data-filter]').forEach(el=>el.onclick=()=>{filter=el.dataset.filter;render();});
   document.querySelectorAll('[data-bfilter]').forEach(el=>el.onclick=()=>{baselineFilter=el.dataset.bfilter;render();});
   app.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>{const d=el.dataset;post('open',{filePath:d.file,line:+d.line,column:+d.col,rawValueLength:+d.len});});
@@ -562,6 +664,158 @@ function bind(){
   app.querySelectorAll('[data-dismiss]').forEach(el=>el.onclick=()=>post('dismiss',{selectorId:el.dataset.sel}));
   app.querySelectorAll('[data-restore]').forEach(el=>el.onclick=()=>post('restore',{selectorId:el.dataset.sel}));
   app.querySelectorAll('[data-undo]').forEach(el=>el.onclick=()=>post('undo',{entryId:el.dataset.entry}));
+}
+
+/* ---------- Overview (analytics home) ---------- */
+function ovCard(title, body){ const center = body.indexOf('ov-foot')<0 ? ' ov-center' : ''; return '<div class="ov-card"><div class="ov-card-h">'+title+'</div><div class="ov-cardbody'+center+'">'+body+'</div></div>'; }
+function ovLg(color,n,label){ return '<div class="ov-lg"><i style="background:'+color+'"></i>'+n+' '+label+'</div>'; }
+function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
+function shortDir(d){ return String(d).split(/[\\/\\\\]/).filter(Boolean).slice(-2).join('/'); }
+function shortUrl(u){ try{ const x=new URL(u); return (x.pathname && x.pathname!=='/' ? x.pathname : x.host)+(x.search||''); }catch(e){ return u; } }
+
+function ovRing(pct, color, big, sub){
+  const C=2*Math.PI*52; const p=Math.max(0,Math.min(100,pct)); const off=C*(1-p/100);
+  return '<svg class="ov-ring" viewBox="0 0 120 120" role="img" aria-label="'+big+' '+sub+'">'
+    +'<circle cx="60" cy="60" r="52" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="11"/>'
+    +'<circle cx="60" cy="60" r="52" fill="none" stroke="'+color+'" stroke-width="11" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 60 60)"/>'
+    +'<text x="60" y="58" text-anchor="middle" class="ov-ring-n">'+big+'</text>'
+    +'<text x="60" y="76" text-anchor="middle" class="ov-ring-s">'+sub+'</text></svg>';
+}
+function ovDonut(live, stale){
+  const total=live+stale; const C=2*Math.PI*52; const liveLen=C*(live/total); const staleLen=C-liveLen;
+  return '<svg class="ov-ring" viewBox="0 0 120 120" role="img" aria-label="'+live+' live, '+stale+' stale">'
+    +'<circle cx="60" cy="60" r="52" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="11"/>'
+    +'<circle cx="60" cy="60" r="52" fill="none" stroke="var(--run)" stroke-width="11" stroke-dasharray="'+liveLen.toFixed(1)+' '+staleLen.toFixed(1)+'" transform="rotate(-90 60 60)"/>'
+    +'<circle cx="60" cy="60" r="52" fill="none" stroke="var(--stale)" stroke-width="11" stroke-dasharray="'+staleLen.toFixed(1)+' '+liveLen.toFixed(1)+'" stroke-dashoffset="'+(-liveLen).toFixed(1)+'" transform="rotate(-90 60 60)"/>'
+    +'<text x="60" y="58" text-anchor="middle" class="ov-ring-n">'+total+'</text>'
+    +'<text x="60" y="76" text-anchor="middle" class="ov-ring-s">captured</text></svg>';
+}
+
+function ovProjectStrip(){
+  const p=overview.project;
+  const ver=p.frameworkVersion?' <b>'+esc(p.frameworkVersion)+'</b>':'';
+  return '<div class="ov-proj">'
+    +'<span class="ov-projname">'+esc(p.name)+'</span>'
+    +'<span class="ov-badge ov-badge-fw">'+esc(cap(p.framework))+ver+'</span>'
+    +'<span class="ov-badge">'+esc(p.browser)+'</span>'
+    +(p.headless?'<span class="ov-badge">headless</span>':'')
+    +'<span class="ov-purl mono">'+esc(p.baseUrl)+'</span>'
+    +(lastState.lastRunAt?'<span class="ov-spacer"></span><span class="muted ov-last">last verified '+relTime(lastState.lastRunAt)+'</span>':'')
+    +'</div>';
+}
+
+function ovHealthCard(){
+  const c=lastState.counts;
+  if(lastState.phase==='idle' && c.total===0){
+    return ovCard('Selector health', '<div class="ov-empty2"><span class="muted">Not verified yet.</span><button class="btn primary ov-cta" id="run-verify">Verify now</button></div>');
+  }
+  const ring=ovRing(c.healthPct, barColor(c.healthPct), c.healthPct+'%', 'healthy');
+  const legend='<div class="ov-legend">'+ovLg('var(--ok)',c.ok,'healthy')
+    +(c.broken?ovLg('var(--broken)',c.broken,'broken'):'')
+    +(c.multi?ovLg('var(--multi)',c.multi,'ambiguous'):'')
+    +((c.skipped+c.failed)?ovLg('var(--skip)',c.skipped+c.failed,'skipped'):'')+'</div>';
+  const foot=c.broken?'<button class="btn ov-foot" data-tab="results">View '+c.broken+' broken →</button>':'';
+  return ovCard('Selector health', '<div class="ov-hero">'+ring+legend+'</div>'+foot);
+}
+
+function ovBaselineCard(){
+  const b=overview.baseline;
+  if(b.total===0){
+    return ovCard('Baseline', '<div class="ov-empty2"><span class="muted">No fingerprints captured yet.</span><button class="btn primary ov-cta" id="run-capture">Capture baseline</button></div>');
+  }
+  let donut, legend, foot;
+  if(b.staleKnown && b.stale>0){
+    donut=ovDonut(b.live, b.stale);
+    legend='<div class="ov-legend">'+ovLg('var(--run)',b.live,'live')+ovLg('var(--stale)',b.stale,'stale')
+      +'<div class="ov-hint">Orphaned baselines from renamed or deleted selectors.</div></div>';
+    foot='<button class="btn ov-foot ov-warn" id="ov-prune">🗑 Prune '+b.stale+' stale</button>';
+  } else {
+    donut=ovRing(100,'var(--run)',b.total,'captured');
+    legend='<div class="ov-legend">'+ovLg('var(--run)',b.live,'live')
+      +(b.staleKnown?'<div class="ov-hint muted">No stale fingerprints.</div>':'<div class="ov-hint">Run a full verify to assess stale baselines.</div>')+'</div>';
+    foot='<button class="btn ov-foot" data-tab="baseline">View baseline →</button>';
+  }
+  return ovCard('Baseline <span class="ov-hchip">fingerprints.json</span>', '<div class="ov-hero">'+donut+legend+'</div>'+foot);
+}
+
+function ovActivityCard(){
+  const applied=overview.activity?overview.activity.applied:0;
+  const lastv=lastState.lastRunAt?relTime(lastState.lastRunAt):'—';
+  return ovCard('Activity',
+    '<div class="ov-stats2"><div class="ov-stat"><div class="ov-stat-n">'+applied+'</div><div class="ov-stat-l">heals applied</div></div>'
+    +'<div class="ov-stat"><div class="ov-stat-n">'+overview.baseline.total+'</div><div class="ov-stat-l">baselined</div></div></div>'
+    +'<div class="ov-mini"><div class="ov-mini-row"><span>Last verified</span><b>'+lastv+'</b></div>'
+    +(lastState.watch?'<div class="ov-mini-row"><span>Watch</span><b style="color:var(--run)">on</b></div>':'')+'</div>'
+    +'<button class="btn ov-foot" data-tab="history">Open history →</button>');
+}
+
+const TIER_COLOR={robust:'var(--ok)',good:'var(--run)',moderate:'var(--multi)',fragile:'var(--broken)'};
+function ovRobustCard(){
+  const r=overview.robustness; if(!r.total) return '';
+  const rows=[['Robust',r.robust,TIER_COLOR.robust],['Good',r.good,TIER_COLOR.good],['Moderate',r.moderate,TIER_COLOR.moderate],['Fragile',r.fragile,TIER_COLOR.fragile]];
+  const bar='<div class="ov-stack">'+rows.map(x=>x[1]?'<span style="flex:'+x[1]+';background:'+x[2]+'"></span>':'').join('')+'</div>';
+  const legend='<div class="ov-tierlegend">'+rows.filter(x=>x[1]).map(x=>'<span class="ov-tl"><i style="background:'+x[2]+'"></i>'+x[0]+' · '+x[1]+'</span>').join('')+'</div>';
+  return ovCard('Selector robustness', '<div class="ov-big">'+r.sturdyPct+'%<span class="ov-big-s">sturdy</span></div>'+bar+legend);
+}
+
+function ovTrendCard(){
+  const t=(overview.trend||[]).slice(-20); if(t.length<2) return '';
+  const vals=t.map(p=>p.healthPct); const min=Math.min.apply(null,vals); const max=Math.max.apply(null,vals); const range=Math.max(1,max-min);
+  const coords=t.map((p,i)=>{ const x=(i/(t.length-1))*100; const y=26-((p.healthPct-min)/range)*22-2; return x.toFixed(1)+','+y.toFixed(1); }).join(' ');
+  const last=vals[vals.length-1]; const delta=last-vals[0]; const dtxt=(delta>0?'+':'')+delta+'%';
+  return ovCard('Health trend <span class="ov-hchip">'+t.length+' runs</span>',
+    '<svg viewBox="0 0 100 26" preserveAspectRatio="none" class="ov-spark"><polyline points="'+coords+'" fill="none" stroke="'+barColor(last)+'" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>'
+    +'<div class="ov-trend-foot"><span class="ov-big2">'+last+'%</span><span class="ov-delta" style="color:'+(delta>=0?'var(--ok)':'var(--broken)')+'">'+dtxt+' vs first run</span></div>');
+}
+
+function ovCompositionCard(){
+  const comp=overview.composition||[]; if(!comp.length) return '';
+  const max=Math.max.apply(null, comp.map(x=>x.count)); const total=comp.reduce((s,x)=>s+x.count,0);
+  const bars=comp.map(x=>'<div class="ov-bar"><span class="ov-bl mono">'+esc(x.label)+'</span><span class="ov-bt"><i style="width:'+Math.round(x.count/max*100)+'%;background:'+(TIER_COLOR[x.tier]||'var(--skip)')+'"></i></span><span class="ov-bn">'+x.count+'</span></div>').join('');
+  return ovCard('Selector composition <span class="ov-hchip">'+total+' selectors</span>', '<div class="ov-bars">'+bars+'</div>');
+}
+
+function ovFilesCard(){
+  const items=lastState.items||[]; if(!items.length) return '';
+  const byFile={};
+  items.forEach(i=>{ const f=byFile[i.fileName]||(byFile[i.fileName]={name:i.fileName,broken:0}); if(i.status==='broken'||i.status==='multiple-matches'||i.status==='page-load-failed') f.broken++; });
+  const files=Object.keys(byFile).map(k=>byFile[k]).sort((a,b)=>b.broken-a.broken || a.name.localeCompare(b.name));
+  if(!files.some(f=>f.broken)) return ovCard('Files', '<div class="ov-empty2"><span class="muted">Every file is clean 🎉</span></div>');
+  const maxb=Math.max.apply(null, files.map(f=>f.broken));
+  const rows=files.slice(0,6).map(f=>{
+    const ok=f.broken===0; const col=ok?'var(--ok)':(f.broken>=maxb?'var(--broken)':'var(--multi)');
+    const badge=ok?'<span class="ov-fc" style="color:var(--ok)">✓</span>':'<span class="ov-fc" style="color:'+col+'">'+f.broken+'</span>';
+    const w=maxb?Math.round(f.broken/maxb*100):0;
+    return '<div class="ov-file"><span class="ov-fn mono">'+esc(f.name)+'</span><span class="ov-fbar"><i style="width:'+w+'%;background:'+col+'"></i></span>'+badge+'</div>';
+  }).join('');
+  return ovCard('Files needing attention', '<div class="ov-files">'+rows+'</div>');
+}
+
+function ovPagesCard(){
+  const pages=overview.pages||[]; if(pages.length<2) return '';
+  const max=Math.max.apply(null, pages.map(p=>p.count));
+  const rows=pages.slice(0,6).map(p=>'<div class="ov-file"><span class="ov-fn mono" title="'+esc(p.url)+'">'+esc(shortUrl(p.url))+'</span><span class="ov-fbar"><i style="width:'+Math.round(p.count/max*100)+'%;background:var(--run)"></i></span><span class="ov-fc">'+p.count+'</span></div>').join('');
+  return ovCard('Captured pages', '<div class="ov-files">'+rows+'</div>');
+}
+
+function ovToolingStrip(){
+  const p=overview.project;
+  const items=[['Framework', cap(p.framework)+(p.frameworkVersion?' '+p.frameworkVersion:'')],['Browser', p.browser+(p.headless?' · headless':'')],['Edits','AST · recast + babel'],['Test dir', shortDir(p.testDir)],['Privacy','local-first ✓']];
+  return '<div class="ov-tooling">'+items.map(x=>'<div class="ov-tool"><span class="ov-tk">'+x[0]+'</span><span class="ov-tv mono">'+esc(x[1])+'</span></div>').join('')+'</div>';
+}
+
+function ovSkeleton(){ return '<div class="empty">Building overview…</div>'; }
+
+function renderOverview(){
+  if(!lastState){ app.innerHTML = '<div class="empty">Loading…</div>'; return; }
+  if(!lastState.hasConfig){ app.innerHTML = onboarding(); return; }
+  if(!overview){ app.innerHTML = ovSkeleton(); return; }
+  let html = ovProjectStrip();
+  html += '<div class="ov-grid">';
+  html += ovHealthCard() + ovBaselineCard() + ovActivityCard() + ovRobustCard() + ovTrendCard() + ovCompositionCard() + ovFilesCard() + ovPagesCard();
+  html += '</div>';
+  html += ovToolingStrip();
+  app.innerHTML = html;
 }
 
 /* ---------- Onboarding (first run) ---------- */
@@ -819,7 +1073,18 @@ window.addEventListener('message', (e) => {
     else { b.style.display='none'; b.innerHTML=''; }
     return;
   }
-  if(m.type==='state'){ lastState = m.payload; if(m.activate) mode='results'; render(); }
+  if(m.type==='state'){
+    lastState = m.payload;
+    if(m.activate) mode='results';
+    // On the overview: fetch it once on first landing, and refresh it after any
+    // run (capture/prune/verify) so baseline/stale/trend stay current.
+    if(mode==='overview' && lastState.hasConfig){
+      if(!overview && !overviewRequested){ overviewRequested=true; post('showOverview'); }
+      else if(overview){ post('showOverview'); }
+    }
+    render();
+  }
+  else if(m.type==='overviewData'){ overview = m.payload; overviewRequested=true; if(mode==='overview') render(); }
   else if(m.type==='baselineData'){ baselineRows = m.rows; baselineFilter='all'; mode='baseline'; render(); }
   else if(m.type==='historyData'){ historyEntries = m.entries; mode='history'; render(); }
   else if(m.type==='captureSeed'){ capture = { rows: m.rows, summary: m.summary }; if(m.activate) mode='capture'; render(); }

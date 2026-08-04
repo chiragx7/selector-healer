@@ -68,6 +68,11 @@ export class DashboardPanel implements CaptureSink {
           if (this.hasCapture) this.postCapture(false);
           return;
         }
+        if (msg.type === 'showOverview') {
+          const payload = await vscode.commands.executeCommand('selectorHealer.getOverview');
+          this.panel.webview.postMessage({ type: 'overviewData', payload });
+          return;
+        }
         if (msg.type === 'showBaseline') {
           const rows = await vscode.commands.executeCommand('selectorHealer.getBaseline');
           this.panel.webview.postMessage({ type: 'baselineData', rows });
@@ -101,6 +106,11 @@ export class DashboardPanel implements CaptureSink {
 
   async focus(): Promise<void> {
     this.panel.reveal();
+  }
+
+  /** Re-push state (e.g. after a prune changed the baseline on disk). */
+  refresh(): void {
+    this.postState(false);
   }
 
   private async postHistory(): Promise<void> {
