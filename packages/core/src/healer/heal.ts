@@ -37,6 +37,36 @@ export interface HealOptions {
 
 const MAX_CANDIDATES = 3;
 const MIN_SUGGEST_CONFIDENCE = 0.2;
+/**
+ * Max confidence an alternative may trail the top suggestion by and still be
+ * shown. A clear winner (e.g. 0.90) hides its weak structural look-alikes
+ * (~0.50), which are only similar in tag/class/position, not in what they are.
+ */
+const MAX_ALTERNATIVE_GAP = 0.3;
+
+/**
+ * Trim a confidence-sorted candidate list to the best one plus only the
+ * alternatives that are genuinely competitive with it — those within
+ * {@link MAX_ALTERNATIVE_GAP} of the top. When there's a runaway winner the weak
+ * look-alikes are dropped (so "other matches" isn't noise); when the top itself
+ * is uncertain, its close alternatives are all retained so the user has options.
+ *
+ * @param sorted - candidates already sorted by confidence, highest first
+ * @returns the top candidate plus competitive alternatives, order preserved
+ *
+ * @example
+ * keepCompetitiveCandidates([{ confidence: 0.9 }, { confidence: 0.5 }] as HealCandidate[]);
+ * // → [{ confidence: 0.9 }]  (the 0.5 look-alike is 0.4 behind, so it's dropped)
+ */
+export function keepCompetitiveCandidates(sorted: HealCandidate[]): HealCandidate[] {
+  const top = sorted[0];
+  if (!top) return sorted;
+  // Epsilon so a candidate exactly at the gap (e.g. 0.9 vs 0.6, where float math
+  // yields 0.30000000000000004) counts as within it rather than being dropped.
+  return sorted.filter(
+    (c, i) => i === 0 || top.confidence - c.confidence <= MAX_ALTERNATIVE_GAP + 1e-9,
+  );
+}
 
 /**
  * Generate replacement suggestions for broken selectors by scanning the live
@@ -203,10 +233,12 @@ export async function healSelectors(
   return toHeal.map((result) => {
     const all = candidatesById.get(result.selector.id) ?? [];
     const framework: Framework = result.selector.framework ?? config.framework ?? 'playwright';
-    const ranked = dedupeByCode(all)
-      .filter((c) => !isNoOpReplacement(result.selector, c.replacementCode, framework))
-      .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, MAX_CANDIDATES);
+    const ranked = keepCompetitiveCandidates(
+      dedupeByCode(all)
+        .filter((c) => !isNoOpReplacement(result.selector, c.replacementCode, framework))
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, MAX_CANDIDATES),
+    );
     // Explain the break by diffing the baseline against the top candidate (what
     // the element looks like now); undefined candidate ⇒ "removed". Isolated in a
     // try/catch so a malformed fingerprint can never break the actual heal.

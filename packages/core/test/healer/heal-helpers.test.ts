@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { bestConfidence, dedupeByCode, isNoOpReplacement } from '../../src/healer/heal.js';
+import {
+  bestConfidence,
+  dedupeByCode,
+  isNoOpReplacement,
+  keepCompetitiveCandidates,
+} from '../../src/healer/heal.js';
 import type { DomFingerprint, HealCandidate, SelectorUsage } from '../../src/types.js';
 
 function selector(
@@ -22,6 +27,44 @@ const FP_STUB: DomFingerprint = {
 function cand(replacementCode: string, confidence: number): HealCandidate {
   return { replacementCode, confidence, reasoning: '', matchedFingerprint: FP_STUB };
 }
+
+describe('keepCompetitiveCandidates', () => {
+  it('returns empty or single-candidate lists unchanged', () => {
+    expect(keepCompetitiveCandidates([])).toEqual([]);
+    const one = [cand('only', 0.42)];
+    expect(keepCompetitiveCandidates(one)).toEqual(one);
+  });
+
+  it('drops weak look-alikes behind a clear winner (the OrangeHRM case)', () => {
+    // 0.90 winner; 0.52 / 0.48 are structural look-alikes >0.3 behind → dropped.
+    const out = keepCompetitiveCandidates([
+      cand('Add', 0.9),
+      cand('Reset', 0.52),
+      cand('Search', 0.48),
+    ]);
+    expect(out.map((c) => c.replacementCode)).toEqual(['Add']);
+  });
+
+  it('keeps a genuinely-competitive alternative, drops the distant one', () => {
+    // 0.88 top; 0.64 is within 0.3 (kept); 0.41 is 0.47 behind (dropped).
+    const out = keepCompetitiveCandidates([
+      cand('testid', 0.88),
+      cand('label', 0.64),
+      cand('css', 0.41),
+    ]);
+    expect(out.map((c) => c.replacementCode)).toEqual(['testid', 'label']);
+  });
+
+  it('keeps all close alternatives when the top itself is uncertain', () => {
+    expect(
+      keepCompetitiveCandidates([cand('a', 0.5), cand('b', 0.45), cand('c', 0.3)]),
+    ).toHaveLength(3);
+  });
+
+  it('treats an exactly-0.3 gap as still competitive (boundary)', () => {
+    expect(keepCompetitiveCandidates([cand('a', 0.9), cand('b', 0.6)])).toHaveLength(2);
+  });
+});
 
 describe('bestConfidence', () => {
   it('returns 0 for undefined or empty input', () => {
