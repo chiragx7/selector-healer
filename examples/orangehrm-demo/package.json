@@ -1,0 +1,17 @@
+{
+  "name": "orangehrm-demo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Selector Healer live demo against the public OrangeHRM demo site.",
+  "type": "module",
+  "scripts": {
+    "demo:capture": "npx selector-healer capture",
+    "demo:verify": "npx selector-healer verify",
+    "demo:report": "npx selector-healer report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@selector-healer/cli": "workspace:*",
+    "@selector-healer/core": "workspace:*"
+  }
+}

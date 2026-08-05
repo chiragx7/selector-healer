@@ -1,0 +1,1044 @@
+[
+  {
+    "selectorId": "12a6f93b3db6",
+    "capturedAt": "2026-08-05T06:23:44.563Z",
+    "tagName": "button",
+    "attributes": {
+      "data-v-10d463b7": "",
+      "type": "button",
+      "class": "oxd-button oxd-button--medium oxd-button--ghost"
+    },
+    "textContent": "Reset",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-background-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter-area"
+        ]
+      },
+      {
+        "tagName": "form",
+        "classes": [
+          "oxd-form"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-form-actions"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 987.421875,
+      "y": 322.390625,
+      "width": 102.09375,
+      "height": 32
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/admin/viewSystemUsers",
+    "source": {
+      "file": "tests/admin.spec.ts",
+      "line": 12,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "22255cd0086b",
+    "capturedAt": "2026-08-05T06:23:44.343Z",
+    "tagName": "button",
+    "attributes": {
+      "data-v-10d463b7": "",
+      "type": "submit",
+      "class": "oxd-button oxd-button--medium oxd-button--secondary orangehrm-left-space"
+    },
+    "textContent": "Search",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-background-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter-area"
+        ]
+      },
+      {
+        "tagName": "form",
+        "classes": [
+          "oxd-form"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-form-actions"
+        ]
+      }
+    ],
+    "siblingIndex": 1,
+    "boundingBox": {
+      "x": 1099.515625,
+      "y": 322.390625,
+      "width": 107.484375,
+      "height": 32
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/admin/viewSystemUsers",
+    "source": {
+      "file": "tests/admin.spec.ts",
+      "line": 11,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "23992eb83ef1",
+    "capturedAt": "2026-08-05T06:23:52.061Z",
+    "tagName": "a",
+    "attributes": {
+      "data-v-6475d26d": "",
+      "class": "oxd-main-menu-item",
+      "href": "/web/index.php/admin/viewAdminModule"
+    },
+    "textContent": "Admin",
+    "parentChain": [
+      {
+        "tagName": "aside",
+        "classes": [
+          "oxd-sidepanel"
+        ]
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "oxd-navbar-nav"
+        ],
+        "role": "navigation"
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sidepanel-body"
+        ]
+      },
+      {
+        "tagName": "ul",
+        "classes": [
+          "oxd-main-menu"
+        ]
+      },
+      {
+        "tagName": "li",
+        "classes": [
+          "oxd-main-menu-item-wrapper"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 0,
+      "y": 158.390625,
+      "width": 246,
+      "height": 38
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 12,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "29edaccd37b6",
+    "capturedAt": "2026-08-05T05:56:42.179Z",
+    "tagName": "h5",
+    "attributes": {
+      "data-v-7b563373": "",
+      "data-v-b4b62742": "",
+      "class": "oxd-text oxd-text--h5 oxd-table-filter-title"
+    },
+    "textContent": "System Users",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-layout-context"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-background-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter-header"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter-header-title"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 329,
+      "y": 183.5,
+      "width": 89.296875,
+      "height": 19
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/admin/viewSystemUsers",
+    "source": {
+      "file": "tests/admin.spec.ts",
+      "line": 10,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "3bb080dfb1c2",
+    "capturedAt": "2026-08-05T06:23:52.713Z",
+    "tagName": "p",
+    "attributes": {
+      "data-v-7b563373": "",
+      "data-v-133d244a": "",
+      "class": "oxd-text oxd-text--p"
+    },
+    "textContent": "Quick Launch",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-grid-3",
+          "orangehrm-dashboard-grid"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-grid-item",
+          "oxd-grid-item--gutters",
+          "orangehrm-dashboard-widget"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sheet",
+          "oxd-sheet--rounded",
+          "oxd-sheet--white",
+          "orangehrm-dashboard-widget"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-dashboard-widget-header"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-dashboard-widget-name"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 395,
+      "y": 540,
+      "width": 87.359375,
+      "height": 19
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 15,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "4e0026d737a3",
+    "capturedAt": "2026-08-05T06:23:52.231Z",
+    "tagName": "a",
+    "attributes": {
+      "data-v-6475d26d": "",
+      "class": "oxd-main-menu-item",
+      "href": "/web/index.php/pim/viewPimModule"
+    },
+    "textContent": "PIM",
+    "parentChain": [
+      {
+        "tagName": "aside",
+        "classes": [
+          "oxd-sidepanel"
+        ]
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "oxd-navbar-nav"
+        ],
+        "role": "navigation"
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sidepanel-body"
+        ]
+      },
+      {
+        "tagName": "ul",
+        "classes": [
+          "oxd-main-menu"
+        ]
+      },
+      {
+        "tagName": "li",
+        "classes": [
+          "oxd-main-menu-item-wrapper"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 0,
+      "y": 196.390625,
+      "width": 246,
+      "height": 38
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 13,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "8c516d0a5202",
+    "capturedAt": "2026-08-05T06:23:43.888Z",
+    "tagName": "button",
+    "attributes": {
+      "data-v-10d463b7": "",
+      "type": "button",
+      "class": "oxd-button oxd-button--medium oxd-button--secondary"
+    },
+    "textContent": "Add",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-layout-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-layout-context"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-background-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-paper-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-header-container"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 329,
+      "y": 422.390625,
+      "width": 108.53125,
+      "height": 31.25
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/admin/viewSystemUsers",
+    "source": {
+      "file": "tests/admin.spec.ts",
+      "line": 9,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "8d145ae08c5f",
+    "capturedAt": "2026-08-05T05:56:49.282Z",
+    "tagName": "p",
+    "attributes": {
+      "data-v-7b563373": "",
+      "data-v-133d244a": "",
+      "class": "oxd-text oxd-text--p"
+    },
+    "textContent": "Time at Work",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-grid-3",
+          "orangehrm-dashboard-grid"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-grid-item",
+          "oxd-grid-item--gutters",
+          "orangehrm-dashboard-widget"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sheet",
+          "oxd-sheet--rounded",
+          "oxd-sheet--white",
+          "orangehrm-dashboard-widget"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-dashboard-widget-header"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-dashboard-widget-name"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 395,
+      "y": 144,
+      "width": 87.765625,
+      "height": 19
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 14,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "a9889637b59b",
+    "capturedAt": "2026-08-05T05:56:49.165Z",
+    "tagName": "a",
+    "attributes": {
+      "data-v-6475d26d": "",
+      "class": "oxd-main-menu-item",
+      "href": "/web/index.php/admin/viewAdminModule"
+    },
+    "textContent": "Admin",
+    "parentChain": [
+      {
+        "tagName": "aside",
+        "classes": [
+          "oxd-sidepanel"
+        ]
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "oxd-navbar-nav"
+        ],
+        "role": "navigation"
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sidepanel-body"
+        ]
+      },
+      {
+        "tagName": "ul",
+        "classes": [
+          "oxd-main-menu"
+        ]
+      },
+      {
+        "tagName": "li",
+        "classes": [
+          "oxd-main-menu-item-wrapper"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 0,
+      "y": 158.390625,
+      "width": 246,
+      "height": 38
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 12,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "b36a4337a3fa",
+    "capturedAt": "2026-08-05T05:56:49.200Z",
+    "tagName": "a",
+    "attributes": {
+      "data-v-6475d26d": "",
+      "class": "oxd-main-menu-item",
+      "href": "/web/index.php/pim/viewPimModule"
+    },
+    "textContent": "PIM",
+    "parentChain": [
+      {
+        "tagName": "aside",
+        "classes": [
+          "oxd-sidepanel"
+        ]
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "oxd-navbar-nav"
+        ],
+        "role": "navigation"
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sidepanel-body"
+        ]
+      },
+      {
+        "tagName": "ul",
+        "classes": [
+          "oxd-main-menu"
+        ]
+      },
+      {
+        "tagName": "li",
+        "classes": [
+          "oxd-main-menu-item-wrapper"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 0,
+      "y": 196.390625,
+      "width": 246,
+      "height": 38
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 13,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "b93c4d98c2a2",
+    "capturedAt": "2026-08-05T06:23:44.092Z",
+    "tagName": "h5",
+    "attributes": {
+      "data-v-7b563373": "",
+      "data-v-b4b62742": "",
+      "class": "oxd-text oxd-text--h5 oxd-table-filter-title"
+    },
+    "textContent": "System Users",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-layout-context"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-background-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter-header"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter-header-title"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 329,
+      "y": 183.5,
+      "width": 89.296875,
+      "height": 19
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/admin/viewSystemUsers",
+    "source": {
+      "file": "tests/admin.spec.ts",
+      "line": 10,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "bd98312d7cbc",
+    "capturedAt": "2026-08-05T06:23:52.464Z",
+    "tagName": "p",
+    "attributes": {
+      "data-v-7b563373": "",
+      "data-v-133d244a": "",
+      "class": "oxd-text oxd-text--p"
+    },
+    "textContent": "Time at Work",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-grid-3",
+          "orangehrm-dashboard-grid"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-grid-item",
+          "oxd-grid-item--gutters",
+          "orangehrm-dashboard-widget"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sheet",
+          "oxd-sheet--rounded",
+          "oxd-sheet--white",
+          "orangehrm-dashboard-widget"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-dashboard-widget-header"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-dashboard-widget-name"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 395,
+      "y": 144,
+      "width": 87.765625,
+      "height": 19
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 14,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "d2163829bf2e",
+    "capturedAt": "2026-08-05T06:23:51.844Z",
+    "tagName": "input",
+    "attributes": {
+      "data-v-1f99f73c": "",
+      "data-v-636d6b87": "",
+      "class": "oxd-input oxd-input--active",
+      "placeholder": "Search"
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "aside",
+        "classes": [
+          "oxd-sidepanel"
+        ]
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "oxd-navbar-nav"
+        ],
+        "role": "navigation"
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sidepanel-body"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-main-menu",
+          "--fixed"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-main-menu-search"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 46,
+      "y": 119,
+      "width": 171,
+      "height": 20.390625
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 11,
+      "column": 40
+    }
+  },
+  {
+    "selectorId": "dd113f2587c2",
+    "capturedAt": "2026-08-05T05:56:49.125Z",
+    "tagName": "input",
+    "attributes": {
+      "data-v-1f99f73c": "",
+      "data-v-636d6b87": "",
+      "class": "oxd-input oxd-input--active",
+      "placeholder": "Search"
+    },
+    "textContent": "",
+    "parentChain": [
+      {
+        "tagName": "aside",
+        "classes": [
+          "oxd-sidepanel"
+        ]
+      },
+      {
+        "tagName": "nav",
+        "classes": [
+          "oxd-navbar-nav"
+        ],
+        "role": "navigation"
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sidepanel-body"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-main-menu",
+          "--fixed"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-main-menu-search"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 46,
+      "y": 119,
+      "width": 171,
+      "height": 20.390625
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 11,
+      "column": 40
+    }
+  },
+  {
+    "selectorId": "e87c63a580e7",
+    "capturedAt": "2026-08-05T05:56:42.305Z",
+    "tagName": "button",
+    "attributes": {
+      "data-v-10d463b7": "",
+      "type": "button",
+      "class": "oxd-button oxd-button--medium oxd-button--ghost"
+    },
+    "textContent": "Reset",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-background-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter-area"
+        ]
+      },
+      {
+        "tagName": "form",
+        "classes": [
+          "oxd-form"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-form-actions"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 987.421875,
+      "y": 322.390625,
+      "width": 102.09375,
+      "height": 32
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/admin/viewSystemUsers",
+    "source": {
+      "file": "tests/admin.spec.ts",
+      "line": 12,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "f6463a9110e4",
+    "capturedAt": "2026-08-05T05:56:49.330Z",
+    "tagName": "p",
+    "attributes": {
+      "data-v-7b563373": "",
+      "data-v-133d244a": "",
+      "class": "oxd-text oxd-text--p"
+    },
+    "textContent": "Quick Launch",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-grid-3",
+          "orangehrm-dashboard-grid"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-grid-item",
+          "oxd-grid-item--gutters",
+          "orangehrm-dashboard-widget"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-sheet",
+          "oxd-sheet--rounded",
+          "oxd-sheet--white",
+          "orangehrm-dashboard-widget"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-dashboard-widget-header"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-dashboard-widget-name"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 395,
+      "y": 540,
+      "width": 87.359375,
+      "height": 19
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/dashboard/index",
+    "source": {
+      "file": "tests/dashboard.spec.ts",
+      "line": 15,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "fc4e15ccd04d",
+    "capturedAt": "2026-08-05T05:56:42.243Z",
+    "tagName": "button",
+    "attributes": {
+      "data-v-10d463b7": "",
+      "type": "submit",
+      "class": "oxd-button oxd-button--medium oxd-button--secondary orangehrm-left-space"
+    },
+    "textContent": "Search",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-background-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-table-filter-area"
+        ]
+      },
+      {
+        "tagName": "form",
+        "classes": [
+          "oxd-form"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-form-actions"
+        ]
+      }
+    ],
+    "siblingIndex": 1,
+    "boundingBox": {
+      "x": 1099.515625,
+      "y": 322.390625,
+      "width": 107.484375,
+      "height": 32
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/admin/viewSystemUsers",
+    "source": {
+      "file": "tests/admin.spec.ts",
+      "line": 11,
+      "column": 33
+    }
+  },
+  {
+    "selectorId": "fd9eec20aeeb",
+    "capturedAt": "2026-08-05T05:56:42.058Z",
+    "tagName": "button",
+    "attributes": {
+      "data-v-10d463b7": "",
+      "type": "button",
+      "class": "oxd-button oxd-button--medium oxd-button--secondary"
+    },
+    "textContent": "Add",
+    "parentChain": [
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-layout-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "oxd-layout-context"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-background-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-paper-container"
+        ]
+      },
+      {
+        "tagName": "div",
+        "classes": [
+          "orangehrm-header-container"
+        ]
+      }
+    ],
+    "siblingIndex": 0,
+    "boundingBox": {
+      "x": 329,
+      "y": 422.390625,
+      "width": 108.53125,
+      "height": 31.25
+    },
+    "pageUrl": "https://opensource-demo.orangehrmlive.com/web/index.php/admin/viewSystemUsers",
+    "source": {
+      "file": "tests/admin.spec.ts",
+      "line": 9,
+      "column": 33
+    }
+  }
+]
