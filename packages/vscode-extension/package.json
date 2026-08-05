@@ -213,7 +213,7 @@
     ]
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json --noEmit && node esbuild.mjs",
     "bundle": "node esbuild.mjs --production",
     "watch": "node esbuild.mjs",
     "test": "vitest run",
