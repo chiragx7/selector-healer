@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { type SelectorFeedback, emptyFeedback } from '../../src/healer/feedback.js';
 import {
   bestConfidence,
+  buildScoredCandidate,
   dedupeByCode,
   isNoOpReplacement,
   keepCompetitiveCandidates,
@@ -27,6 +29,37 @@ const FP_STUB: DomFingerprint = {
 function cand(replacementCode: string, confidence: number): HealCandidate {
   return { replacementCode, confidence, reasoning: '', matchedFingerprint: FP_STUB };
 }
+
+describe('buildScoredCandidate — learning nudge', () => {
+  // A well-matched testid candidate against a slightly different baseline, so the
+  // base score has room below 1.0 for the nudge to be visible.
+  const stored: DomFingerprint = {
+    ...FP_STUB,
+    tagName: 'button',
+    attributes: { 'data-testid': 'save' },
+    textContent: 'Save changes',
+  };
+  const candidate: DomFingerprint = {
+    ...FP_STUB,
+    tagName: 'div',
+    attributes: { 'data-testid': 'save' },
+    textContent: '',
+  };
+
+  it('leaves confidence untouched and sets no note without feedback', () => {
+    const c = buildScoredCandidate(stored, candidate, 'playwright', emptyFeedback());
+    expect(c.replacementCode).toContain('getByTestId');
+    expect(c.learningNote).toBeUndefined();
+  });
+
+  it('boosts a well-accepted kind and records the note', () => {
+    const base = buildScoredCandidate(stored, candidate, 'playwright', emptyFeedback());
+    const fb: SelectorFeedback = { version: 1, byType: { testid: { accepted: 9, rejected: 1 } } };
+    const learned = buildScoredCandidate(stored, candidate, 'playwright', fb);
+    expect(learned.confidence).toBeGreaterThan(base.confidence);
+    expect(learned.learningNote).toMatch(/you usually accept testid fixes/);
+  });
+});
 
 describe('keepCompetitiveCandidates', () => {
   it('returns empty or single-candidate lists unchanged', () => {

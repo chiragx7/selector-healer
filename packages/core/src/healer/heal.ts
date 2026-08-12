@@ -15,6 +15,13 @@ import type {
 } from '../types.js';
 import { scanCandidates } from './candidates.js';
 import { explainBreak } from './explain.js';
+import {
+  type SelectorFeedback,
+  adjustConfidence,
+  classifyReplacementType,
+  emptyFeedback,
+  loadFeedback,
+} from './feedback.js';
 import { generateReplacementCode, renderSelectorCode } from './replacement-code.js';
 import { scoreCandidate } from './scoring.js';
 
@@ -33,6 +40,13 @@ export interface HealOptions {
    * `globalSetup`. When omitted, a fresh browser is launched and closed per call.
    */
   context?: BrowserContext;
+  /**
+   * Learned accept/reject feedback used to nudge candidate confidence. When
+   * omitted, heal loads the committed `.selector-healer/feedback.json` (unless
+   * `config.learning` disables it or selects the `'local'` store, which lives in
+   * the editor — the extension passes it in explicitly).
+   */
+  feedback?: SelectorFeedback;
 }
 
 const MAX_CANDIDATES = 3;
@@ -103,6 +117,18 @@ export async function healSelectors(
   const toHeal = brokenResults.filter((r) => r.status === 'broken');
   if (toHeal.length === 0) return [];
 
+  // Resolve learned feedback. Honor `enabled: false` first — a disabled setting
+  // must win even if the caller passed feedback in. Otherwise an explicit
+  // override wins (the extension's 'local' store), else load the committed file
+  // ('local' has nothing to load here — it lives in the editor).
+  const learningOn = config.learning?.enabled !== false;
+  const feedback: SelectorFeedback = !learningOn
+    ? emptyFeedback()
+    : (options.feedback ??
+      (config.learning?.store === 'local'
+        ? emptyFeedback()
+        : loadFeedback(projectRoot).unwrapOr(emptyFeedback())));
+
   const storedById = new Map<string, DomFingerprint>();
   for (const result of toHeal) {
     // Prefer the baseline verify already attached, then a direct lookup, then —
@@ -171,6 +197,7 @@ export async function healSelectors(
           stored,
           currentUrl,
           config,
+          feedback,
         );
         if (found.length > 0) {
           const list = candidatesById.get(result.selector.id) ?? [];
@@ -286,23 +313,48 @@ async function collectScoredCandidates(
   stored: DomFingerprint,
   pageUrl: string,
   config: HealerConfig,
+  feedback: SelectorFeedback,
 ): Promise<HealCandidate[]> {
   const candidates = await scanCandidates(page, stored, pageUrl);
   const minConfidence = config.confidenceThreshold?.suggest ?? MIN_SUGGEST_CONFIDENCE;
   const framework: Framework = selector.framework ?? config.framework ?? 'playwright';
 
   return candidates
-    .map((candidateFp) => {
-      const { confidence, reasoning, ruleScores } = scoreCandidate(stored, candidateFp);
-      return {
-        replacementCode: generateReplacementCode(candidateFp, framework),
-        confidence,
-        reasoning,
-        ruleScores,
-        matchedFingerprint: candidateFp,
-      };
-    })
+    .map((candidateFp) => buildScoredCandidate(stored, candidateFp, framework, feedback))
     .filter((c) => c.confidence >= minConfidence);
+}
+
+/**
+ * Score one candidate against the baseline, then apply the learned confidence
+ * nudge for the selector kind its replacement uses. Pure and exported so the
+ * score → adjust → note wiring is unit-testable without a live page.
+ *
+ * @param stored - the baseline fingerprint of the broken selector's element
+ * @param candidateFp - a candidate element's fingerprint from the current DOM
+ * @param framework - the test framework, for rendering the replacement locator
+ * @param feedback - learned accept/reject history
+ * @returns the scored candidate, with `learningNote` set when a nudge applied
+ *
+ * @example
+ * buildScoredCandidate(stored, candidate, 'playwright', feedback);
+ */
+export function buildScoredCandidate(
+  stored: DomFingerprint,
+  candidateFp: DomFingerprint,
+  framework: Framework,
+  feedback: SelectorFeedback,
+): HealCandidate {
+  const { confidence, reasoning, ruleScores } = scoreCandidate(stored, candidateFp);
+  const replacementCode = generateReplacementCode(candidateFp, framework);
+  const adjusted = adjustConfidence(confidence, classifyReplacementType(replacementCode), feedback);
+  return {
+    replacementCode,
+    confidence: adjusted.confidence,
+    reasoning,
+    ruleScores,
+    ...(adjusted.note ? { learningNote: adjusted.note } : {}),
+    matchedFingerprint: candidateFp,
+  };
 }
 
 /** Highest confidence among a selector's accumulated candidates (0 if none). */

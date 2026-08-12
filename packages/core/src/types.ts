@@ -145,6 +145,11 @@ export interface HealCandidate {
   reasoning: string;
   /** Per-rule score breakdown behind the confidence (for "explain this %"). */
   ruleScores?: RuleScore[];
+  /**
+   * When adaptive learning nudged this candidate's confidence, a short note
+   * describing the adjustment (e.g. "+6% — you usually accept testid fixes").
+   */
+  learningNote?: string;
   matchedFingerprint: DomFingerprint;
 }
 
@@ -240,6 +245,20 @@ export interface HealerConfig {
   confidenceThreshold?: {
     autoApply: number;
     suggest: number;
+  };
+  /**
+   * Adaptive learning from your Apply/Skip choices — gently biases suggestion
+   * confidence toward the selector kinds you actually accept.
+   */
+  learning?: {
+    /** Learn from Apply/Skip and nudge confidence. Default `true`. */
+    enabled?: boolean;
+    /**
+     * Where feedback is stored: `'committed'` writes `.selector-healer/feedback.json`
+     * (team-shared, travels with the repo); `'local'` keeps it per-developer in the
+     * editor's workspace storage. Default `'committed'`.
+     */
+    store?: 'committed' | 'local';
   };
   /**
    * Pre-verification hook for auth, cookies, localStorage, etc.

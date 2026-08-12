@@ -30,8 +30,16 @@ export {
   generateReplacementCode,
   renderSelectorCode,
   bestSelectorType,
+  adjustConfidence,
+  classifyReplacementType,
+  emptyFeedback,
+  getFeedbackPath,
+  loadFeedback,
+  recordOutcome,
+  saveFeedback,
 } from './healer/index.js';
 export type { HealOptions, ScoreResult, ScoringRule, RuleScore } from './healer/index.js';
+export type { AdjustedConfidence, FeedbackOutcome, SelectorFeedback } from './healer/index.js';
 export { openHealerBrowser } from './playwright-loader.js';
 export type { HealerBrowser } from './playwright-loader.js';
 export { detectProjectConfig, renderConfigFile } from './init/index.js';

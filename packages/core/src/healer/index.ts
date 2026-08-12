@@ -9,3 +9,13 @@ export {
   renderSelectorCode,
   bestSelectorType,
 } from './replacement-code.js';
+export {
+  adjustConfidence,
+  classifyReplacementType,
+  emptyFeedback,
+  getFeedbackPath,
+  loadFeedback,
+  recordOutcome,
+  saveFeedback,
+} from './feedback.js';
+export type { AdjustedConfidence, FeedbackOutcome, SelectorFeedback } from './feedback.js';
