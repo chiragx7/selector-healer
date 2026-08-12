@@ -269,4 +269,79 @@ describe('healSelectors — multi-page (integration)', () => {
     expect(suggestions).toHaveLength(1);
     expect(suggestions[0]?.candidates).toHaveLength(0);
   });
+
+  it('reports unreachable (not "removed") when the page never loads', async () => {
+    // Seed a fingerprint store so heal proceeds (it bails without one).
+    await captureFingerprints([makeSelector({ id: 'seed_unreach' })], makeConfig(), tmpDir);
+
+    const broken: VerificationResult[] = [
+      {
+        selector: makeSelector({ id: 'mp_unreach_001', rawValue: '#gone', contextHint: '/login' }),
+        status: 'broken',
+        matchCount: 0,
+        storedFingerprint: {
+          selectorId: 'mp_unreach_001',
+          capturedAt: '2026-01-01T00:00:00.000Z',
+          tagName: 'h1',
+          attributes: { 'data-testid': 'dashboard' },
+          textContent: 'Welcome back',
+          parentChain: [],
+          siblingIndex: 0,
+          pageUrl: `${baseUrl}/login`,
+        },
+      },
+    ];
+
+    // Point heal at a dead address so every page load fails fast (ECONNREFUSED).
+    const suggestions = await healSelectors(broken, {
+      config: makeConfig({ baseUrl: 'http://127.0.0.1:1', timeout: 3_000 }),
+      projectRoot: tmpDir,
+    });
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.candidates).toHaveLength(0);
+    // The element wasn't removed — we never reached a page to look. Say so.
+    expect(suggestions[0]?.unreachable).toBe(true);
+    expect(suggestions[0]?.explanation?.[0]?.kind).toBe('unreachable');
+  });
+
+  it('does not crash when login/globalSetup throws (degrades to unreachable)', async () => {
+    // A failed login must not throw out of the whole heal. Here every page is dead
+    // too, so the selector reads unreachable — the point is heal completes cleanly.
+    await captureFingerprints([makeSelector({ id: 'seed_auth' })], makeConfig(), tmpDir);
+
+    const broken: VerificationResult[] = [
+      {
+        selector: makeSelector({ id: 'mp_authfail_001', rawValue: '#gone', contextHint: '/login' }),
+        status: 'broken',
+        matchCount: 0,
+        storedFingerprint: {
+          selectorId: 'mp_authfail_001',
+          capturedAt: '2026-01-01T00:00:00.000Z',
+          tagName: 'h1',
+          attributes: { 'data-testid': 'behind-login-only' },
+          textContent: 'Exists only behind login',
+          parentChain: [],
+          siblingIndex: 42,
+          pageUrl: `${baseUrl}/dashboard`,
+        },
+      },
+    ];
+
+    const suggestions = await healSelectors(broken, {
+      config: makeConfig({
+        baseUrl: 'http://127.0.0.1:1',
+        timeout: 3_000,
+        globalSetup: async () => {
+          throw new Error('login failed');
+        },
+      }),
+      projectRoot: tmpDir,
+    });
+
+    // Heal returned (didn't throw) and reported honestly.
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.candidates).toHaveLength(0);
+    expect(suggestions[0]?.unreachable).toBe(true);
+  });
 }, 120_000);

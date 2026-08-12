@@ -100,12 +100,49 @@ export function keepCompetitiveCandidates(sorted: HealCandidate[]): HealCandidat
  */
 export function rankCandidates(candidates: HealCandidate[]): HealCandidate[] {
   const structuralOf = (c: HealCandidate): number => c.structuralConfidence ?? c.confidence;
-  return keepCompetitiveCandidates(
-    [...candidates]
-      .sort((a, b) => structuralOf(b) - structuralOf(a))
-      .slice(0, MAX_CANDIDATES)
-      .sort((a, b) => b.confidence - a.confidence),
+  const pool = [...candidates]
+    .sort((a, b) => structuralOf(b) - structuralOf(a))
+    .slice(0, MAX_CANDIDATES);
+  const structuralBest = pool[0]; // pool is structural-desc, so [0] is the best match
+  const displayed = keepCompetitiveCandidates(
+    [...pool].sort((a, b) => b.confidence - a.confidence),
   );
+  // keepCompetitiveCandidates trims by *nudged* ratio, which can drop a low-nudged
+  // (disliked-kind) structural-best as if it were a look-alike. It is not one — it's
+  // the strongest structural match — and auto-apply selects the structural-best
+  // SURVIVOR of this list, so it must remain present. Re-add it (at the tail, since
+  // its display rank is low) when the nudge trim would have removed it.
+  if (structuralBest && !displayed.includes(structuralBest)) displayed.push(structuralBest);
+  return displayed;
+}
+
+/**
+ * Decide whether an empty heal result means "couldn't reach the page" rather than
+ * "the element is genuinely gone". True only when there IS a baseline to look for,
+ * no candidate was found, we never scanned this selector on a page that actually
+ * loaded, *and* a page-load failure did occur — so the empty result is a hard
+ * reachability failure we should report honestly (and retry), not a removal.
+ *
+ * Deliberately conservative: it does NOT try to infer reachability from a login
+ * failure alone. If a page still "loads" (e.g. a protected route that 200s to a
+ * login screen), that counts as scanned — claiming "unreachable" there would risk
+ * masking a genuine removal on a public page. See DECISIONS.md for the residual
+ * page-load-granularity limitations.
+ *
+ * @param opts - the signals gathered during the heal run
+ * @returns true when the empty result is a hard reachability failure, not a removal
+ *
+ * @example
+ * isUnreachable({ hasCandidate: false, hasBaseline: true, scannedOk: false, scanFailed: true });
+ * // → true  (a baseline existed, but every page we tried failed to load)
+ */
+export function isUnreachable(opts: {
+  hasCandidate: boolean;
+  hasBaseline: boolean;
+  scannedOk: boolean;
+  scanFailed: boolean;
+}): boolean {
+  return !opts.hasCandidate && opts.hasBaseline && !opts.scannedOk && opts.scanFailed;
 }
 
 /**
@@ -179,19 +216,31 @@ export async function healSelectors(
     browser = await launchBrowser(pw, config);
     context = await browser.newContext();
     if (config.globalSetup) {
-      await config.globalSetup(context);
+      // A failed login must not crash the whole heal. Left unauthenticated, the
+      // per-page scans below fail (nothing loads), which marks their selectors
+      // unreachable — an honest "couldn't reach the page" rather than a throw.
+      try {
+        await config.globalSetup(context);
+      } catch (e) {
+        logger.warn({ error: String(e) }, 'Global setup (login) failed during healing');
+      }
     }
   }
 
   // selectorId -> every scored candidate found for it, across all pages scanned.
   const candidatesById = new Map<string, HealCandidate[]>();
+  // Reachability tracking, to tell "scanned a loaded page, found nothing" (the
+  // element is genuinely gone) apart from "never reached a page that loaded"
+  // (a login/navigation failure — we couldn't check, so don't claim removal).
+  const scannedOkIds = new Set<string>();
+  const scanFailedIds = new Set<string>();
 
   const scanPage = async (
     target: string,
     results: VerificationResult[],
     setup?: (page: unknown) => Promise<void>,
   ): Promise<void> => {
-    let page: Page;
+    let page: Page | undefined;
     try {
       page = await context.newPage();
       if (setup) {
@@ -209,13 +258,27 @@ export async function healSelectors(
       await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
     } catch (e) {
       logger.warn({ url: target, error: String(e) }, 'Page load failed during healing');
+      // The page never loaded — every selector we meant to scan here couldn't be
+      // checked on this page (may still succeed on another page in a later phase).
+      for (const r of results) {
+        if (storedById.has(r.selector.id)) scanFailedIds.add(r.selector.id);
+      }
+      // Close the (opened-but-unusable) page so a run full of failures doesn't leak
+      // one handle per failed load until the whole context closes.
+      await page?.close().catch(() => {});
       return;
     }
+    // Unreachable in practice (the try assigns `page` or the catch returns); this
+    // narrows `Page | undefined` back to `Page` for the scan below.
+    if (!page) return;
 
     const currentUrl = page.url();
     for (const result of results) {
       const stored = storedById.get(result.selector.id);
       if (!stored) continue;
+      // The page loaded, so this selector was genuinely looked at here — enough to
+      // distinguish "scanned, nothing matched" from "never reached the page".
+      scannedOkIds.add(result.selector.id);
       try {
         const found = await collectScoredCandidates(
           page,
@@ -264,6 +327,12 @@ export async function healSelectors(
           { page: pageConfig.name ?? pageConfig.url },
           'Skipping page whose setup already failed during verification',
         );
+        // Verify already found this page unreachable, so we skip it — but the
+        // selectors that needed it still couldn't be checked here. Mark them so an
+        // empty result reads as "couldn't reach" (unless another page scans them).
+        for (const r of remaining) {
+          if (storedById.has(r.selector.id)) scanFailedIds.add(r.selector.id);
+        }
         continue;
       }
 
@@ -291,12 +360,31 @@ export async function healSelectors(
         (c) => !isNoOpReplacement(result.selector, c.replacementCode, framework),
       ),
     );
-    // Explain the break by diffing the baseline against the top candidate (what
-    // the element looks like now); undefined candidate ⇒ "removed". Isolated in a
-    // try/catch so a malformed fingerprint can never break the actual heal.
-    const stored = storedById.get(result.selector.id);
+    // Couldn't-reach vs genuinely-gone: with no candidate, if we never scanned
+    // this selector on a page that actually loaded yet a page-load/login failure
+    // occurred, we simply couldn't look — so don't claim the element was removed.
+    const id = result.selector.id;
+    const stored = storedById.get(id);
+    const unreachable = isUnreachable({
+      hasCandidate: ranked.length > 0,
+      hasBaseline: stored !== undefined,
+      scannedOk: scannedOkIds.has(id),
+      scanFailed: scanFailedIds.has(id),
+    });
+    // Explain the break. When unreachable, say so honestly instead of diffing to
+    // a "removed" verdict we didn't earn — we never got to look. Otherwise diff
+    // the baseline against the top candidate (undefined candidate ⇒ "removed"),
+    // isolated in a try/catch so a malformed fingerprint can't break the heal.
     let explanation: BreakReason[] = [];
-    if (stored) {
+    if (unreachable) {
+      explanation = [
+        {
+          kind: 'unreachable',
+          summary:
+            "couldn't reach the page to check — a login or setup step may have failed or timed out, so the selector may still be fine (try again)",
+        },
+      ];
+    } else if (stored) {
       try {
         explanation = explainBreak(stored, ranked[0]?.matchedFingerprint);
       } catch (e) {
@@ -314,7 +402,7 @@ export async function healSelectors(
     // app-side change the fingerprint can't see (e.g. a getByLabel whose separate
     // <label> element was renamed), and we won't tell the user they edited
     // something they didn't. The suggestion is offered either way.
-    const recovered = stored !== undefined && stored.selectorId !== result.selector.id;
+    const recovered = stored !== undefined && stored.selectorId !== id;
     if (recovered && ranked.length > 0) {
       explanation = [
         {
@@ -325,9 +413,10 @@ export async function healSelectors(
       ];
     }
     return {
-      selectorId: result.selector.id,
+      selectorId: id,
       candidates: ranked,
       ...(explanation.length > 0 ? { explanation } : {}),
+      ...(unreachable ? { unreachable: true } : {}),
     };
   });
 }

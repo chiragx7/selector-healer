@@ -5,6 +5,7 @@ import {
   buildScoredCandidate,
   dedupeByCode,
   isNoOpReplacement,
+  isUnreachable,
   keepCompetitiveCandidates,
   rankCandidates,
 } from '../../src/healer/heal.js';
@@ -175,6 +176,48 @@ describe('rankCandidates', () => {
       candSN('c', 0.8, 0.79),
     ]);
     expect(out.map((c) => c.replacementCode)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('re-adds the structural-best when the nudged-ratio trim would drop it', () => {
+    // Finding: A is the structural-best (0.66) but its kind is disliked (nudged
+    // 0.56); B is structurally weaker (0.65) but liked (nudged 0.75). The nudged
+    // floor (0.75 × 0.75 = 0.5625) would drop A as a "look-alike" — but it's the
+    // strongest match, and auto-apply picks the structural-best survivor, so it
+    // must remain present.
+    const A = candSN('page.getByTestId("best")', 0.66, 0.56);
+    const out = rankCandidates([A, candSN('page.getByText("liked")', 0.65, 0.75)]);
+    expect(out.map((c) => c.replacementCode)).toContain('page.getByTestId("best")');
+    const best = out.reduce((m, c) =>
+      (c.structuralConfidence ?? c.confidence) > (m.structuralConfidence ?? m.confidence) ? c : m,
+    );
+    expect(best.replacementCode).toBe('page.getByTestId("best")');
+  });
+});
+
+describe('isUnreachable', () => {
+  const base = { hasCandidate: false, hasBaseline: true, scannedOk: false, scanFailed: true };
+
+  it('is true when a baseline existed but every page we tried failed to load', () => {
+    // The reported case: heal's page scan hard-failed (timeout/refused), no candidate.
+    expect(isUnreachable(base)).toBe(true);
+  });
+
+  it('is false once any candidate was found (we clearly reached a page)', () => {
+    expect(isUnreachable({ ...base, hasCandidate: true })).toBe(false);
+  });
+
+  it('is false without a baseline (that is a "no baseline" case, not unreachable)', () => {
+    expect(isUnreachable({ ...base, hasBaseline: false })).toBe(false);
+  });
+
+  it('is false when we scanned a loaded page — nothing matched means genuinely gone', () => {
+    // Conservative: a page that loads counts as scanned, so we don't over-claim
+    // "unreachable" (which would mask a real removal on a public page).
+    expect(isUnreachable({ ...base, scannedOk: true })).toBe(false);
+  });
+
+  it('is false when no page-load failure occurred (no evidence of a reachability problem)', () => {
+    expect(isUnreachable({ ...base, scanFailed: false })).toBe(false);
   });
 });
 

@@ -966,7 +966,7 @@ function card(it){
           }).join('')
         + '</details>';
     }
-  } else if(it.status==='broken') h += '<div class="hint">No replacement found — the element may be gone, hidden, or only present after a setup step.</div>';
+  } else if(it.status==='broken'){ if(!it.reason) h += '<div class="hint">No replacement found — the element may be gone, hidden, or only present after a setup step.</div>'; }
   else if(it.status==='multiple-matches') h += '<div class="hint">Matches '+it.matchCount+' elements — make this selector more specific.</div>';
   else if(it.status==='page-load-failed') h += '<div class="hint">'+esc(it.error || "Couldn't reach this page.")+'</div>';
   else h += '<div class="hint">No baseline — run Capture, or this element only appears after an interaction.</div>';

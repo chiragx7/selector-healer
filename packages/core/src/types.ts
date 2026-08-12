@@ -170,6 +170,7 @@ export interface BreakReason {
   /** Category of change, so the UI can icon and prioritise it. */
   kind:
     | 'removed'
+    | 'unreachable'
     | 'tag'
     | 'testid'
     | 'id'
@@ -193,6 +194,14 @@ export interface HealSuggestion {
   candidates: HealCandidate[];
   /** Why the selector broke — the meaningful diffs between baseline and now. */
   explanation?: BreakReason[];
+  /**
+   * True when the healer never managed to scan this selector on a page that
+   * actually loaded (a login/setup step or navigation failed), so the empty
+   * `candidates` list means "couldn't check" — NOT "the element was removed".
+   * Lets the UI show an honest, retryable reachability message instead of a
+   * false "element is gone".
+   */
+  unreachable?: boolean;
 }
 
 /**
