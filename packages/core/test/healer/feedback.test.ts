@@ -30,6 +30,9 @@ describe('classifyReplacementType', () => {
     ['page.locator(\'a[href="https://example.com/x"]\')', 'css'],
     // A real Playwright text pseudo is 'text'…
     ['page.locator(\'button:has-text("Save")\')', 'text'],
+    // …including the exact- and regex-match variants (a `:text(`-only check drops these).
+    ['page.locator(\':text-is("Save")\')', 'text'],
+    ['page.locator(\':text-matches("Sa.e")\')', 'text'],
     // …but a class that merely contains "has-text" is not (the loose-match trap).
     ["page.locator('.has-text-widget')", 'css'],
     // A role NAME containing "data-qa" must stay 'role', not miskey as testid.

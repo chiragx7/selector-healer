@@ -52,33 +52,59 @@ export interface HealOptions {
 const MAX_CANDIDATES = 3;
 const MIN_SUGGEST_CONFIDENCE = 0.2;
 /**
- * Max confidence an alternative may trail the top suggestion by and still be
- * shown. A clear winner (e.g. 0.90) hides its weak structural look-alikes
- * (~0.50), which are only similar in tag/class/position, not in what they are.
+ * Min fraction of the top suggestion's confidence an alternative must reach to be
+ * shown. Relative (not an absolute gap) on purpose: a confident top (say 0.96)
+ * demands relatively-close alternatives (≥ ~0.72) so its structural look-alikes —
+ * a *different* element sharing tag/class/position, e.g. a sibling nav link — are
+ * dropped; a weak/uncertain top keeps its near-peers so the user still has options.
  */
-const MAX_ALTERNATIVE_GAP = 0.3;
+const MIN_ALTERNATIVE_RATIO = 0.75;
 
 /**
  * Trim a confidence-sorted candidate list to the best one plus only the
- * alternatives that are genuinely competitive with it — those within
- * {@link MAX_ALTERNATIVE_GAP} of the top. When there's a runaway winner the weak
- * look-alikes are dropped (so "other matches" isn't noise); when the top itself
- * is uncertain, its close alternatives are all retained so the user has options.
+ * alternatives genuinely competitive with it — those within
+ * {@link MIN_ALTERNATIVE_RATIO} of the top's confidence. So a runaway winner sheds
+ * its far-behind look-alikes (they're a different element, not another way to
+ * select the same one), while an uncertain top keeps its close peers.
  *
  * @param sorted - candidates already sorted by confidence, highest first
  * @returns the top candidate plus competitive alternatives, order preserved
  *
  * @example
- * keepCompetitiveCandidates([{ confidence: 0.9 }, { confidence: 0.5 }] as HealCandidate[]);
- * // → [{ confidence: 0.9 }]  (the 0.5 look-alike is 0.4 behind, so it's dropped)
+ * keepCompetitiveCandidates([{ confidence: 0.96 }, { confidence: 0.67 }] as HealCandidate[]);
+ * // → [{ confidence: 0.96 }]  (0.67 < 0.96 × 0.75, so the look-alike is dropped)
  */
 export function keepCompetitiveCandidates(sorted: HealCandidate[]): HealCandidate[] {
   const top = sorted[0];
   if (!top) return sorted;
-  // Epsilon so a candidate exactly at the gap (e.g. 0.9 vs 0.6, where float math
-  // yields 0.30000000000000004) counts as within it rather than being dropped.
-  return sorted.filter(
-    (c, i) => i === 0 || top.confidence - c.confidence <= MAX_ALTERNATIVE_GAP + 1e-9,
+  // Epsilon so an alternative sitting exactly at the ratio floor is kept despite
+  // float rounding.
+  const floor = top.confidence * MIN_ALTERNATIVE_RATIO - 1e-9;
+  return sorted.filter((c, i) => i === 0 || c.confidence >= floor);
+}
+
+/**
+ * Order a selector's candidates for the suggestion list. The pool is bounded by
+ * the **structural** score, not the learning-nudged one: auto-apply (CLI `--fix`,
+ * the extension's Apply-All) selects the structurally-best *survivor*, so the real
+ * best must never be sliced out by a display nudge. We therefore take the top
+ * {@link MAX_CANDIDATES} by structural score, then reorder those by the nudged
+ * confidence for presentation, then drop far-behind look-alikes.
+ *
+ * @param candidates - scored candidates for one selector (deduped, no-ops removed)
+ * @returns candidates ranked for display, structurally-best always retained
+ *
+ * @example
+ * // A confident top sheds its sibling look-alikes; the pool still holds the real best.
+ * rankCandidates(scoredCandidates);
+ */
+export function rankCandidates(candidates: HealCandidate[]): HealCandidate[] {
+  const structuralOf = (c: HealCandidate): number => c.structuralConfidence ?? c.confidence;
+  return keepCompetitiveCandidates(
+    [...candidates]
+      .sort((a, b) => structuralOf(b) - structuralOf(a))
+      .slice(0, MAX_CANDIDATES)
+      .sort((a, b) => b.confidence - a.confidence),
   );
 }
 
@@ -260,11 +286,10 @@ export async function healSelectors(
   return toHeal.map((result) => {
     const all = candidatesById.get(result.selector.id) ?? [];
     const framework: Framework = result.selector.framework ?? config.framework ?? 'playwright';
-    const ranked = keepCompetitiveCandidates(
-      dedupeByCode(all)
-        .filter((c) => !isNoOpReplacement(result.selector, c.replacementCode, framework))
-        .sort((a, b) => b.confidence - a.confidence)
-        .slice(0, MAX_CANDIDATES),
+    const ranked = rankCandidates(
+      dedupeByCode(all).filter(
+        (c) => !isNoOpReplacement(result.selector, c.replacementCode, framework),
+      ),
     );
     // Explain the break by diffing the baseline against the top candidate (what
     // the element looks like now); undefined candidate ⇒ "removed". Isolated in a

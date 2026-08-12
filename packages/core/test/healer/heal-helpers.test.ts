@@ -6,6 +6,7 @@ import {
   dedupeByCode,
   isNoOpReplacement,
   keepCompetitiveCandidates,
+  rankCandidates,
 } from '../../src/healer/heal.js';
 import type { DomFingerprint, HealCandidate, SelectorUsage } from '../../src/types.js';
 
@@ -28,6 +29,17 @@ const FP_STUB: DomFingerprint = {
 
 function cand(replacementCode: string, confidence: number): HealCandidate {
   return { replacementCode, confidence, reasoning: '', matchedFingerprint: FP_STUB };
+}
+
+/** A candidate whose structural (gate/rank) and nudged (display) scores differ. */
+function candSN(replacementCode: string, structural: number, nudged: number): HealCandidate {
+  return {
+    replacementCode,
+    confidence: nudged,
+    structuralConfidence: structural,
+    reasoning: '',
+    matchedFingerprint: FP_STUB,
+  };
 }
 
 describe('buildScoredCandidate — learning nudge', () => {
@@ -81,24 +93,88 @@ describe('keepCompetitiveCandidates', () => {
     expect(out.map((c) => c.replacementCode)).toEqual(['Add']);
   });
 
+  it('drops a far-behind look-alike of a confident top (the reported Admin/PIM case)', () => {
+    // 0.96 top; 0.67 alternatives are >25% below it → different elements, dropped.
+    const out = keepCompetitiveCandidates([
+      cand('Admin', 0.96),
+      cand('PIM', 0.67),
+      cand('Leave', 0.67),
+    ]);
+    expect(out.map((c) => c.replacementCode)).toEqual(['Admin']);
+  });
+
   it('keeps a genuinely-competitive alternative, drops the distant one', () => {
-    // 0.88 top; 0.64 is within 0.3 (kept); 0.41 is 0.47 behind (dropped).
+    // top 0.88 → floor 0.66: 0.70 is competitive (kept), 0.41 is far behind (dropped).
     const out = keepCompetitiveCandidates([
       cand('testid', 0.88),
-      cand('label', 0.64),
+      cand('label', 0.7),
       cand('css', 0.41),
     ]);
     expect(out.map((c) => c.replacementCode)).toEqual(['testid', 'label']);
   });
 
-  it('keeps all close alternatives when the top itself is uncertain', () => {
+  it('keeps close alternatives when the top itself is uncertain', () => {
+    // top 0.5 → floor 0.375: 0.45 and 0.4 both clear it.
     expect(
-      keepCompetitiveCandidates([cand('a', 0.5), cand('b', 0.45), cand('c', 0.3)]),
+      keepCompetitiveCandidates([cand('a', 0.5), cand('b', 0.45), cand('c', 0.4)]),
     ).toHaveLength(3);
   });
 
-  it('treats an exactly-0.3 gap as still competitive (boundary)', () => {
-    expect(keepCompetitiveCandidates([cand('a', 0.9), cand('b', 0.6)])).toHaveLength(2);
+  it('keeps an alternative exactly at the ratio floor (boundary)', () => {
+    // 0.6 === 0.8 × 0.75 exactly.
+    expect(keepCompetitiveCandidates([cand('a', 0.8), cand('b', 0.6)])).toHaveLength(2);
+  });
+});
+
+describe('rankCandidates', () => {
+  it('retains the structurally-best fix even when a nudge ranks it last (finding: auto-apply pool)', () => {
+    // A is the best *structural* match (0.82) but its kind is disliked, so its
+    // nudged/display score (0.72) sits below three liked-kind look-alikes. Slicing
+    // the pool by nudged confidence (the old behaviour) would drop A entirely —
+    // starving CLI --fix / Apply-All, which pick the structurally-best *survivor*.
+    const A = candSN('page.getByTestId("real")', 0.82, 0.72);
+    const out = rankCandidates([
+      candSN('b', 0.7, 0.8),
+      candSN('c', 0.68, 0.78),
+      candSN('d', 0.66, 0.76),
+      A,
+    ]);
+    expect(out.map((c) => c.replacementCode)).toContain('page.getByTestId("real")');
+    // …and it stays the structural-best of the survivors, so auto-apply selects it.
+    const best = out.reduce((m, c) =>
+      (c.structuralConfidence ?? c.confidence) > (m.structuralConfidence ?? m.confidence) ? c : m,
+    );
+    expect(best.replacementCode).toBe('page.getByTestId("real")');
+  });
+
+  it('still drops sibling look-alikes behind a confident winner (the Admin case)', () => {
+    const out = rankCandidates([
+      candSN('Admin', 0.9, 0.96),
+      candSN('PIM', 0.61, 0.67),
+      candSN('Leave', 0.61, 0.67),
+    ]);
+    expect(out.map((c) => c.replacementCode)).toEqual(['Admin']);
+  });
+
+  it('caps the displayed list at three', () => {
+    const out = rankCandidates([
+      candSN('a', 0.9, 0.9),
+      candSN('b', 0.85, 0.85),
+      candSN('c', 0.8, 0.8),
+      candSN('d', 0.78, 0.78),
+      candSN('e', 0.76, 0.76),
+    ]);
+    expect(out.length).toBeLessThanOrEqual(3);
+  });
+
+  it('presents survivors in nudged order, not structural order', () => {
+    // Structural order is a,b,c; nudges flip b ahead of a for display.
+    const out = rankCandidates([
+      candSN('a', 0.85, 0.8),
+      candSN('b', 0.82, 0.88),
+      candSN('c', 0.8, 0.79),
+    ]);
+    expect(out.map((c) => c.replacementCode)).toEqual(['b', 'a', 'c']);
   });
 });
 

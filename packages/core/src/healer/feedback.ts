@@ -66,7 +66,15 @@ export function classifyReplacementType(code: string): SelectorType {
   if (c.includes('[placeholder=')) return 'placeholder';
   if (c.includes('[alt=')) return 'alt';
   if (c.includes('[title=')) return 'title';
-  if (c.includes(':has-text(') || c.includes(':text(')) return 'text';
+  // All four Playwright text pseudos — `:text(` alone would miss `:text-is(` and
+  // `:text-matches(`, dropping them to 'css' (wrong learning bucket).
+  if (
+    c.includes(':has-text(') ||
+    c.includes(':text(') ||
+    c.includes(':text-is(') ||
+    c.includes(':text-matches(')
+  )
+    return 'text';
   // XPath only via `xpath=` or a locator argument starting with `//`/`(//` — a bare
   // `//` check would misread a CSS locator carrying a URL (`href="https://…"`).
   if (
