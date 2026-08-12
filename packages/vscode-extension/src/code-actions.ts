@@ -10,11 +10,16 @@ export interface StoredSuggestion {
   column: number;
   rawValue: string;
   replacementCode: string;
+  /** Nudged confidence — for ranking + display. */
   confidence: number;
+  /** Pure structural score, for automated gates (Apply-All). Absent ⇒ = confidence. */
+  structuralConfidence?: number;
   /** Why this candidate scored as it did (from the healer). Shown when comparing alternatives. */
   reasoning?: string;
   /** Per-rule score breakdown behind the confidence, for the "Why NN%?" explainer. */
   ruleScores?: RuleScore[];
+  /** When adaptive learning nudged this suggestion, a short note describing it. */
+  learningNote?: string;
 }
 
 const suggestionStore = new Map<string, StoredSuggestion[]>();
@@ -166,6 +171,13 @@ export class SelectorHealerCodeActionProvider implements vscode.CodeActionProvid
           action.edit = editFor(s.replacementCode);
           action.diagnostics = [diagnostic];
           action.isPreferred = s.confidence >= 0.8;
+          // The edit applies directly (no apply command runs), so record the
+          // accept here — otherwise only Skip would be tallied, biasing learning.
+          action.command = {
+            command: 'selectorHealer.recordAccept',
+            title: 'Record accepted heal',
+            arguments: [s.replacementCode],
+          };
           actions.push(action);
         }
 

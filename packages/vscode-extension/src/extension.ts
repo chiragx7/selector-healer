@@ -16,6 +16,7 @@ import {
 } from '@selector-healer/core';
 import type {
   DomFingerprint,
+  FeedbackOutcome,
   HealerBrowser,
   HealerConfig,
   SelectorUsage,
@@ -42,6 +43,7 @@ import {
 import { type HealHistoryEntry, healHistory, undoHeal } from './history.js';
 import type { AppliedHeal } from './history.js';
 import { SelectorHoverProvider } from './hover.js';
+import { feedbackForHeal, initLearning, recordLearning, recordLearningBatch } from './learning.js';
 import { lintDiagnostics } from './lint.js';
 import { type OverviewData, buildOverview } from './overview.js';
 import { DashboardPanel } from './panel.js';
@@ -100,6 +102,9 @@ export function activate(context: vscode.ExtensionContext): void {
   healHistory.init(context.workspaceState);
   // Health-over-time trend for the Overview sparkline (same local-first Memento).
   healthTrend.init(context.workspaceState);
+  // Adaptive learning: the 'local' store lives in the workspace Memento (the
+  // 'committed' store is the file, handled by core).
+  initLearning(context.workspaceState);
   // Watch debounce is user-configurable (reload to apply a change).
   watchDebouncer = new Debouncer(
     vscode.workspace.getConfiguration('selectorHealer').get('watch.debounceMs', WATCH_DEBOUNCE_MS),
@@ -203,6 +208,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const applied = await previewAndApplyHeal(healPreview, uri, range, text, label);
         if (applied) {
           await healHistory.record({ ...applied, label });
+          await recordLearningFor(text, 'accepted');
           await verifyTargeted([healToStored(applied)]);
         }
       },
@@ -217,6 +223,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('selectorHealer.showHealHistory', () => showHealHistory()),
     vscode.commands.registerCommand('selectorHealer.getBaseline', () => gatherBaseline()),
     vscode.commands.registerCommand('selectorHealer.getOverview', () => gatherOverview()),
+    // Internal: the editor lightbulb quick-fix fires this after its edit applies,
+    // so an accepted heal is recorded for adaptive learning (not palette-exposed).
+    vscode.commands.registerCommand('selectorHealer.recordAccept', (code: string) =>
+      recordLearningFor(code, 'accepted'),
+    ),
     vscode.commands.registerCommand('selectorHealer.dismiss', (id: string) =>
       setSelectorDismissed(id, true, context),
     ),
@@ -654,10 +665,28 @@ async function previewFixAt(s: StoredSuggestion): Promise<void> {
   );
 }
 
+/**
+ * Record one accept/reject signal for adaptive learning. Best-effort and
+ * self-contained (resolves root + config itself), so the apply/skip paths can
+ * fire it without threading config through; a no-op when learning is off.
+ */
+async function recordLearningFor(code: string, outcome: FeedbackOutcome): Promise<void> {
+  try {
+    const root = getWorkspaceRoot();
+    if (!root) return;
+    const config = await loadConfig(true);
+    if (!config) return;
+    recordLearning(root, config, code, outcome);
+  } catch {
+    // Best-effort: recording learning must never break an apply or skip.
+  }
+}
+
 async function applyAndReverify(s: StoredSuggestion): Promise<void> {
   const applied = await applySuggestion(s);
   if (applied) {
     await healHistory.record({ ...applied, label: healLabel(s), selectorId: s.selectorId });
+    await recordLearningFor(s.replacementCode, 'accepted');
     vscode.window.showInformationMessage(`Selector Healer: applied ${s.replacementCode}`);
     await verifyTargeted([s]);
   } else {
@@ -680,6 +709,14 @@ function setSelectorDismissed(
   if (!result) return;
   healerState.setDismissed(selectorSignature(result.selector), dismissed);
   void context.workspaceState.update(DISMISSED_KEY, [...healerState.snapshot.dismissedSignatures]);
+  // Skipping a broken selector that had a suggestion is a "reject" signal for
+  // that fix's kind (restoring is not — we don't un-learn).
+  if (dismissed) {
+    const top = healerState.snapshot.suggestionsByKey.get(
+      `${result.selector.filePath}:${result.selector.line}`,
+    )?.[0];
+    if (top) void recordLearningFor(top.replacementCode, 'rejected');
+  }
 }
 
 async function applyAllFixes(): Promise<void> {
@@ -689,10 +726,17 @@ async function applyAllFixes(): Promise<void> {
   const broken = activeResults(snap).filter((r) => r.status === 'broken');
   const threshold = 0.8;
 
+  const structuralOf = (s: StoredSuggestion): number => s.structuralConfidence ?? s.confidence;
   const toApply: StoredSuggestion[] = [];
   for (const r of broken) {
-    const top = snap.suggestionsByKey.get(`${r.selector.filePath}:${r.selector.line}`)?.[0];
-    if (top && top.confidence >= threshold) toApply.push(top);
+    const cands = snap.suggestionsByKey.get(`${r.selector.filePath}:${r.selector.line}`) ?? [];
+    // Select AND gate the structurally-best candidate — learning reorders the
+    // displayed list, never which fix is applied unattended in a batch.
+    let best: StoredSuggestion | undefined;
+    for (const c of cands) {
+      if (!best || structuralOf(c) > structuralOf(best)) best = c;
+    }
+    if (best && structuralOf(best) >= threshold) toApply.push(best);
   }
 
   if (toApply.length === 0) {
@@ -702,6 +746,11 @@ async function applyAllFixes(): Promise<void> {
     return;
   }
 
+  // Resolve config once for the whole batch (avoids reloading/transpiling it per
+  // fix). Best-effort — a failure here just skips learning, never the apply.
+  const learnRoot = getWorkspaceRoot();
+  const learnConfig = learnRoot ? await loadConfig(true).catch(() => undefined) : undefined;
+
   const applied: StoredSuggestion[] = [];
   for (const s of toApply) {
     const res = await applySuggestion(s);
@@ -709,6 +758,15 @@ async function applyAllFixes(): Promise<void> {
       await healHistory.record({ ...res, label: healLabel(s), selectorId: s.selectorId });
       applied.push(s);
     }
+  }
+  // One batched feedback write for the whole run, not one per fix.
+  if (learnRoot && learnConfig && applied.length > 0) {
+    recordLearningBatch(
+      learnRoot,
+      learnConfig,
+      applied.map((s) => s.replacementCode),
+      'accepted',
+    );
   }
 
   vscode.window.showInformationMessage(
@@ -815,7 +873,12 @@ async function healToSuggestions(
     return { explanationMap, suggestionsByKey, allSuggestions };
   }
 
-  const healResults = await healSelectors(broken, { config, projectRoot: root, context });
+  const healResults = await healSelectors(broken, {
+    config,
+    projectRoot: root,
+    context,
+    feedback: feedbackForHeal(config),
+  });
   for (const h of healResults) {
     // The top break reason (why it broke) — shown in the diagnostic message.
     if (h.explanation?.[0]) explanationMap.set(h.selectorId, h.explanation[0].summary);
@@ -834,8 +897,10 @@ async function healToSuggestions(
         rawValue: sel.rawValue,
         replacementCode: c.replacementCode,
         confidence: c.confidence,
+        structuralConfidence: c.structuralConfidence,
         reasoning: c.reasoning,
         ruleScores: c.ruleScores,
+        learningNote: c.learningNote,
       };
       allSuggestions.push(stored);
       list.push(stored);

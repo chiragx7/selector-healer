@@ -28,6 +28,14 @@ describe('classifyReplacementType', () => {
     ['page.locator(\'xpath=//div[@id="x"]\')', 'xpath'],
     // A CSS locator carrying a URL must NOT be misread as XPath (the `//` trap).
     ['page.locator(\'a[href="https://example.com/x"]\')', 'css'],
+    // A real Playwright text pseudo is 'text'…
+    ['page.locator(\'button:has-text("Save")\')', 'text'],
+    // …but a class that merely contains "has-text" is not (the loose-match trap).
+    ["page.locator('.has-text-widget')", 'css'],
+    // A role NAME containing "data-qa" must stay 'role', not miskey as testid.
+    ["page.getByRole('button', { name: 'Configure data-qa settings' })", 'role'],
+    // …even the bracketed form inside a name (getBy* method wins over any substring).
+    ["page.getByRole('button', { name: 'Edit [data-test] mapping' })", 'role'],
   ])('classifies %s as %s', (code, expected) => {
     expect(classifyReplacementType(code)).toBe(expected);
   });

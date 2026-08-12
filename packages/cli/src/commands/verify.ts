@@ -1,6 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { healSelectors, parseDirectory, verifySelectors } from '@selector-healer/core';
-import type { HealSuggestion, HealerConfig, VerificationResult } from '@selector-healer/core';
+import type {
+  HealCandidate,
+  HealSuggestion,
+  HealerConfig,
+  VerificationResult,
+} from '@selector-healer/core';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { loadConfig } from '../config.js';
@@ -121,9 +126,15 @@ function applyFixes(
   const byFile = new Map<string, FixEntry[]>();
   let count = 0;
 
+  const structuralOf = (c: HealCandidate): number => c.structuralConfidence ?? c.confidence;
   for (const s of suggestions) {
-    const top = s.candidates[0];
-    if (!top || top.confidence < threshold) continue;
+    // Select AND gate the structurally-best candidate. Learning reorders the
+    // displayed list, but must never change which fix is applied unattended.
+    let top: HealCandidate | undefined;
+    for (const c of s.candidates) {
+      if (!top || structuralOf(c) > structuralOf(top)) top = c;
+    }
+    if (!top || structuralOf(top) < threshold) continue;
 
     const selector = selectorMap.get(s.selectorId);
     if (!selector) continue;

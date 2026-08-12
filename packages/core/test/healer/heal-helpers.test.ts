@@ -56,7 +56,10 @@ describe('buildScoredCandidate — learning nudge', () => {
     const base = buildScoredCandidate(stored, candidate, 'playwright', emptyFeedback());
     const fb: SelectorFeedback = { version: 1, byType: { testid: { accepted: 9, rejected: 1 } } };
     const learned = buildScoredCandidate(stored, candidate, 'playwright', fb);
-    expect(learned.confidence).toBeGreaterThan(base.confidence);
+    // structuralConfidence stays the pure score; only `confidence` (display/rank)
+    // is nudged — so gates keyed on structuralConfidence are unaffected.
+    expect(learned.structuralConfidence).toBe(base.confidence);
+    expect(learned.confidence).toBeGreaterThan(learned.structuralConfidence ?? 0);
     expect(learned.learningNote).toMatch(/you usually accept testid fixes/);
   });
 });

@@ -30,6 +30,8 @@ export interface DashItem {
     pct: number;
     /** Per-rule contributions behind `pct`, biggest first — the "Why NN%?" explainer. */
     breakdown?: Array<{ name: string; pct: number }>;
+    /** Adaptive-learning nudge note, when one was applied to this suggestion. */
+    learningNote?: string;
   };
   /** Runner-up heal candidates (2nd, 3rd), so the user can pick a different fix. */
   alternatives?: Array<{ code: string; pct: number; reasoning?: string }>;
@@ -203,6 +205,7 @@ function toDashItem(r: VerificationResult, snap: HealerSnapshot): DashItem {
           code: top.replacementCode,
           pct: Math.round(top.confidence * 100),
           breakdown: confidenceBreakdown(top.ruleScores),
+          learningNote: top.learningNote,
         }
       : undefined,
     // Runner-up candidates (deduped by code against the top) for "preview all".
@@ -440,6 +443,7 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .whyconf { margin-top: 7px; }
 .whyconf > summary { cursor: pointer; font-size: 10.5px; color: var(--vscode-descriptionForeground); user-select: none; }
 .whyconf > summary:hover { color: var(--vscode-foreground); }
+.learned { margin-top: 7px; font-size: 10.5px; color: var(--vscode-descriptionForeground); line-height: 1.4; }
 .rule { display: flex; align-items: center; gap: 7px; margin-top: 5px; font-size: 10.5px; }
 .rname { flex: 0 0 44%; color: var(--vscode-descriptionForeground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rbar { flex: 1; height: 3px; border-radius: 2px; background: rgba(128,128,128,.22); overflow: hidden; }
@@ -937,6 +941,7 @@ function card(it){
       + '<div class="code mono" style="color:var(--vscode-foreground)">'+esc(it.suggestion.code)+'</div>'
       + '<div class="confbar"><span style="width:'+pct+'%;background:'+pc+'"></span></div>'
       + confidenceDetails(it.suggestion)
+      + (it.suggestion.learningNote ? '<div class="learned">✨ '+esc(it.suggestion.learningNote)+'</div>' : '')
       + '</div>'
       + '<div class="actions">'
       + (applyable ? '<button class="btn primary" data-apply '+dataAttrs(it)+'>'+ICON.check+' Apply</button>' : '')

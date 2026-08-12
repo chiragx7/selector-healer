@@ -51,23 +51,24 @@ export function emptyFeedback(): SelectorFeedback {
  */
 export function classifyReplacementType(code: string): SelectorType {
   const c = code;
-  if (
-    c.includes('getByTestId') ||
-    c.includes('data-testid') ||
-    c.includes('data-test-id') ||
-    c.includes('data-qa') ||
-    c.includes('data-cy')
-  )
-    return 'testid';
-  if (c.includes('getByRole') || c.includes('[role=')) return 'role';
+  // 1) getBy* methods are definitive — check them first, so a substring inside an
+  //    accessible-name argument (e.g. name: 'Edit [data-test] mapping') can't win.
+  if (c.includes('getByTestId')) return 'testid';
+  if (c.includes('getByRole')) return 'role';
   if (c.includes('getByLabel')) return 'label';
-  if (c.includes('getByPlaceholder') || c.includes('[placeholder=')) return 'placeholder';
-  if (c.includes('getByAltText') || c.includes('[alt=')) return 'alt';
-  if (c.includes('getByTitle') || c.includes('[title=')) return 'title';
-  if (c.includes('getByText') || c.includes('has-text') || c.includes(':text')) return 'text';
-  // XPath only via Playwright's explicit `xpath=` prefix or a locator argument
-  // that starts with `//` (or `(//`). A bare `//` check would misread a CSS
-  // locator containing a URL, e.g. `locator('a[href="https://…"]')`.
+  if (c.includes('getByPlaceholder')) return 'placeholder';
+  if (c.includes('getByAltText')) return 'alt';
+  if (c.includes('getByTitle')) return 'title';
+  if (c.includes('getByText')) return 'text';
+  // 2) Raw locators (locator(), cy.get(), $()): classify by the selector form.
+  if (c.includes('[data-test') || c.includes('[data-qa') || c.includes('[data-cy')) return 'testid';
+  if (c.includes('[role=')) return 'role';
+  if (c.includes('[placeholder=')) return 'placeholder';
+  if (c.includes('[alt=')) return 'alt';
+  if (c.includes('[title=')) return 'title';
+  if (c.includes(':has-text(') || c.includes(':text(')) return 'text';
+  // XPath only via `xpath=` or a locator argument starting with `//`/`(//` — a bare
+  // `//` check would misread a CSS locator carrying a URL (`href="https://…"`).
   if (
     c.includes('xpath=') ||
     c.includes("('//") ||

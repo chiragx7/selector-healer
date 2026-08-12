@@ -139,8 +139,17 @@ export interface RuleScore {
 export interface HealCandidate {
   /** The exact code string to substitute, e.g. `page.getByTestId('submit-btn')`. */
   replacementCode: string;
-  /** Confidence in `[0, 1]` — combined across matched scoring rules. */
+  /**
+   * Confidence in `[0, 1]` used for **ranking and display** — the structural
+   * score with any adaptive-learning nudge applied.
+   */
   confidence: number;
+  /**
+   * The pure structural score in `[0, 1]`, *before* the learning nudge. Automated
+   * gates (suggest floor, login-page scan, auto-apply) use this so a learned
+   * preference can never tip an unattended decision. Absent ⇒ equals `confidence`.
+   */
+  structuralConfidence?: number;
   /** Human-readable explanation of why this candidate scored as it did. */
   reasoning: string;
   /** Per-rule score breakdown behind the confidence (for "explain this %"). */

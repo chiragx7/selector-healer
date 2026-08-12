@@ -319,9 +319,13 @@ async function collectScoredCandidates(
   const minConfidence = config.confidenceThreshold?.suggest ?? MIN_SUGGEST_CONFIDENCE;
   const framework: Framework = selector.framework ?? config.framework ?? 'playwright';
 
-  return candidates
-    .map((candidateFp) => buildScoredCandidate(stored, candidateFp, framework, feedback))
-    .filter((c) => c.confidence >= minConfidence);
+  return (
+    candidates
+      .map((candidateFp) => buildScoredCandidate(stored, candidateFp, framework, feedback))
+      // Gate visibility on the structural score so learning neither surfaces
+      // sub-floor noise nor hides a genuinely-matching suggestion.
+      .filter((c) => (c.structuralConfidence ?? c.confidence) >= minConfidence)
+  );
 }
 
 /**
@@ -349,7 +353,8 @@ export function buildScoredCandidate(
   const adjusted = adjustConfidence(confidence, classifyReplacementType(replacementCode), feedback);
   return {
     replacementCode,
-    confidence: adjusted.confidence,
+    confidence: adjusted.confidence, // nudged — for ranking + display
+    structuralConfidence: confidence, // pure structural — for automated gates
     reasoning,
     ruleScores,
     ...(adjusted.note ? { learningNote: adjusted.note } : {}),
@@ -357,12 +362,18 @@ export function buildScoredCandidate(
   };
 }
 
-/** Highest confidence among a selector's accumulated candidates (0 if none). */
+/**
+ * Highest **structural** confidence among a selector's candidates (0 if none).
+ * Uses the pre-learning score because the sole caller is the phase-2 gate that
+ * decides whether to scan configured/login pages — a learned nudge must not make
+ * heal skip the page where the real element actually lives.
+ */
 export function bestConfidence(candidates: HealCandidate[] | undefined): number {
   let best = 0;
   if (candidates) {
     for (const c of candidates) {
-      if (c.confidence > best) best = c.confidence;
+      const structural = c.structuralConfidence ?? c.confidence;
+      if (structural > best) best = structural;
     }
   }
   return best;

@@ -139,6 +139,15 @@ describe('serialize — dismissed (Skip)', () => {
 describe('buildWebviewHtml — client script integrity', () => {
   const html = buildWebviewHtml('vscode-webview://x', 'panel');
   const script = html.slice(html.indexOf('<script'), html.lastIndexOf('</script>'));
+  // Inner JS only (strip the `<script nonce=…>` opening tag) for the parse check.
+  const scriptBody = script.slice(script.indexOf('>') + 1);
+
+  // tsc never parses this string; the build no longer emits it as a file to
+  // `node --check`. Compile it here (without running) so a syntax error in the
+  // client JS fails CI instead of only surfacing on a live F5.
+  it('is syntactically valid JavaScript', () => {
+    expect(() => new Function(scriptBody)).not.toThrow();
+  });
 
   // The client script is one big string, so tsc/unit tests never parse it. A
   // duplicate `function foo(){}` silently shadows the earlier one at runtime —
