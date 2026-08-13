@@ -1,9 +1,9 @@
 #!/bin/sh
 #
-# Selector Healer — Pre-commit Hook
+# Selector Healer - Pre-commit Hook
 #
 # Runs the fast `selector-healer check` command to detect selector drift
-# before the commit goes through. No browser needed — just AST parsing
+# before the commit goes through. No browser needed - just AST parsing
 # and fingerprint comparison.
 #
 # Installation options:

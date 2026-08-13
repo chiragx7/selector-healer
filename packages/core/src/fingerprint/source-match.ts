@@ -22,8 +22,8 @@ export function toSourceFile(projectRoot: string, filePath: string): string {
 /**
  * Find a baseline captured for a *different* selector at the same source
  * location (file + line + column). This recovers a **renamed** selector: when
- * the user changes the string inside a locator — e.g. `getByLabel('Email')` →
- * `getByLabel('Nope')` — its `selectorId` changes and the direct baseline
+ * the user changes the string inside a locator - e.g. `getByLabel('Email')` →
+ * `getByLabel('Nope')` - its `selectorId` changes and the direct baseline
  * lookup misses, yet the fingerprint captured for the original value still sits
  * at that same call site (renaming the argument doesn't move the call's start
  * column). Reusing it lets the healer suggest the element that used to be there
@@ -45,7 +45,7 @@ export function toSourceFile(projectRoot: string, filePath: string): string {
  *
  * @example
  * ```ts
- * // selector renamed at tests/login.spec.ts:16 — pick up the baseline still
+ * // selector renamed at tests/login.spec.ts:16 - pick up the baseline still
  * // filed at that line so the healer can re-locate the original element.
  * const orphan = findOrphanBaseline(fingerprints, renamedSelector, projectRoot);
  * ```
@@ -57,7 +57,7 @@ export function findOrphanBaseline(
 ): DomFingerprint | undefined {
   const file = toSourceFile(projectRoot, selector.filePath);
   for (const fp of fingerprints.values()) {
-    // Skip a direct hit — this fallback is only meaningful for a *different*
+    // Skip a direct hit - this fallback is only meaningful for a *different*
     // selector's baseline sitting at the same call site.
     if (fp.selectorId === selector.id) continue;
     if (

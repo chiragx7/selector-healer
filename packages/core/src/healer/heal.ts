@@ -31,7 +31,7 @@ export interface HealOptions {
   /**
    * Resolved URLs of configured pages whose setup hook already failed during
    * verification. Heal skips them so the same failing hook isn't re-run (and
-   * re-timed-out) — a meaningful speedup on the broken-auth path.
+   * re-timed-out) - a meaningful speedup on the broken-auth path.
    */
   unreachablePages?: Set<string>;
   /**
@@ -44,7 +44,7 @@ export interface HealOptions {
    * Learned accept/reject feedback used to nudge candidate confidence. When
    * omitted, heal loads the committed `.selector-healer/feedback.json` (unless
    * `config.learning` disables it or selects the `'local'` store, which lives in
-   * the editor — the extension passes it in explicitly).
+   * the editor - the extension passes it in explicitly).
    */
   feedback?: SelectorFeedback;
 }
@@ -54,15 +54,15 @@ const MIN_SUGGEST_CONFIDENCE = 0.2;
 /**
  * Min fraction of the top suggestion's confidence an alternative must reach to be
  * shown. Relative (not an absolute gap) on purpose: a confident top (say 0.96)
- * demands relatively-close alternatives (≥ ~0.72) so its structural look-alikes —
- * a *different* element sharing tag/class/position, e.g. a sibling nav link — are
+ * demands relatively-close alternatives (≥ ~0.72) so its structural look-alikes -
+ * a *different* element sharing tag/class/position, e.g. a sibling nav link - are
  * dropped; a weak/uncertain top keeps its near-peers so the user still has options.
  */
 const MIN_ALTERNATIVE_RATIO = 0.75;
 
 /**
  * Trim a confidence-sorted candidate list to the best one plus only the
- * alternatives genuinely competitive with it — those within
+ * alternatives genuinely competitive with it - those within
  * {@link MIN_ALTERNATIVE_RATIO} of the top's confidence. So a runaway winner sheds
  * its far-behind look-alikes (they're a different element, not another way to
  * select the same one), while an uncertain top keeps its close peers.
@@ -108,8 +108,8 @@ export function rankCandidates(candidates: HealCandidate[]): HealCandidate[] {
     [...pool].sort((a, b) => b.confidence - a.confidence),
   );
   // keepCompetitiveCandidates trims by *nudged* ratio, which can drop a low-nudged
-  // (disliked-kind) structural-best as if it were a look-alike. It is not one — it's
-  // the strongest structural match — and auto-apply selects the structural-best
+  // (disliked-kind) structural-best as if it were a look-alike. It is not one - it's
+  // the strongest structural match - and auto-apply selects the structural-best
   // SURVIVOR of this list, so it must remain present. Re-add it (at the tail, since
   // its display rank is low) when the nudge trim would have removed it.
   if (structuralBest && !displayed.includes(structuralBest)) displayed.push(structuralBest);
@@ -120,12 +120,12 @@ export function rankCandidates(candidates: HealCandidate[]): HealCandidate[] {
  * Decide whether an empty heal result means "couldn't reach the page" rather than
  * "the element is genuinely gone". True only when there IS a baseline to look for,
  * no candidate was found, we never scanned this selector on a page that actually
- * loaded, *and* a page-load failure did occur — so the empty result is a hard
+ * loaded, *and* a page-load failure did occur - so the empty result is a hard
  * reachability failure we should report honestly (and retry), not a removal.
  *
  * Deliberately conservative: it does NOT try to infer reachability from a login
  * failure alone. If a page still "loads" (e.g. a protected route that 200s to a
- * login screen), that counts as scanned — claiming "unreachable" there would risk
+ * login screen), that counts as scanned - claiming "unreachable" there would risk
  * masking a genuine removal on a public page. See DECISIONS.md for the residual
  * page-load-granularity limitations.
  *
@@ -149,9 +149,9 @@ export function isUnreachable(opts: {
  * Generate replacement suggestions for broken selectors by scanning the live
  * DOM for elements matching stored fingerprints.
  *
- * Candidates are accumulated across every page scanned — the selector's parsed
+ * Candidates are accumulated across every page scanned - the selector's parsed
  * `contextHint` page first, then the configured `pages` (auth/interaction
- * states) — and the globally highest-scoring matches win. This ensures a weak
+ * states) - and the globally highest-scoring matches win. This ensures a weak
  * match on the parsed page can't hide the real element living behind login.
  *
  * @param brokenResults - Verification results with `status: 'broken'`.
@@ -180,10 +180,10 @@ export async function healSelectors(
   const toHeal = brokenResults.filter((r) => r.status === 'broken');
   if (toHeal.length === 0) return [];
 
-  // Resolve learned feedback. Honor `enabled: false` first — a disabled setting
+  // Resolve learned feedback. Honor `enabled: false` first - a disabled setting
   // must win even if the caller passed feedback in. Otherwise an explicit
   // override wins (the extension's 'local' store), else load the committed file
-  // ('local' has nothing to load here — it lives in the editor).
+  // ('local' has nothing to load here - it lives in the editor).
   const learningOn = config.learning?.enabled !== false;
   const feedback: SelectorFeedback = !learningOn
     ? emptyFeedback()
@@ -194,8 +194,8 @@ export async function healSelectors(
 
   const storedById = new Map<string, DomFingerprint>();
   for (const result of toHeal) {
-    // Prefer the baseline verify already attached, then a direct lookup, then —
-    // for a renamed selector with no baseline of its own — the baseline captured
+    // Prefer the baseline verify already attached, then a direct lookup, then -
+    // for a renamed selector with no baseline of its own - the baseline captured
     // for the previous value at this same line (see findOrphanBaseline).
     const stored =
       result.storedFingerprint ??
@@ -218,7 +218,7 @@ export async function healSelectors(
     if (config.globalSetup) {
       // A failed login must not crash the whole heal. Left unauthenticated, the
       // per-page scans below fail (nothing loads), which marks their selectors
-      // unreachable — an honest "couldn't reach the page" rather than a throw.
+      // unreachable - an honest "couldn't reach the page" rather than a throw.
       try {
         await config.globalSetup(context);
       } catch (e) {
@@ -231,7 +231,7 @@ export async function healSelectors(
   const candidatesById = new Map<string, HealCandidate[]>();
   // Reachability tracking, to tell "scanned a loaded page, found nothing" (the
   // element is genuinely gone) apart from "never reached a page that loaded"
-  // (a login/navigation failure — we couldn't check, so don't claim removal).
+  // (a login/navigation failure - we couldn't check, so don't claim removal).
   const scannedOkIds = new Set<string>();
   const scanFailedIds = new Set<string>();
 
@@ -258,7 +258,7 @@ export async function healSelectors(
       await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
     } catch (e) {
       logger.warn({ url: target, error: String(e) }, 'Page load failed during healing');
-      // The page never loaded — every selector we meant to scan here couldn't be
+      // The page never loaded - every selector we meant to scan here couldn't be
       // checked on this page (may still succeed on another page in a later phase).
       for (const r of results) {
         if (storedById.has(r.selector.id)) scanFailedIds.add(r.selector.id);
@@ -276,7 +276,7 @@ export async function healSelectors(
     for (const result of results) {
       const stored = storedById.get(result.selector.id);
       if (!stored) continue;
-      // The page loaded, so this selector was genuinely looked at here — enough to
+      // The page loaded, so this selector was genuinely looked at here - enough to
       // distinguish "scanned, nothing matched" from "never reached the page".
       scannedOkIds.add(result.selector.id);
       try {
@@ -310,7 +310,7 @@ export async function healSelectors(
   }
 
   // Phase 2: configured pages (auth, interactions). Retry any selector that
-  // doesn't yet have a confident candidate — its element may live behind login.
+  // doesn't yet have a confident candidate - its element may live behind login.
   if (config.pages && config.pages.length > 0) {
     const autoApply = config.confidenceThreshold?.autoApply ?? 0.8;
     for (const pageConfig of config.pages) {
@@ -320,14 +320,14 @@ export async function healSelectors(
       if (remaining.length === 0) break;
 
       const resolved = resolveConfigPageUrl(pageConfig.url, config);
-      // Skip pages whose setup already failed during verify — no point re-running
+      // Skip pages whose setup already failed during verify - no point re-running
       // (and re-timing-out) the same broken hook.
       if (options.unreachablePages?.has(normalizeUrl(resolved))) {
         logger.info(
           { page: pageConfig.name ?? pageConfig.url },
           'Skipping page whose setup already failed during verification',
         );
-        // Verify already found this page unreachable, so we skip it — but the
+        // Verify already found this page unreachable, so we skip it - but the
         // selectors that needed it still couldn't be checked here. Mark them so an
         // empty result reads as "couldn't reach" (unless another page scans them).
         for (const r of remaining) {
@@ -351,7 +351,7 @@ export async function healSelectors(
 
   // One suggestion per selector: globally best candidates, deduped by code, with
   // any no-op "fix" (a candidate identical to the selector it would replace)
-  // dropped — so we never surface an Apply that changes nothing.
+  // dropped - so we never surface an Apply that changes nothing.
   return toHeal.map((result) => {
     const all = candidatesById.get(result.selector.id) ?? [];
     const framework: Framework = result.selector.framework ?? config.framework ?? 'playwright';
@@ -362,7 +362,7 @@ export async function healSelectors(
     );
     // Couldn't-reach vs genuinely-gone: with no candidate, if we never scanned
     // this selector on a page that actually loaded yet a page-load/login failure
-    // occurred, we simply couldn't look — so don't claim the element was removed.
+    // occurred, we simply couldn't look - so don't claim the element was removed.
     const id = result.selector.id;
     const stored = storedById.get(id);
     const unreachable = isUnreachable({
@@ -372,7 +372,7 @@ export async function healSelectors(
       scanFailed: scanFailedIds.has(id),
     });
     // Explain the break. When unreachable, say so honestly instead of diffing to
-    // a "removed" verdict we didn't earn — we never got to look. Otherwise diff
+    // a "removed" verdict we didn't earn - we never got to look. Otherwise diff
     // the baseline against the top candidate (undefined candidate ⇒ "removed"),
     // isolated in a try/catch so a malformed fingerprint can't break the heal.
     let explanation: BreakReason[] = [];
@@ -381,7 +381,7 @@ export async function healSelectors(
         {
           kind: 'unreachable',
           summary:
-            "couldn't reach the page to check — a login or setup step may have failed or timed out, so the selector may still be fine (try again)",
+            "couldn't reach the page to check - a login or setup step may have failed or timed out, so the selector may still be fine (try again)",
         },
       ];
     } else if (stored) {
@@ -398,7 +398,7 @@ export async function healSelectors(
     // edited: the baseline we're using belongs to a different id at this same
     // call site (findOrphanBaseline), which can only happen if the rawValue at
     // this exact spot changed since capture. We deliberately do NOT infer a
-    // rename from "broken but the element looks unchanged" — that also matches an
+    // rename from "broken but the element looks unchanged" - that also matches an
     // app-side change the fingerprint can't see (e.g. a getByLabel whose separate
     // <label> element was renamed), and we won't tell the user they edited
     // something they didn't. The suggestion is offered either way.
@@ -407,7 +407,7 @@ export async function healSelectors(
       explanation = [
         {
           kind: 'renamed',
-          summary: 'selector value changed since capture — this is the element it matched before',
+          summary: 'selector value changed since capture - this is the element it matched before',
         },
         ...explanation.filter((r) => r.kind !== 'removed' && r.kind !== 'renamed'),
       ];
@@ -467,8 +467,8 @@ export function buildScoredCandidate(
   const adjusted = adjustConfidence(confidence, classifyReplacementType(replacementCode), feedback);
   return {
     replacementCode,
-    confidence: adjusted.confidence, // nudged — for ranking + display
-    structuralConfidence: confidence, // pure structural — for automated gates
+    confidence: adjusted.confidence, // nudged - for ranking + display
+    structuralConfidence: confidence, // pure structural - for automated gates
     reasoning,
     ruleScores,
     ...(adjusted.note ? { learningNote: adjusted.note } : {}),
@@ -479,7 +479,7 @@ export function buildScoredCandidate(
 /**
  * Highest **structural** confidence among a selector's candidates (0 if none).
  * Uses the pre-learning score because the sole caller is the phase-2 gate that
- * decides whether to scan configured/login pages — a learned nudge must not make
+ * decides whether to scan configured/login pages - a learned nudge must not make
  * heal skip the page where the real element actually lives.
  */
 export function bestConfidence(candidates: HealCandidate[] | undefined): number {
@@ -507,7 +507,7 @@ export function dedupeByCode(candidates: HealCandidate[]): HealCandidate[] {
 
 /**
  * True when a healed candidate's code is equivalent to the selector it would
- * replace — applying it changes nothing, so it must not be offered as a fix.
+ * replace - applying it changes nothing, so it must not be offered as a fix.
  * This happens when a selector is flagged broken by a cascade elsewhere (e.g. a
  * failed setup) yet its own element is unchanged, so the healer re-derives the
  * identical locator.

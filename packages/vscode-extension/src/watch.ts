@@ -35,7 +35,7 @@ export function isTestFilePath(filePath: string, testDir: string): boolean {
  * A signature capturing everything about a selector usage that affects what it
  * matches. The core `id` only hashes `file:line:rawValue`, so for `getByRole`
  * (whose accessible name lives in `options`, not `rawValue`) editing just the
- * name — `{ name: 'Sign up' }` → `{ name: 'Sign down' }` — leaves the id
+ * name - `{ name: 'Sign up' }` → `{ name: 'Sign down' }` - leaves the id
  * unchanged. Appending `selectorType` + `options` makes such edits visible to
  * change-detection, which would otherwise conclude "nothing changed".
  *
@@ -53,7 +53,7 @@ export function selectorSignature(s: SelectorUsage): string {
  * The selectors the user actually edited since the last run: those whose
  * {@link selectorSignature} at a given `file:line` differs from before (or are
  * new). Lets watch re-verify only what changed and keep every untouched
- * selector's existing result — so it never re-checks (or wrongly flags)
+ * selector's existing result - so it never re-checks (or wrongly flags)
  * auth-/interaction-gated selectors that weren't touched.
  *
  * @param prior - selectors from the last verified snapshot

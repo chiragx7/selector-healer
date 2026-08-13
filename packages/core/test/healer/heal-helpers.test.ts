@@ -43,7 +43,7 @@ function candSN(replacementCode: string, structural: number, nudged: number): He
   };
 }
 
-describe('buildScoredCandidate — learning nudge', () => {
+describe('buildScoredCandidate - learning nudge', () => {
   // A well-matched testid candidate against a slightly different baseline, so the
   // base score has room below 1.0 for the nudge to be visible.
   const stored: DomFingerprint = {
@@ -70,7 +70,7 @@ describe('buildScoredCandidate — learning nudge', () => {
     const fb: SelectorFeedback = { version: 1, byType: { testid: { accepted: 9, rejected: 1 } } };
     const learned = buildScoredCandidate(stored, candidate, 'playwright', fb);
     // structuralConfidence stays the pure score; only `confidence` (display/rank)
-    // is nudged — so gates keyed on structuralConfidence are unaffected.
+    // is nudged - so gates keyed on structuralConfidence are unaffected.
     expect(learned.structuralConfidence).toBe(base.confidence);
     expect(learned.confidence).toBeGreaterThan(learned.structuralConfidence ?? 0);
     expect(learned.learningNote).toMatch(/you usually accept testid fixes/);
@@ -131,7 +131,7 @@ describe('rankCandidates', () => {
   it('retains the structurally-best fix even when a nudge ranks it last (finding: auto-apply pool)', () => {
     // A is the best *structural* match (0.82) but its kind is disliked, so its
     // nudged/display score (0.72) sits below three liked-kind look-alikes. Slicing
-    // the pool by nudged confidence (the old behaviour) would drop A entirely —
+    // the pool by nudged confidence (the old behaviour) would drop A entirely -
     // starving CLI --fix / Apply-All, which pick the structurally-best *survivor*.
     const A = candSN('page.getByTestId("real")', 0.82, 0.72);
     const out = rankCandidates([
@@ -181,7 +181,7 @@ describe('rankCandidates', () => {
   it('re-adds the structural-best when the nudged-ratio trim would drop it', () => {
     // Finding: A is the structural-best (0.66) but its kind is disliked (nudged
     // 0.56); B is structurally weaker (0.65) but liked (nudged 0.75). The nudged
-    // floor (0.75 × 0.75 = 0.5625) would drop A as a "look-alike" — but it's the
+    // floor (0.75 × 0.75 = 0.5625) would drop A as a "look-alike" - but it's the
     // strongest match, and auto-apply picks the structural-best survivor, so it
     // must remain present.
     const A = candSN('page.getByTestId("best")', 0.66, 0.56);
@@ -210,7 +210,7 @@ describe('isUnreachable', () => {
     expect(isUnreachable({ ...base, hasBaseline: false })).toBe(false);
   });
 
-  it('is false when we scanned a loaded page — nothing matched means genuinely gone', () => {
+  it('is false when we scanned a loaded page - nothing matched means genuinely gone', () => {
     // Conservative: a page that loads counts as scanned, so we don't over-claim
     // "unreachable" (which would mask a real removal on a public page).
     expect(isUnreachable({ ...base, scannedOk: true })).toBe(false);

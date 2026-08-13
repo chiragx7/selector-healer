@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const outputPath = resolve(__dirname, '..', 'resources', 'icon.png');
 
 // Minimal 128x128 PNG with a shield + healing cross icon
-// This is a placeholder — replace with a proper design before publishing
+// This is a placeholder - replace with a proper design before publishing
 // For now, create a minimal valid PNG that satisfies vsce packaging
 
 // PNG signature + minimal IHDR + IDAT + IEND for a 128x128 blue icon

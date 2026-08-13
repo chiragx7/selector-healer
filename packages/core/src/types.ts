@@ -86,7 +86,7 @@ export interface DomFingerprint {
    * `selectorId` changes and the direct baseline lookup misses, but the
    * fingerprint captured for the original value still sits at this
    * `file:line:column` (renaming the argument doesn't move the call's start).
-   * Optional — absent on baselines captured before this feature, which simply
+   * Optional - absent on baselines captured before this feature, which simply
    * won't be recoverable until re-captured.
    */
   source?: { file: string; line: number; column: number };
@@ -121,7 +121,7 @@ export interface VerificationResult {
 }
 
 /**
- * One scoring rule's contribution to a candidate's confidence — the raw
+ * One scoring rule's contribution to a candidate's confidence - the raw
  * material behind "why this percent". Surfaced in the UI as a per-rule breakdown.
  */
 export interface RuleScore {
@@ -140,7 +140,7 @@ export interface HealCandidate {
   /** The exact code string to substitute, e.g. `page.getByTestId('submit-btn')`. */
   replacementCode: string;
   /**
-   * Confidence in `[0, 1]` used for **ranking and display** — the structural
+   * Confidence in `[0, 1]` used for **ranking and display** - the structural
    * score with any adaptive-learning nudge applied.
    */
   confidence: number;
@@ -156,7 +156,7 @@ export interface HealCandidate {
   ruleScores?: RuleScore[];
   /**
    * When adaptive learning nudged this candidate's confidence, a short note
-   * describing the adjustment (e.g. "+6% — you usually accept testid fixes").
+   * describing the adjustment (e.g. "+6% - you usually accept testid fixes").
    */
   learningNote?: string;
   matchedFingerprint: DomFingerprint;
@@ -192,12 +192,12 @@ export interface BreakReason {
 export interface HealSuggestion {
   selectorId: string;
   candidates: HealCandidate[];
-  /** Why the selector broke — the meaningful diffs between baseline and now. */
+  /** Why the selector broke - the meaningful diffs between baseline and now. */
   explanation?: BreakReason[];
   /**
    * True when the healer never managed to scan this selector on a page that
    * actually loaded (a login/setup step or navigation failed), so the empty
-   * `candidates` list means "couldn't check" — NOT "the element was removed".
+   * `candidates` list means "couldn't check" - NOT "the element was removed".
    * Lets the UI show an honest, retryable reachability message instead of a
    * false "element is gone".
    */
@@ -265,7 +265,7 @@ export interface HealerConfig {
     suggest: number;
   };
   /**
-   * Adaptive learning from your Apply/Skip choices — gently biases suggestion
+   * Adaptive learning from your Apply/Skip choices - gently biases suggestion
    * confidence toward the selector kinds you actually accept.
    */
   learning?: {

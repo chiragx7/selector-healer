@@ -13,7 +13,7 @@ import {
 } from './webview-content.js';
 
 /**
- * The full Selector Healer dashboard — the same unified view as the sidebar, but
+ * The full Selector Healer dashboard - the same unified view as the sidebar, but
  * rendered roomy in an editor tab (centered, multi-column card grid, its own
  * header toolbar). A workspace-wide singleton: opening it again reveals the
  * existing tab rather than spawning a second one.

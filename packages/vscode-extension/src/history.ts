@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import * as vscode from 'vscode';
 
-/** The essential facts of one applied heal — enough to record and to reverse it. */
+/** The essential facts of one applied heal - enough to record and to reverse it. */
 export interface AppliedHeal {
   readonly filePath: string;
   /** 1-indexed line of the replaced call. */
@@ -24,7 +24,7 @@ export interface HealHistoryEntry extends AppliedHeal {
   readonly selectorId?: string;
 }
 
-/** Minimal persistence surface — satisfied by `vscode.Memento` (workspaceState). */
+/** Minimal persistence surface - satisfied by `vscode.Memento` (workspaceState). */
 export interface HistoryStore {
   get<T>(key: string, defaultValue: T): T;
   update(key: string, value: unknown): Thenable<void>;
@@ -65,7 +65,7 @@ class InMemoryStore implements HistoryStore {
 }
 
 /**
- * Persistent, capped log of applied heals — the backing store for "undo the
+ * Persistent, capped log of applied heals - the backing store for "undo the
  * heal I just applied". Local-first: entries live in the workspace's `Memento`,
  * never leave the machine. Newest entry is first.
  */
@@ -152,7 +152,7 @@ export function findUndoRange(
       return { kind: 'found', line: recordedIdx, startCol: col, endCol: col + after.length };
   }
 
-  // 2) The line shifted — search the whole document; a unique match wins, more than one is ambiguous.
+  // 2) The line shifted - search the whole document; a unique match wins, more than one is ambiguous.
   let found: { line: number; col: number } | undefined;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];

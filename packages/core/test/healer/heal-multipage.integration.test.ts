@@ -15,7 +15,7 @@ import type {
 } from '../../src/types.js';
 import { startFixtureServer } from '../fixtures/server.js';
 
-describe('healSelectors — multi-page (integration)', () => {
+describe('healSelectors - multi-page (integration)', () => {
   let server: Server;
   let baseUrl: string;
   let mutatedServer: Server;
@@ -81,7 +81,7 @@ describe('healSelectors — multi-page (integration)', () => {
     const pages: PageConfig[] = [{ name: 'Dashboard', url: '/dashboard' }];
     await captureFingerprints([dashSel], makeConfig({ pages }), tmpDir);
 
-    // Simulate a broken result — selector changed but element still exists on /dashboard
+    // Simulate a broken result - selector changed but element still exists on /dashboard
     const broken: VerificationResult[] = [
       {
         selector: { ...dashSel, rawValue: '#old-dashboard-id' },
@@ -100,7 +100,7 @@ describe('healSelectors — multi-page (integration)', () => {
       },
     ];
 
-    // Heal without pages — Phase 1 searches /login, won't find dashboard element
+    // Heal without pages - Phase 1 searches /login, won't find dashboard element
     const suggestionsNone = await healSelectors(broken, {
       config: makeConfig(),
       projectRoot: tmpDir,
@@ -108,7 +108,7 @@ describe('healSelectors — multi-page (integration)', () => {
     expect(suggestionsNone).toHaveLength(1);
     expect(suggestionsNone[0]?.candidates).toHaveLength(0);
 
-    // Heal with pages — Phase 2 searches /dashboard, finds the element
+    // Heal with pages - Phase 2 searches /dashboard, finds the element
     const suggestionsWithPages = await healSelectors(broken, {
       config: makeConfig({ pages }),
       projectRoot: tmpDir,
@@ -141,7 +141,7 @@ describe('healSelectors — multi-page (integration)', () => {
     ];
     await captureFingerprints([sel], makeConfig({ pages: capturePages }), tmpDir);
 
-    // Simulate broken — element hidden without setup
+    // Simulate broken - element hidden without setup
     const broken: VerificationResult[] = [
       {
         selector: { ...sel, rawValue: '#old-secret' },
@@ -265,7 +265,7 @@ describe('healSelectors — multi-page (integration)', () => {
       unreachablePages: new Set([`${baseUrl}/dashboard`.replace(/\/$/, '')]),
     });
 
-    expect(setupCalled).toBe(false); // the page was skipped — hook not re-run
+    expect(setupCalled).toBe(false); // the page was skipped - hook not re-run
     expect(suggestions).toHaveLength(1);
     expect(suggestions[0]?.candidates).toHaveLength(0);
   });
@@ -300,14 +300,14 @@ describe('healSelectors — multi-page (integration)', () => {
 
     expect(suggestions).toHaveLength(1);
     expect(suggestions[0]?.candidates).toHaveLength(0);
-    // The element wasn't removed — we never reached a page to look. Say so.
+    // The element wasn't removed - we never reached a page to look. Say so.
     expect(suggestions[0]?.unreachable).toBe(true);
     expect(suggestions[0]?.explanation?.[0]?.kind).toBe('unreachable');
   });
 
   it('does not crash when login/globalSetup throws (degrades to unreachable)', async () => {
     // A failed login must not throw out of the whole heal. Here every page is dead
-    // too, so the selector reads unreachable — the point is heal completes cleanly.
+    // too, so the selector reads unreachable - the point is heal completes cleanly.
     await captureFingerprints([makeSelector({ id: 'seed_auth' })], makeConfig(), tmpDir);
 
     const broken: VerificationResult[] = [

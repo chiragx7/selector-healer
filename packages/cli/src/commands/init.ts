@@ -16,7 +16,7 @@ export function registerInit(program: Command): void {
   program
     .command('init')
     .description(
-      'Initialize Selector Healer — auto-detects framework, base URL, and test directory',
+      'Initialize Selector Healer - auto-detects framework, base URL, and test directory',
     )
     .option('--force', 'Overwrite an existing configuration')
     .option('--print', 'Print the detected config without writing anything')
@@ -27,12 +27,12 @@ export function registerInit(program: Command): void {
 
       // ── Detection summary ──
       const guess = (confident: boolean, source: string) =>
-        confident ? pc.dim(`(${source})`) : pc.yellow('(guess — please review)');
+        confident ? pc.dim(`(${source})`) : pc.yellow('(guess - please review)');
 
       process.stdout.write(`\n${pc.bold('Detected')}\n`);
       process.stdout.write(
         `  ${pc.cyan('Framework')}  ${detection.framework} ${
-          detection.frameworkConfidence === 'detected' ? '' : pc.yellow('(guess — please review)')
+          detection.frameworkConfidence === 'detected' ? '' : pc.yellow('(guess - please review)')
         }\n`,
       );
       process.stdout.write(
@@ -68,7 +68,7 @@ export function registerInit(program: Command): void {
 
       if (existing.length > 0 && !opts.force) {
         process.stdout.write(
-          `  ${pc.yellow('Skipped')} config (${existing[0]} already exists — use ${pc.cyan('--force')} to regenerate)\n\n`,
+          `  ${pc.yellow('Skipped')} config (${existing[0]} already exists - use ${pc.cyan('--force')} to regenerate)\n\n`,
         );
         return;
       }
@@ -94,7 +94,7 @@ export function registerInit(program: Command): void {
       process.stdout.write(`\n${pc.bold('Next steps')}\n`);
       let step = 1;
       if (todos.length > 0) {
-        process.stdout.write(`  ${step++}. Review ${filename} — ${todos.join(', ')}\n`);
+        process.stdout.write(`  ${step++}. Review ${filename} - ${todos.join(', ')}\n`);
       }
       process.stdout.write(
         `  ${step++}. Run ${pc.cyan('selector-healer capture')} to baseline fingerprints\n`,

@@ -1,5 +1,5 @@
 /**
- * Selector Healer — Background Service Worker
+ * Selector Healer - Background Service Worker
  *
  * Bridges the WebSocket connection from the CLI `serve` command to the
  * DevTools panel and content scripts.
@@ -16,16 +16,16 @@ let cachedSelectors = [];
 let cachedFingerprints = {};
 /** Last server URL used, so we can reconnect when a panel reopens. */
 let lastWsUrl = DEFAULT_WS_URL;
-/** True once a socket has opened — gates auto-reconnect to genuine drops. */
+/** True once a socket has opened - gates auto-reconnect to genuine drops. */
 let everConnected = false;
 /** Tracks tabs where we have already injected the content script */
 const injectedTabs = new Set();
 /** Tracks in-flight injection promises to avoid duplicate inject calls */
 const pendingInjections = new Map();
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Panel Connection (long-lived port)                                 */
-/* ------------------------------------------------------------------ */
+/* - */
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'panel') return;
@@ -52,7 +52,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
   port.onDisconnect.addListener(() => {
     panelPort = null;
-    // No panel is watching — stop reconnect attempts (and the error spam) and
+    // No panel is watching - stop reconnect attempts (and the error spam) and
     // drop the socket until a panel opens again.
     clearTimeout(reconnectTimer);
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
@@ -77,9 +77,9 @@ function sendToPanel(msg) {
   }
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Panel Message Handling                                             */
-/* ------------------------------------------------------------------ */
+/* - */
 
 async function handlePanelMessage(msg) {
   switch (msg.type) {
@@ -166,13 +166,13 @@ async function handlePanelMessage(msg) {
   }
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Content Script Injection                                           */
-/* ------------------------------------------------------------------ */
+/* - */
 
 /**
  * Ensures the content script is loaded in the given tab.
- * First tries a ping — if already loaded (via manifest), skips injection.
+ * First tries a ping - if already loaded (via manifest), skips injection.
  * Deduplicates concurrent calls for the same tab.
  * Resolves to true if ready, false if injection failed.
  */
@@ -186,14 +186,14 @@ async function ensureContentScript(tabId) {
 
   const promise = (async () => {
     try {
-      // Try pinging the content script — it may already be loaded via manifest
+      // Try pinging the content script - it may already be loaded via manifest
       const response = await chrome.tabs.sendMessage(tabId, { type: 'ping' });
       if (response?.type === 'pong') {
         injectedTabs.add(tabId);
         return true;
       }
     } catch {
-      // Not loaded yet — inject it
+      // Not loaded yet - inject it
     }
 
     try {
@@ -227,9 +227,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   injectedTabs.delete(tabId);
 });
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  WebSocket Connection                                               */
-/* ------------------------------------------------------------------ */
+/* - */
 
 function connectWebSocket(url, { retry = false } = {}) {
   lastWsUrl = url;
@@ -247,7 +247,7 @@ function connectWebSocket(url, { retry = false } = {}) {
   try {
     ws = new WebSocket(url);
   } catch {
-    // Invalid URL — surface as disconnected, never loop on it.
+    // Invalid URL - surface as disconnected, never loop on it.
     sendToPanel({ type: 'ws:status', connected: false });
     return;
   }
@@ -271,7 +271,7 @@ function connectWebSocket(url, { retry = false } = {}) {
   ws.onclose = () => {
     sendToPanel({ type: 'ws:status', connected: false });
     // Only auto-retry after a socket had actually opened (i.e. the server
-    // restarted). A failed *initial* connect does not loop — the user starts
+    // restarted). A failed *initial* connect does not loop - the user starts
     // the server and clicks Connect, so there's at most one refused-connection.
     if (everConnected) scheduleReconnect(url);
   };
@@ -282,7 +282,7 @@ function connectWebSocket(url, { retry = false } = {}) {
 }
 
 function scheduleReconnect(url) {
-  // Only keep retrying while a panel is open — avoids ERR_CONNECTION_REFUSED
+  // Only keep retrying while a panel is open - avoids ERR_CONNECTION_REFUSED
   // spam in the background when the CLI server simply isn't running.
   if (!panelPort) return;
   const delay = RECONNECT_DELAYS[Math.min(reconnectAttempt, RECONNECT_DELAYS.length - 1)];
@@ -311,9 +311,9 @@ function handleServerMessage(msg) {
   }
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Remember the last server URL (used when a panel opens)             */
-/* ------------------------------------------------------------------ */
+/* - */
 
 chrome.storage.local.get('wsUrl', (result) => {
   if (result.wsUrl) lastWsUrl = result.wsUrl;

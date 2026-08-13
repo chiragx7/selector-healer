@@ -52,21 +52,21 @@ export function describeElement(fp: DomFingerprint): string {
 function statusLine(status: VerificationStatus, matchCount: number): string {
   switch (status) {
     case 'ok':
-      return '$(pass) **Healthy** — resolves to one element';
+      return '$(pass) **Healthy** - resolves to one element';
     case 'broken':
-      return '$(error) **Broken** — no match in the live DOM';
+      return '$(error) **Broken** - no match in the live DOM';
     case 'multiple-matches':
-      return `$(list-flat) **Ambiguous** — matches ${matchCount} elements`;
+      return `$(list-flat) **Ambiguous** - matches ${matchCount} elements`;
     case 'page-load-failed':
-      return '$(warning) **Page could not load** — not verified';
+      return '$(warning) **Page could not load** - not verified';
     default:
-      return '$(circle-slash) **No baseline** — run Capture';
+      return '$(circle-slash) **No baseline** - run Capture';
   }
 }
 
 /**
- * Build the hover card markdown for a selector. Pure — no VS Code or state
- * access — so it's unit-testable. The caller wraps it in a themed
+ * Build the hover card markdown for a selector. Pure - no VS Code or state
+ * access - so it's unit-testable. The caller wraps it in a themed
  * `MarkdownString`.
  *
  * @param info - the reduced hover facts
@@ -98,14 +98,14 @@ export function buildHoverMarkdown(info: HoverInfo): string {
   if (meta.length) parts.push(meta.join('\n\n'));
   else if (info.status === 'skipped') parts.push('_No baseline captured for this selector yet._');
 
-  parts.push(`_Robustness: ${info.robustness.tier} — ${info.robustness.reason}_`);
+  parts.push(`_Robustness: ${info.robustness.tier} - ${info.robustness.reason}_`);
 
   return parts.join('\n\n');
 }
 
 /**
  * Hover a selector in a test file to see what it points to, its live status,
- * last-verified time, page, and — when broken — why and the suggested fix.
+ * last-verified time, page, and - when broken - why and the suggested fix.
  * Driven entirely by the current {@link healerState}; only *verified* selectors
  * get a card (Skipped ones stay silent, like the CodeLens and gutter).
  */

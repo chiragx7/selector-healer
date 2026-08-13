@@ -1,13 +1,13 @@
 /**
- * Selector Healer — Content Script
+ * Selector Healer - Content Script
  *
  * Evaluates Playwright-style selectors against the live DOM and
  * highlights matched elements. Runs in every page frame.
  */
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Implicit ARIA role map                                             */
-/* ------------------------------------------------------------------ */
+/* - */
 
 const IMPLICIT_ROLES = {
   alert: ['[role="alert"]'],
@@ -43,9 +43,9 @@ const IMPLICIT_ROLES = {
   ],
 };
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Selector Evaluation                                                */
-/* ------------------------------------------------------------------ */
+/* - */
 
 function evaluateSelector(selector) {
   const type = selector.selectorType;
@@ -200,9 +200,9 @@ function findByAttr(attr, value) {
   return [...document.querySelectorAll(`[${attr}="${CSS.escape(value)}"]`)];
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Accessible Name Computation (simplified)                           */
-/* ------------------------------------------------------------------ */
+/* - */
 
 function getAccessibleName(el) {
   // 1. aria-label
@@ -238,9 +238,9 @@ function normalizeWhitespace(str) {
   return str.replace(/\s+/g, ' ').trim();
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Element Highlighting                                               */
-/* ------------------------------------------------------------------ */
+/* - */
 
 let overlayHost = null;
 let overlayShadow = null;
@@ -305,11 +305,11 @@ function clearHighlight() {
   }
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  In-browser healer (scan candidates → score → suggest replacements) */
 /*  Ported from @selector-healer/core so the panel can heal without    */
-/*  a headless browser — the content script already has the live DOM.  */
-/* ------------------------------------------------------------------ */
+/*  a headless browser - the content script already has the live DOM.  */
+/* - */
 
 /** Snapshot a DOM element's structural identity (matches core's fingerprint). */
 function captureFingerprint(node) {
@@ -390,7 +390,7 @@ function scanCandidates(stored) {
   });
 }
 
-/* ---- scoring (faithful port of core/healer/scoring.ts) ---- */
+/* - scoring (faithful port of core/healer/scoring.ts) - */
 
 const SCORING_RULES = [
   {
@@ -536,7 +536,7 @@ function attributeCoverage(stored, candidate) {
   return matches / keys.length;
 }
 
-/* ---- replacement code (faithful port of core/healer/replacement-code.ts) ---- */
+/* - replacement code (faithful port of core/healer/replacement-code.ts) - */
 
 function escapeQuote(str) {
   return String(str).replace(/'/g, "\\'");
@@ -678,9 +678,9 @@ function healSelector(stored, framework) {
     .slice(0, 3);
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Message Handler (guarded against duplicate registration)           */
-/* ------------------------------------------------------------------ */
+/* - */
 
 const alreadyRegistered = typeof self !== 'undefined' && self.__selectorHealerLoaded;
 // Register only in a real content-script context (browser has `self` + `chrome`).
@@ -744,10 +744,10 @@ if (
   });
 } // end of __selectorHealerLoaded guard
 
-/* ------------------------------------------------------------------ */
-/*  Test-only exports — a no-op in the browser (content scripts have    */
+/* - */
+/*  Test-only exports - a no-op in the browser (content scripts have    */
 /*  no CommonJS `module`). Lets unit tests import the pure healer logic. */
-/* ------------------------------------------------------------------ */
+/* - */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     evaluateSelector,

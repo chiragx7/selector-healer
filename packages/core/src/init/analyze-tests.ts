@@ -7,7 +7,7 @@ import * as t from '@babel/types';
 import fg from 'fast-glob';
 import { logger } from '../logger.js';
 
-// CJS/ESM interop — @babel/traverse ships CJS.
+// CJS/ESM interop - @babel/traverse ships CJS.
 const traverse =
   typeof _traverse === 'function'
     ? _traverse
@@ -55,8 +55,8 @@ export interface TestSuiteAnalysis {
 
 /**
  * Statically analyse a test suite for `init`'s deep scan: collect the distinct
- * pages the tests reach — from `page.goto()`, `page.waitForURL()`, and
- * `expect(page).toHaveURL()` — and lift a simple login flow (a
+ * pages the tests reach - from `page.goto()`, `page.waitForURL()`, and
+ * `expect(page).toHaveURL()` - and lift a simple login flow (a
  * `beforeEach`/`login()` helper that fills fields and clicks submit) so the
  * generated config can pre-fill `pages[]` + a setup hook.
  *
@@ -66,7 +66,7 @@ export interface TestSuiteAnalysis {
  * concatenation) are resolved; absolute URLs are kept only when same-origin as
  * `baseUrl`, so external links are ignored.
  *
- * Reads test files only, never executes them, and never throws — unreadable or
+ * Reads test files only, never executes them, and never throws - unreadable or
  * unparseable files are skipped. It recognises the common inline-locator login
  * pattern; anything fancier (page objects, SSO) yields no `login`, and the
  * generator falls back to a commented example.
@@ -152,7 +152,7 @@ function collectPageUrls(
   });
 }
 
-/** True for `expect(...).not.toHaveURL(...)` — a negation we must not treat as a page. */
+/** True for `expect(...).not.toHaveURL(...)` - a negation we must not treat as a page. */
 function isNegatedAssertion(node: t.CallExpression): boolean {
   const callee = node.callee;
   if (!t.isMemberExpression(callee)) return false;
@@ -340,7 +340,7 @@ function isLoginName(name: string): boolean {
 /**
  * For a `<selector>.fill(...)`/`<selector>.click()` call, return the
  * receiver-stripped source of the `<selector>` chain (e.g. `getByLabel('Email')`)
- * — but only when it's a recognisable locator call, so we don't lift a bare
+ * - but only when it's a recognisable locator call, so we don't lift a bare
  * variable from a page-object pattern.
  */
 function selectorSource(node: t.CallExpression, source: string): string | undefined {

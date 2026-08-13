@@ -28,7 +28,7 @@ afterEach(() => {
   created.length = 0;
 });
 
-describe('detectProjectConfig — framework', () => {
+describe('detectProjectConfig - framework', () => {
   it('detects Playwright from @playwright/test + config', () => {
     const root = project({
       files: {
@@ -93,7 +93,7 @@ describe('detectProjectConfig — framework', () => {
   });
 });
 
-describe('detectProjectConfig — baseUrl', () => {
+describe('detectProjectConfig - baseUrl', () => {
   it('reads baseURL from a Playwright config', () => {
     const root = project({
       files: {
@@ -141,7 +141,7 @@ describe('detectProjectConfig — baseUrl', () => {
   });
 });
 
-describe('detectProjectConfig — testDir', () => {
+describe('detectProjectConfig - testDir', () => {
   it('reads testDir from a Playwright config when the directory exists', () => {
     const root = project({
       files: { 'playwright.config.ts': "export default { testDir: './e2e', use: {} };" },
@@ -178,7 +178,7 @@ describe('detectProjectConfig — testDir', () => {
   });
 });
 
-describe('detectProjectConfig — TypeScript detection', () => {
+describe('detectProjectConfig - TypeScript detection', () => {
   it('flags a project with a tsconfig.json', () => {
     const root = project({ files: { 'tsconfig.json': '{}', 'package.json': '{}' } });
     expect(detectProjectConfig(root).usesTypeScript).toBe(true);

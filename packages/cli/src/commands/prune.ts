@@ -47,7 +47,7 @@ export function registerPrune(program: Command): void {
 
       if (removed.length === 0) {
         process.stdout.write(
-          `${pc.green('✓')} Baseline is clean — no stale fingerprints (${fingerprints.size} kept).\n`,
+          `${pc.green('✓')} Baseline is clean - no stale fingerprints (${fingerprints.size} kept).\n`,
         );
         return;
       }
@@ -58,14 +58,14 @@ export function registerPrune(program: Command): void {
       if (parseErrors.length > 0) {
         const n = parseErrors.length;
         process.stderr.write(
-          `${pc.yellow('Refusing to prune:')} ${n} test file${n === 1 ? '' : 's'} failed to parse, so the selector list is incomplete. Fix ${n === 1 ? 'it' : 'them'} and re-run — otherwise valid baselines could be removed.\n`,
+          `${pc.yellow('Refusing to prune:')} ${n} test file${n === 1 ? '' : 's'} failed to parse, so the selector list is incomplete. Fix ${n === 1 ? 'it' : 'them'} and re-run - otherwise valid baselines could be removed.\n`,
         );
         process.exitCode = 1;
         return;
       }
       if (selectors.length === 0) {
         process.stderr.write(
-          `${pc.yellow('Refusing to prune:')} no selectors found in ${config.testDir}. This would remove the entire baseline — check your testDir/testGlob.\n`,
+          `${pc.yellow('Refusing to prune:')} no selectors found in ${config.testDir}. This would remove the entire baseline - check your testDir/testGlob.\n`,
         );
         process.exitCode = 1;
         return;

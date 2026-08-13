@@ -10,7 +10,7 @@ import { extractTestCafeSelectors } from './frameworks/testcafe.js';
 import { extractWebdriverIOSelectors } from './frameworks/webdriverio.js';
 import { makeSelectorId } from './selector-id.js';
 
-// CJS/ESM interop — @babel/traverse ships CJS; under NodeNext the default
+// CJS/ESM interop - @babel/traverse ships CJS; under NodeNext the default
 // import may be the namespace object wrapping { default: fn } instead of fn.
 const traverse =
   typeof _traverse === 'function'
@@ -56,7 +56,7 @@ export function extractSelectors(ast: ParseResult<t.File>, filePath: string): Se
       exit(path: NodePath) {
         const top = contextStack.pop();
         // A beforeEach/beforeAll hook that navigates (goto) establishes the page
-        // every following test in the block starts on — propagate its URL to the
+        // every following test in the block starts on - propagate its URL to the
         // enclosing scope so those tests inherit the right contextHint.
         if (top !== undefined && isSetupHookCallback(path)) {
           contextStack[contextStack.length - 1] = top;
@@ -147,7 +147,7 @@ const SETUP_HOOKS = new Set(['beforeEach', 'beforeAll', 'before']);
 
 /**
  * True when a function is the callback of a Playwright `beforeEach`/`beforeAll`
- * setup hook — either bare `beforeEach(...)` or `test.beforeEach(...)`. Such a
+ * setup hook - either bare `beforeEach(...)` or `test.beforeEach(...)`. Such a
  * hook's `goto` sets the page every following test in the block starts on.
  */
 function isSetupHookCallback(path: NodePath): boolean {

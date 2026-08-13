@@ -15,12 +15,12 @@ const traverse =
  * Extract selector usages from a TestCafe test file AST.
  *
  * TestCafe patterns:
- * - `Selector('.css')` — CSS selector
- * - `Selector('#id')` — CSS id
- * - `Selector('[data-testid="..."]')` — test ID
- * - `Selector('button').withText('Submit')` — text matching (captured as CSS + text)
- * - `Selector('input').withAttribute('name', 'email')` — attribute matching
- * - `t.navigateTo('/url')` — context tracking
+ * - `Selector('.css')` - CSS selector
+ * - `Selector('#id')` - CSS id
+ * - `Selector('[data-testid="..."]')` - test ID
+ * - `Selector('button').withText('Submit')` - text matching (captured as CSS + text)
+ * - `Selector('input').withAttribute('name', 'email')` - attribute matching
+ * - `t.navigateTo('/url')` - context tracking
  *
  * @param ast - Parsed Babel AST.
  * @param filePath - Absolute path to the source file.
@@ -37,7 +37,7 @@ export function extractTestCafeSelectors(
 ): SelectorUsage[] {
   const results: SelectorUsage[] = [];
   const contextStack: (string | undefined)[] = [undefined];
-  // Deferred withText annotations — applied after full traversal
+  // Deferred withText annotations - applied after full traversal
   const withTextAnnotations: Array<{ selectorLine: number; text: string }> = [];
 
   traverse(ast, {
@@ -53,7 +53,7 @@ export function extractTestCafeSelectors(
     CallExpression(path: NodePath<t.CallExpression>) {
       const { node } = path;
 
-      // t.navigateTo('/url') — context tracking
+      // t.navigateTo('/url') - context tracking
       if (t.isMemberExpression(node.callee)) {
         const property = node.callee.property;
         if (t.isIdentifier(property, { name: 'navigateTo' })) {
@@ -65,14 +65,14 @@ export function extractTestCafeSelectors(
         }
       }
 
-      // Selector('...') — direct call
+      // Selector('...') - direct call
       if (t.isIdentifier(node.callee, { name: 'Selector' })) {
         extractTestCafeSelector(node, filePath, results, contextStack);
         return;
       }
 
       // Chained: Selector('...').withText('...') / .withExactText('...')
-      // Collect text annotation — applied after traversal since inner Selector()
+      // Collect text annotation - applied after traversal since inner Selector()
       // may not have been visited yet (outer CallExpression visits first).
       if (t.isMemberExpression(node.callee)) {
         const property = node.callee.property;
@@ -152,7 +152,7 @@ function extractTestCafeSelector(
 
 /**
  * Walk up a chained MemberExpression to find the inner `Selector()` call.
- * E.g. `Selector('button').withText('Submit')` — returns the `Selector('button')` node.
+ * E.g. `Selector('button').withText('Submit')` - returns the `Selector('button')` node.
  */
 function findInnerSelectorCall(node: t.Node): t.CallExpression | undefined {
   if (t.isCallExpression(node) && t.isIdentifier(node.callee, { name: 'Selector' })) {

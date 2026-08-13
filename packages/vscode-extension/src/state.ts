@@ -23,7 +23,7 @@ export interface HealerSnapshot {
   results: VerificationResult[];
   /** Heal suggestions keyed by `${filePath}:${line}`. */
   suggestionsByKey: Map<string, StoredSuggestion[]>;
-  /** Top "why it broke" reason per selector id — survives targeted/watch merges. */
+  /** Top "why it broke" reason per selector id - survives targeted/watch merges. */
   explanationsById: Map<string, string>;
   /**
    * Selector signatures the user chose to "Skip" (dismiss). A dismissed
@@ -134,7 +134,7 @@ class HealerStateStore {
 
   /**
    * Merge freshly re-verified results for a few selectors into the current
-   * snapshot — replacing the prior result at each `file:line` without re-running
+   * snapshot - replacing the prior result at each `file:line` without re-running
    * the whole suite. Freshly-healed suggestions/explanations are overlaid, and
    * any for selectors that are no longer broken are dropped. Used for the
    * targeted re-verify after a fix is applied and by watch mode on save.

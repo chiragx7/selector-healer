@@ -365,7 +365,7 @@ describe('code-actions', () => {
   describe('stripLeadingReceiver', () => {
     it('drops a leading page. receiver so it is not duplicated', () => {
       // The call range begins after `this.page.`, so the replacement must not
-      // carry its own `page.` — else we get `this.page.page.getByText(...)`.
+      // carry its own `page.` - else we get `this.page.page.getByText(...)`.
       expect(stripLeadingReceiver("page.getByText('Login')")).toBe("getByText('Login')");
       expect(stripLeadingReceiver("page.getByRole('button', { name: 'Login' })")).toBe(
         "getByRole('button', { name: 'Login' })",

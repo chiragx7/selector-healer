@@ -48,7 +48,7 @@ export function formatSuggestions(suggestions: HealSuggestion[]): string {
 
     lines.push(`  ${pc.cyan(s.selectorId)}:`);
 
-    // Why it broke — the top reason(s) from diffing the baseline against now.
+    // Why it broke - the top reason(s) from diffing the baseline against now.
     for (const reason of (s.explanation ?? []).slice(0, 2)) {
       lines.push(`     ${pc.dim('↳ why:')} ${reason.summary}`);
     }

@@ -28,7 +28,7 @@ function getShortPath(longPath: string): string {
 }
 
 async function main() {
-  // __dirname at runtime is test/integration/out/ — go up 3 levels to extension root
+  // __dirname at runtime is test/integration/out/ - go up 3 levels to extension root
   const extensionDir = resolve(__dirname, '../../../');
   const extensionDevelopmentPath = getShortPath(extensionDir);
 

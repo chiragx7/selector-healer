@@ -106,7 +106,7 @@ async function captureElementFingerprint(
       boundingBox = { x: box.x, y: box.y, width: box.width, height: box.height };
     }
   } catch {
-    // Element not visible — skip bounding box
+    // Element not visible - skip bounding box
   }
 
   return {
@@ -271,7 +271,7 @@ export async function captureFingerprints(
                 onProgress?.({ selectorId: sel.id, status: 'captured' });
               }
             } catch {
-              // Silently skip — other pages may capture this selector
+              // Silently skip - other pages may capture this selector
             }
           }
 

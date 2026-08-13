@@ -1,7 +1,7 @@
-/* ------------------------------------------------------------------ */
-/*  Selector Healer — DevTools panel (dashboard styling)               */
+/* - */
+/*  Selector Healer - DevTools panel (dashboard styling)               */
 /*  Theme-aware: dark by default, light via prefers-color-scheme.       */
-/* ------------------------------------------------------------------ */
+/* - */
 
 :root {
   --bg: #1e1e1e;
@@ -62,7 +62,7 @@ body {
   height: 100vh;
 }
 
-/* ---- toolbar ---- */
+/* - toolbar - */
 
 .toolbar {
   display: flex;
@@ -160,7 +160,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* ---- filter bar ---- */
+/* - filter bar - */
 
 .filter-bar {
   padding: 8px 12px;
@@ -183,7 +183,7 @@ button:disabled {
   color: var(--fg-dim);
 }
 
-/* ---- app body ---- */
+/* - app body - */
 
 #app {
   flex: 1;
@@ -207,7 +207,7 @@ button:disabled {
   color: var(--fg);
 }
 
-/* ---- health header (ring + chips) ---- */
+/* - health header (ring + chips) - */
 
 .health {
   display: flex;
@@ -297,7 +297,7 @@ button:disabled {
   background: var(--skip);
 }
 
-/* ---- section heading ---- */
+/* - section heading - */
 
 .section-title {
   font-size: 11px;
@@ -308,7 +308,7 @@ button:disabled {
   margin: 4px 2px 8px;
 }
 
-/* ---- cards ---- */
+/* - cards - */
 
 .card {
   background: var(--surface);
@@ -396,7 +396,7 @@ button:disabled {
   line-height: 1.45;
 }
 
-/* ---- suggestion ---- */
+/* - suggestion - */
 
 .suggestion {
   margin-top: 9px;
@@ -490,7 +490,7 @@ button:disabled {
   font-weight: 600;
 }
 
-/* ---- all-clear ---- */
+/* - all-clear - */
 
 .all-clear {
   text-align: center;

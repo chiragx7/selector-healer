@@ -101,7 +101,7 @@ describe('scoreCandidate', () => {
     const result = scoreCandidate(stored, candidate);
     expect(result.matchedRules).toContain('text similarity');
     const textRule = result.ruleScores.find((r) => r.name === 'text similarity');
-    // One typo — quality should be high but below 0.8
+    // One typo - quality should be high but below 0.8
     expect(textRule?.quality).toBeGreaterThan(0.5);
     expect(textRule?.quality).toBeLessThan(1);
   });
@@ -277,7 +277,7 @@ describe('scoreCandidate', () => {
   });
 
   it('scores a no-testid/id/role element high when structure matches', () => {
-    // A plain <button> identified only by tag, text, class, and structure —
+    // A plain <button> identified only by tag, text, class, and structure -
     // no data-testid, id, or explicit role attribute. The presence-gated rules
     // must count as "not applicable" (not 0-penalties), so a near-perfect match
     // clears the 0.8 auto-apply threshold instead of being dragged down to ~38%.

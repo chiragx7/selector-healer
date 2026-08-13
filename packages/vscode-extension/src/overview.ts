@@ -59,7 +59,7 @@ export interface OverviewData {
     stale: number;
     /**
      * Whether `stale` is trustworthy. False when the parse was incomplete or found
-     * no selectors — in which case pruning would over-count, so we don't show a
+     * no selectors - in which case pruning would over-count, so we don't show a
      * stale figure or offer Prune. Mirrors the prune command's safety guard.
      */
     staleKnown: boolean;
@@ -98,7 +98,7 @@ const FRAMEWORK_PACKAGE: Record<string, string> = {
 
 /**
  * Read the installed version of a framework from the project's `package.json`
- * (dev or prod deps), stripping any range prefix. Best-effort — returns
+ * (dev or prod deps), stripping any range prefix. Best-effort - returns
  * undefined if the file is missing/unreadable or the dep isn't listed.
  */
 function frameworkVersion(root: string, framework: string): string | undefined {
@@ -159,7 +159,7 @@ function pageBreakdown(
  * the caller supplies the resolved config, workspace root, and persisted trend.
  *
  * Stale is computed with {@link pruneFingerprints}, but only trusted when the
- * parse was complete and non-empty — otherwise `baseline.staleKnown` is false
+ * parse was complete and non-empty - otherwise `baseline.staleKnown` is false
  * and no stale figure is shown (a misconfigured `testDir` must not read as
  * "everything is stale").
  *
@@ -185,7 +185,7 @@ export function buildOverview(
   const loaded = loadFingerprints(root);
   const fingerprints = loaded.isOk() ? loaded.value : new Map<string, DomFingerprint>();
 
-  // Only trust a stale count when the selector list is complete and non-empty —
+  // Only trust a stale count when the selector list is complete and non-empty -
   // the same guard the prune command applies before deleting anything.
   const staleKnown = parseErrors === 0 && selectors.length > 0;
   const { removed } = pruneFingerprints(fingerprints, selectors, root);

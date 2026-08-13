@@ -15,12 +15,12 @@ const traverse =
  * Extract selector usages from a WebdriverIO test file AST.
  *
  * WebdriverIO patterns:
- * - `$('.selector')` / `$$('.selector')` — CSS
- * - `$('//xpath')` — XPath
- * - `$('aria/label')` — ARIA selector
- * - `$('[data-testid="..."]')` — test ID via attribute
- * - `browser.$('.selector')` — explicit browser prefix
- * - `element.$('.child')` — chained
+ * - `$('.selector')` / `$$('.selector')` - CSS
+ * - `$('//xpath')` - XPath
+ * - `$('aria/label')` - ARIA selector
+ * - `$('[data-testid="..."]')` - test ID via attribute
+ * - `browser.$('.selector')` - explicit browser prefix
+ * - `element.$('.child')` - chained
  *
  * @param ast - Parsed Babel AST.
  * @param filePath - Absolute path to the source file.

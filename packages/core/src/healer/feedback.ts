@@ -20,13 +20,13 @@ export type FeedbackOutcome = 'accepted' | 'rejected';
 /** A confidence adjusted by learned history, with a human-readable reason. */
 export interface AdjustedConfidence {
   confidence: number;
-  /** Present only when a nudge was applied — describes it for "Why NN%?". */
+  /** Present only when a nudge was applied - describes it for "Why NN%?". */
   note?: string;
 }
 
 export const FEEDBACK_VERSION = 1;
 
-// Learning is deliberately gentle — it tips close calls, never overrides a clear
+// Learning is deliberately gentle - it tips close calls, never overrides a clear
 // structural match.
 /** Min accept+reject signals for a kind before its history is trusted. */
 const MIN_SIGNALS = 3;
@@ -51,7 +51,7 @@ export function emptyFeedback(): SelectorFeedback {
  */
 export function classifyReplacementType(code: string): SelectorType {
   const c = code;
-  // 1) getBy* methods are definitive — check them first, so a substring inside an
+  // 1) getBy* methods are definitive - check them first, so a substring inside an
   //    accessible-name argument (e.g. name: 'Edit [data-test] mapping') can't win.
   if (c.includes('getByTestId')) return 'testid';
   if (c.includes('getByRole')) return 'role';
@@ -66,7 +66,7 @@ export function classifyReplacementType(code: string): SelectorType {
   if (c.includes('[placeholder=')) return 'placeholder';
   if (c.includes('[alt=')) return 'alt';
   if (c.includes('[title=')) return 'title';
-  // All four Playwright text pseudos — `:text(` alone would miss `:text-is(` and
+  // All four Playwright text pseudos - `:text(` alone would miss `:text-is(` and
   // `:text-matches(`, dropping them to 'css' (wrong learning bucket).
   if (
     c.includes(':has-text(') ||
@@ -75,7 +75,7 @@ export function classifyReplacementType(code: string): SelectorType {
     c.includes(':text-matches(')
   )
     return 'text';
-  // XPath only via `xpath=` or a locator argument starting with `//`/`(//` — a bare
+  // XPath only via `xpath=` or a locator argument starting with `//`/`(//` - a bare
   // `//` check would misread a CSS locator carrying a URL (`href="https://…"`).
   if (
     c.includes('xpath=') ||
@@ -116,7 +116,7 @@ export function recordOutcome(
 /**
  * Nudge a candidate's confidence by the accept/reject history for its selector
  * kind. Bounded to about ±0.1 and only applied once a kind has at least
- * {@link MIN_SIGNALS} signals, with Laplace smoothing — so learning tips close
+ * {@link MIN_SIGNALS} signals, with Laplace smoothing - so learning tips close
  * calls without a couple of data points swinging suggestions.
  *
  * @param base - the deterministic score in `[0, 1]`
@@ -125,7 +125,7 @@ export function recordOutcome(
  * @returns the (possibly) adjusted confidence and, when nudged, an explanatory note
  *
  * @example
- * adjustConfidence(0.6, 'testid', fb); // { confidence: 0.66, note: "+6% — you usually accept testid fixes (9/10)" }
+ * adjustConfidence(0.6, 'testid', fb); // { confidence: 0.66, note: "+6% - you usually accept testid fixes (9/10)" }
  */
 export function adjustConfidence(
   base: number,
@@ -147,8 +147,8 @@ export function adjustConfidence(
   const share = `${t.accepted}/${total}`;
   const note =
     shift > 0
-      ? `+${pct}% — you usually accept ${type} fixes (${share})`
-      : `${pct}% — you usually skip ${type} fixes (accepted ${share})`;
+      ? `+${pct}% - you usually accept ${type} fixes (${share})`
+      : `${pct}% - you usually skip ${type} fixes (accepted ${share})`;
   return { confidence, note };
 }
 
@@ -172,7 +172,7 @@ function toCount(x: unknown): number {
 
 /**
  * Load learned feedback from `.selector-healer/feedback.json`. A missing file is
- * not an error — it returns {@link emptyFeedback}.
+ * not an error - it returns {@link emptyFeedback}.
  *
  * @param projectRoot - absolute project root
  * @returns the feedback record, or a read error

@@ -31,7 +31,7 @@
   <!-- heal card -->
   <g transform="translate(770,64)">
     <rect width="446" height="232" rx="14" fill="#252526" stroke="#3c3c3c"/>
-    <text x="22" y="34" fill="#8b949e" font-size="13" letter-spacing="0.4">A UI CHANGE BROKE A SELECTOR — HEALED</text>
+    <text x="22" y="34" fill="#8b949e" font-size="13" letter-spacing="0.4">A UI CHANGE BROKE A SELECTOR - HEALED</text>
 
     <!-- broken -->
     <rect x="20" y="52" width="406" height="48" rx="9" fill="#2d1113" stroke="#5c2427"/>

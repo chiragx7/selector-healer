@@ -131,7 +131,7 @@ describe('CLI', () => {
       'utf8',
     );
     // A real, parseable selector must exist so prune trusts the current list
-    // (an empty list is refused — see the guard test below).
+    // (an empty list is refused - see the guard test below).
     writeFileSync(
       join(tmp, 'tests', 'login.spec.ts'),
       "import { test } from '@playwright/test';\ntest('t', async ({ page }) => {\n  await page.getByTestId('submit').click();\n});\n",

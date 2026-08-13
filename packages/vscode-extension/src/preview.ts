@@ -5,7 +5,7 @@ import type { AppliedHeal } from './history.js';
 export const HEAL_PREVIEW_SCHEME = 'selector-healer-preview';
 
 /**
- * Serves the "after" side of the heal diff — a read-only virtual document
+ * Serves the "after" side of the heal diff - a read-only virtual document
  * holding the file's text with the proposed replacement already spliced in.
  * Registered once in `activate` for {@link HEAL_PREVIEW_SCHEME}.
  */
@@ -26,7 +26,7 @@ export class HealPreviewProvider implements vscode.TextDocumentContentProvider {
 }
 
 /**
- * Replace the `[start, end)` slice of `text` with `replacement`. Pure — the
+ * Replace the `[start, end)` slice of `text` with `replacement`. Pure - the
  * core of both building the "after" preview and applying the heal.
  *
  * @example
@@ -66,7 +66,7 @@ export async function previewAndApplyHeal(
     const previewUri = uri.with({ scheme: HEAL_PREVIEW_SCHEME });
     provider.set(previewUri, preview);
 
-    await vscode.commands.executeCommand('vscode.diff', uri, previewUri, `Heal preview — ${label}`);
+    await vscode.commands.executeCommand('vscode.diff', uri, previewUri, `Heal preview - ${label}`);
 
     const choice = await vscode.window.showInformationMessage(
       `Apply this heal?  ${label}`,
@@ -89,7 +89,7 @@ export async function previewAndApplyHeal(
     };
   } catch (e) {
     vscode.window.showErrorMessage(
-      `Selector Healer: couldn't preview the heal — ${e instanceof Error ? e.message : String(e)}`,
+      `Selector Healer: couldn't preview the heal - ${e instanceof Error ? e.message : String(e)}`,
     );
     return null;
   }

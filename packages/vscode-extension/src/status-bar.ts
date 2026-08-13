@@ -19,7 +19,7 @@ export function createStatusBarItem(): vscode.StatusBarItem {
 }
 
 /**
- * Create the watch-mode status-bar item — a small toggle sitting next to the
+ * Create the watch-mode status-bar item - a small toggle sitting next to the
  * main item. Hidden until {@link setWatch} shows it in the `on`/`running` state.
  */
 export function createWatchStatusItem(): vscode.StatusBarItem {
@@ -38,14 +38,14 @@ export function setWatch(item: vscode.StatusBarItem, state: 'off' | 'on' | 'runn
   item.tooltip =
     state === 'running'
       ? 'Selector Healer: watch is re-verifying the file you saved…'
-      : 'Selector Healer: watch on — saving a test file re-verifies it. Click to turn off.';
+      : 'Selector Healer: watch on - saving a test file re-verifies it. Click to turn off.';
   item.show();
 }
 
 /** Neutral, no-results state. */
 export function setIdle(item: vscode.StatusBarItem): void {
   item.text = '$(shield) Selector Healer';
-  item.tooltip = 'Selector Healer — click for actions';
+  item.tooltip = 'Selector Healer - click for actions';
   item.backgroundColor = undefined;
 }
 
@@ -65,15 +65,15 @@ export function setResults(item: vscode.StatusBarItem, counts: StatusCounts): vo
 
   if (broken > 0) {
     item.text = `$(error) ${broken} broken selector${broken > 1 ? 's' : ''}`;
-    item.tooltip = `Selector Healer: ${broken} broken, ${multi} ambiguous, ${ok}/${total} OK — click for actions`;
+    item.tooltip = `Selector Healer: ${broken} broken, ${multi} ambiguous, ${ok}/${total} OK - click for actions`;
     item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
   } else if (multi > 0) {
     item.text = `$(warning) ${multi} ambiguous`;
-    item.tooltip = `Selector Healer: ${multi} ambiguous, ${ok}/${total} OK — click for actions`;
+    item.tooltip = `Selector Healer: ${multi} ambiguous, ${ok}/${total} OK - click for actions`;
     item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
   } else {
     item.text = `$(shield) ${healthPct}% healthy`;
-    item.tooltip = `Selector Healer: ${ok}/${total} selectors OK — click for actions`;
+    item.tooltip = `Selector Healer: ${ok}/${total} selectors OK - click for actions`;
     item.backgroundColor = undefined;
   }
 }

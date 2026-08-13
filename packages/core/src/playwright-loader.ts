@@ -14,7 +14,7 @@ export interface PlaywrightModule {
  * A bundled/published VS Code extension does not ship Playwright (it's huge),
  * so we resolve it from the project being tested. We try, in order, the three
  * ways a project exposes the browser launchers: `playwright`, `playwright-core`,
- * and `@playwright/test` — the last is what `npm init playwright` installs and
+ * and `@playwright/test` - the last is what `npm init playwright` installs and
  * the most common in real projects, and it re-exports `chromium`/`firefox`/
  * `webkit` all the same. Falls back to default resolution for the CLI and core tests.
  *
@@ -40,8 +40,8 @@ export async function loadPlaywright(projectRoot: string): Promise<PlaywrightMod
     }
   }
   throw new Error(
-    'Playwright is not installed in this project. Add it with your package manager — ' +
-      'e.g. `npm install -D @playwright/test` (or the pnpm/yarn equivalent) — ' +
+    'Playwright is not installed in this project. Add it with your package manager - ' +
+      'e.g. `npm install -D @playwright/test` (or the pnpm/yarn equivalent) - ' +
       'then run `npx playwright install` to download the browsers.',
   );
 }

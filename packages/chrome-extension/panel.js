@@ -1,14 +1,14 @@
 /**
- * Selector Healer — DevTools Panel
+ * Selector Healer - DevTools Panel
  *
  * Receives selectors from the CLI server via the background service worker,
  * evaluates them against the inspected page, requests healing suggestions for
  * broken selectors, and renders a dashboard (health ring + attention cards).
  */
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  State                                                              */
-/* ------------------------------------------------------------------ */
+/* - */
 
 let selectors = [];
 let fingerprints = {};
@@ -20,9 +20,9 @@ let isConnected = false;
 const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
 const RING_CIRCUMFERENCE = 2 * Math.PI * 36;
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  DOM References                                                     */
-/* ------------------------------------------------------------------ */
+/* - */
 
 const wsStatusEl = document.getElementById('ws-status');
 const wsUrlInput = document.getElementById('ws-url');
@@ -31,16 +31,16 @@ const btnEvaluate = document.getElementById('btn-evaluate');
 const filterSearch = document.getElementById('filter-search');
 const appEl = document.getElementById('app');
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Background Port                                                    */
-/* ------------------------------------------------------------------ */
+/* - */
 
 let port = null;
 let keepaliveTimer = null;
 
 /**
  * Connect (or reconnect) the long-lived port to the background service worker.
- * MV3 workers are recycled when idle, which silently kills the port — so we
+ * MV3 workers are recycled when idle, which silently kills the port - so we
  * re-establish it on disconnect and keep it warm with a periodic ping.
  */
 function connectPort() {
@@ -49,7 +49,7 @@ function connectPort() {
   port.onDisconnect.addListener(() => {
     port = null;
     clearInterval(keepaliveTimer);
-    // The worker was recycled — re-spawn it by reconnecting shortly.
+    // The worker was recycled - re-spawn it by reconnecting shortly.
     setTimeout(connectPort, 500);
   });
   clearInterval(keepaliveTimer);
@@ -57,7 +57,7 @@ function connectPort() {
     try {
       port?.postMessage({ type: 'keepalive' });
     } catch {
-      /* disconnected — onDisconnect will reconnect */
+      /* disconnected - onDisconnect will reconnect */
     }
   }, 20_000);
 }
@@ -72,7 +72,7 @@ function post(msg) {
     try {
       port.postMessage(msg);
     } catch {
-      /* give up silently — the user can click again */
+      /* give up silently - the user can click again */
     }
   }
 }
@@ -116,9 +116,9 @@ function handlePortMessage(msg) {
   }
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Event Listeners                                                    */
-/* ------------------------------------------------------------------ */
+/* - */
 
 btnConnect.addEventListener('click', () => {
   const url = wsUrlInput.value.trim();
@@ -128,9 +128,9 @@ btnConnect.addEventListener('click', () => {
 btnEvaluate.addEventListener('click', () => evaluateAll());
 filterSearch.addEventListener('input', () => render());
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Connection UI                                                      */
-/* ------------------------------------------------------------------ */
+/* - */
 
 function updateConnectionUI() {
   if (isConnected) {
@@ -145,9 +145,9 @@ function updateConnectionUI() {
   btnEvaluate.disabled = !isConnected || selectors.length === 0;
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Evaluate + Heal                                                    */
-/* ------------------------------------------------------------------ */
+/* - */
 
 function evaluateAll() {
   evaluationResults.clear();
@@ -176,9 +176,9 @@ function maybeRequestHeal(selectorId, status) {
   });
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Render                                                             */
-/* ------------------------------------------------------------------ */
+/* - */
 
 function render() {
   if (!isConnected) {
@@ -191,7 +191,7 @@ function render() {
 
   if (selectors.length === 0) {
     appEl.innerHTML = `<div class="empty">
-      <p>Connected — waiting for selectors.</p>
+      <p>Connected - waiting for selectors.</p>
       <p>Make sure <code>selector-healer serve</code> has scanned your test files.</p>
     </div>`;
     return;
@@ -284,7 +284,7 @@ function renderHealth(counts, evaluated) {
           stroke-dashoffset="${offset.toFixed(2)}"></circle>
       </svg>
       <div class="ring-label">
-        <span class="ring-pct" style="color:${color}">${evaluated > 0 ? `${pct}%` : '—'}</span>
+        <span class="ring-pct" style="color:${color}">${evaluated > 0 ? `${pct}%` : '-'}</span>
         <span class="ring-sub">Healthy</span>
       </div>
     </div>
@@ -304,7 +304,7 @@ function renderCard(item) {
   if (status === 'broken') {
     body += renderHealBody(sel);
   } else if (status === 'multiple-matches') {
-    body += `<div class="card-note">${matchCount} elements match — make this selector more specific.</div>`;
+    body += `<div class="card-note">${matchCount} elements match - make this selector more specific.</div>`;
   } else {
     body += `<div class="card-note">Couldn't evaluate (the page didn't load or the selector kind isn't supported live).</div>`;
   }
@@ -320,7 +320,7 @@ function renderCard(item) {
 
 function renderHealBody(sel) {
   if (!fingerprints[sel.id]) {
-    return `<div class="card-note">No baseline captured — run <code>capture</code> to enable auto-heal.</div>`;
+    return `<div class="card-note">No baseline captured - run <code>capture</code> to enable auto-heal.</div>`;
   }
   if (healRequested.has(sel.id) && !healResults.has(sel.id)) {
     return `<div class="card-note">Scanning the page for replacements…</div>`;
@@ -356,9 +356,9 @@ function renderHealBody(sel) {
   return html;
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Handlers (re-attached after each render)                           */
-/* ------------------------------------------------------------------ */
+/* - */
 
 function attachHandlers() {
   for (const loc of appEl.querySelectorAll('.card-loc')) {
@@ -388,9 +388,9 @@ function attachHandlers() {
   }
 }
 
-/* ------------------------------------------------------------------ */
+/* - */
 /*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
+/* - */
 
 function escapeHtml(str) {
   const div = document.createElement('div');

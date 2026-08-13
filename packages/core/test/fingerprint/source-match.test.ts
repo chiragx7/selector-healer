@@ -88,7 +88,7 @@ describe('findOrphanBaseline', () => {
       parentChain: [],
       siblingIndex: 0,
       pageUrl: 'http://localhost/login',
-      // no `source` — a baseline captured before this feature landed
+      // no `source` - a baseline captured before this feature landed
     };
     const store = new Map<string, DomFingerprint>([['aaaaaaaaaaaa', legacy]]);
     expect(findOrphanBaseline(store, sel(), ROOT)).toBeUndefined();

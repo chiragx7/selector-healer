@@ -15,7 +15,7 @@ import {
 export type { CaptureRow } from './webview-content.js';
 
 /**
- * The Selector Healer sidebar panel — one unified webview showing health, the
+ * The Selector Healer sidebar panel - one unified webview showing health, the
  * selector list with inline heal actions, watch state, and live capture
  * progress. Shares its rendering with the full editor {@link DashboardPanel}.
  */
@@ -43,7 +43,7 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider, Captur
 
     view.webview.onDidReceiveMessage(async (msg: DashMessage) => {
       if (msg.type === 'ready') {
-        // The webview's listener is live — (re)send state so it doesn't stay blank.
+        // The webview's listener is live - (re)send state so it doesn't stay blank.
         this.webviewReady = true;
         this.postState(false);
         if (this.hasCapture) this.postCapture(false);
@@ -95,7 +95,7 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider, Captur
   async showHistory(): Promise<void> {
     await this.focus();
     if (this.webviewReady) {
-      // View is live and listening — switch it now.
+      // View is live and listening - switch it now.
       await this.postHistory();
     } else {
       // Not resolved yet; 'ready' will post (and clear the flag) once it loads.
@@ -127,7 +127,7 @@ export class DashboardViewProvider implements vscode.WebviewViewProvider, Captur
     this.view?.webview.postMessage({ type: 'captureFinish', captured, total });
   }
 
-  /** Re-push state — re-checks whether a config now exists (e.g. after `init`). */
+  /** Re-push state - re-checks whether a config now exists (e.g. after `init`). */
   refresh(): void {
     this.postState(false);
   }

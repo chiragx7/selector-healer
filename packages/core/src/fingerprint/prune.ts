@@ -5,7 +5,7 @@ import { toSourceFile } from './source-match.js';
 export interface PruneResult {
   /** Fingerprints to keep (live baselines + reachable recovery orphans). */
   kept: Map<string, DomFingerprint>;
-  /** Orphaned fingerprints removed — no current selector, no live call site. */
+  /** Orphaned fingerprints removed - no current selector, no live call site. */
   removed: DomFingerprint[];
 }
 
@@ -18,7 +18,7 @@ export interface PruneResult {
  * A fingerprint is **kept** when either:
  *  1. its `selectorId` matches a current selector (a live baseline), or
  *  2. it carries a {@link DomFingerprint.source} whose call site
- *     (`file:line:column`) is still occupied by a current selector — i.e. it's
+ *     (`file:line:column`) is still occupied by a current selector - i.e. it's
  *     the pre-rename baseline that rename recovery ({@link findOrphanBaseline})
  *     would use. Only *fully unreachable* orphans are removed, so pruning never
  *     silently disables a recovery the user is relying on.
@@ -27,7 +27,7 @@ export interface PruneResult {
  *
  * **Caller contract:** `currentSelectors` must be the *complete* set from a
  * successful parse. An empty or partial list (a misconfigured test dir, or files
- * that failed to parse) makes live fingerprints look orphaned — pruning on it
+ * that failed to parse) makes live fingerprints look orphaned - pruning on it
  * would delete valid baselines. Callers must refuse when the parse was
  * incomplete or found nothing; see the `prune` CLI command and `runPruneStale`.
  *

@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 // Imported by relative source path (not the package name): chrome-extension
-// doesn't depend on core, and this avoids a build/install step — Vite transforms
+// doesn't depend on core, and this avoids a build/install step - Vite transforms
 // the TS on the fly so the parity check tracks core's live source.
 import {
   generateReplacementCode as coreGenerate,

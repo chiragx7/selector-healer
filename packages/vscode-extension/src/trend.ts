@@ -1,6 +1,6 @@
 import type { HealthPoint } from './overview.js';
 
-/** Minimal persistence surface — satisfied by `vscode.Memento` (workspaceState). */
+/** Minimal persistence surface - satisfied by `vscode.Memento` (workspaceState). */
 export interface TrendStore {
   get<T>(key: string, defaultValue: T): T;
   update(key: string, value: unknown): Thenable<void>;

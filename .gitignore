@@ -21,7 +21,7 @@ coverage/
 
 # Claude Code harness state (per-project)
 .claude/
-# Claude Code project instructions — kept local, not published
+# Claude Code project instructions - kept local, not published
 CLAUDE.md
 
 # OS

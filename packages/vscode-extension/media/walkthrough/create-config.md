@@ -12,4 +12,4 @@ and write a ready-to-use `selector-healer.config` at your workspace root.
 
 > Prefer to write it by hand? A minimal config is just `testDir` + `baseUrl`.
 
-**Requirement:** Playwright must be a dev dependency in your project — it drives the live DOM during verification.
+**Requirement:** Playwright must be a dev dependency in your project - it drives the live DOM during verification.

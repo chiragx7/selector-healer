@@ -44,7 +44,7 @@ const base: HoverInfo = {
   element: '<button data-testid="save">Save</button>',
   pageUrl: 'http://localhost/login',
   capturedAt: '2026-01-01T00:00:00.000Z',
-  robustness: { tier: 'robust', reason: 'test-id — immune to text and markup changes' },
+  robustness: { tier: 'robust', reason: 'test-id - immune to text and markup changes' },
 };
 
 describe('buildHoverMarkdown', () => {

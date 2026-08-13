@@ -22,7 +22,7 @@ function makeFp(overrides: Partial<DomFingerprint> = {}): DomFingerprint {
   };
 }
 
-describe('generateReplacementCode — Playwright', () => {
+describe('generateReplacementCode - Playwright', () => {
   it('prefers data-testid', () => {
     const fp = makeFp({ attributes: { 'data-testid': 'submit-btn', id: 'btn1' } });
     expect(generateReplacementCode(fp, 'playwright')).toBe("page.getByTestId('submit-btn')");
@@ -87,7 +87,7 @@ describe('generateReplacementCode — Playwright', () => {
   });
 });
 
-describe('generateReplacementCode — Cypress', () => {
+describe('generateReplacementCode - Cypress', () => {
   it('prefers data-testid', () => {
     const fp = makeFp({ attributes: { 'data-testid': 'submit-btn' } });
     expect(generateReplacementCode(fp, 'cypress')).toBe('cy.get(\'[data-testid="submit-btn"]\')');
@@ -114,7 +114,7 @@ describe('generateReplacementCode — Cypress', () => {
   });
 });
 
-describe('generateReplacementCode — WebdriverIO', () => {
+describe('generateReplacementCode - WebdriverIO', () => {
   it('prefers data-testid', () => {
     const fp = makeFp({ attributes: { 'data-testid': 'submit-btn' } });
     expect(generateReplacementCode(fp, 'webdriverio')).toBe('$(\'[data-testid="submit-btn"]\')');
@@ -141,7 +141,7 @@ describe('generateReplacementCode — WebdriverIO', () => {
   });
 });
 
-describe('generateReplacementCode — TestCafe', () => {
+describe('generateReplacementCode - TestCafe', () => {
   it('prefers data-testid', () => {
     const fp = makeFp({ attributes: { 'data-testid': 'submit-btn' } });
     expect(generateReplacementCode(fp, 'testcafe')).toBe(
@@ -170,7 +170,7 @@ describe('generateReplacementCode — TestCafe', () => {
   });
 });
 
-describe('generateReplacementCode — defaults', () => {
+describe('generateReplacementCode - defaults', () => {
   it('defaults to playwright when no framework specified', () => {
     const fp = makeFp({ attributes: { 'data-testid': 'btn' } });
     expect(generateReplacementCode(fp)).toBe("page.getByTestId('btn')");
@@ -183,7 +183,7 @@ describe('generateReplacementCode — defaults', () => {
   });
 });
 
-describe('renderSelectorCode — reconstruct an existing selector', () => {
+describe('renderSelectorCode - reconstruct an existing selector', () => {
   it('reconstructs getByTestId', () => {
     expect(renderSelectorCode(sel({ selectorType: 'testid', rawValue: 'submit-btn' }))).toBe(
       "page.getByTestId('submit-btn')",

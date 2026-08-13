@@ -28,7 +28,7 @@ export interface DashItem {
   suggestion?: {
     code: string;
     pct: number;
-    /** Per-rule contributions behind `pct`, biggest first — the "Why NN%?" explainer. */
+    /** Per-rule contributions behind `pct`, biggest first - the "Why NN%?" explainer. */
     breakdown?: Array<{ name: string; pct: number }>;
     /** Adaptive-learning nudge note, when one was applied to this suggestion. */
     learningNote?: string;
@@ -92,7 +92,7 @@ export interface CaptureSink {
   finishCapture(captured: number, total: number): void;
 }
 
-/** Which surface a webview is rendering as — drives the roomier panel layout. */
+/** Which surface a webview is rendering as - drives the roomier panel layout. */
 export type WebviewMode = 'sidebar' | 'panel';
 
 /** Messages posted from either webview back to the extension host. */
@@ -136,7 +136,7 @@ const STATUS_ORDER: Record<string, number> = {
   ok: 4,
 };
 
-/** Config filenames cosmiconfig discovers — used to detect a first-run (no config). */
+/** Config filenames cosmiconfig discovers - used to detect a first-run (no config). */
 export const CONFIG_FILES = [
   'selector-healer.config.ts',
   'selector-healer.config.js',
@@ -235,7 +235,7 @@ function isDismissedAttention(r: VerificationResult, snap: HealerSnapshot): bool
 }
 
 /**
- * Results minus the ones the user has Skipped — the set every "attention" surface
+ * Results minus the ones the user has Skipped - the set every "attention" surface
  * (dashboard health, status bar count, Heal-All) should agree on, so a dismissed
  * selector doesn't get counted or auto-healed behind the user's back.
  */
@@ -497,7 +497,7 @@ body { font-family: var(--vscode-font-family); font-size: 13px; color: var(--vsc
 .ob-num { flex: none; width: 21px; height: 21px; border-radius: 50%; background: color-mix(in srgb, var(--run) 18%, transparent); color: var(--run); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; margin-top: 1px; }
 .ob-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .ob-cta { padding: 8px 18px; }
-/* ---- Panel (editor) mode: roomier, centered, multi-column ---- */
+/* - Panel (editor) mode: roomier, centered, multi-column - */
 .phead { display: flex; align-items: center; gap: 12px; padding: 13px 28px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25)); position: sticky; top: 0; background: var(--vscode-editor-background); z-index: 3; }
 .ptitle { font-size: 15px; font-weight: 600; }
 .ptools { margin-left: auto; display: flex; gap: 8px; }
@@ -509,7 +509,7 @@ body[data-mode="panel"] .heal-all { width: auto; padding: 9px 20px; }
 body[data-mode="panel"] .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; align-items: start; }
 body[data-mode="panel"] .compact { grid-column: 1 / -1; }
 
-/* ---------- Overview (analytics home) ---------- */
+/* - Overview (analytics home) - */
 .tabs { display: flex; gap: 2px; padding: 8px 12px 0; }
 body[data-mode="panel"] .tabs { max-width: 1120px; margin: 0 auto; padding: 14px 28px 0; }
 .navtab { flex: none; background: none; border: none; cursor: pointer; font-size: 12.5px; color: var(--vscode-descriptionForeground); padding: 6px 12px; border-radius: 6px 6px 0 0; }
@@ -670,7 +670,7 @@ function bind(){
   app.querySelectorAll('[data-undo]').forEach(el=>el.onclick=()=>post('undo',{entryId:el.dataset.entry}));
 }
 
-/* ---------- Overview (analytics home) ---------- */
+/* - Overview (analytics home) - */
 function ovCard(title, body){ const center = body.indexOf('ov-foot')<0 ? ' ov-center' : ''; return '<div class="ov-card"><div class="ov-card-h">'+title+'</div><div class="ov-cardbody'+center+'">'+body+'</div></div>'; }
 function ovLg(color,n,label){ return '<div class="ov-lg"><i style="background:'+color+'"></i>'+n+' '+label+'</div>'; }
 function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
@@ -744,7 +744,7 @@ function ovBaselineCard(){
 
 function ovActivityCard(){
   const applied=overview.activity?overview.activity.applied:0;
-  const lastv=lastState.lastRunAt?relTime(lastState.lastRunAt):'—';
+  const lastv=lastState.lastRunAt?relTime(lastState.lastRunAt):'-';
   return ovCard('Activity',
     '<div class="ov-stats2"><div class="ov-stat"><div class="ov-stat-n">'+applied+'</div><div class="ov-stat-l">heals applied</div></div>'
     +'<div class="ov-stat"><div class="ov-stat-n">'+overview.baseline.total+'</div><div class="ov-stat-l">baselined</div></div></div>'
@@ -822,18 +822,18 @@ function renderOverview(){
   app.innerHTML = html;
 }
 
-/* ---------- Onboarding (first run) ---------- */
+/* - Onboarding (first run) - */
 function onboarding(){
   const hero = '<div class="ob-hero"><div class="ob-badge">'+ICON.shield+'</div>'
     + '<div class="ob-h1">Selector Healer</div>'
     + '<div class="ob-lead">Catch broken test selectors before CI does. Snapshots each selector against your live DOM, flags what broke, and suggests AST-based fixes.</div>'
-    + '<div class="ob-pill">'+ICON.lock+' Local-first — no network, no telemetry</div></div>';
+    + '<div class="ob-pill">'+ICON.lock+' Local-first - no network, no telemetry</div></div>';
   if(!lastState.hasConfig){
     return '<div class="ob">' + hero
-      + '<div class="ob-note muted">Start by creating a config — it auto-detects your framework, base URL, and test directory.</div>'
+      + '<div class="ob-note muted">Start by creating a config - it auto-detects your framework, base URL, and test directory.</div>'
       + '<button class="btn primary ob-cta" id="create-config">Create config</button></div>';
   }
-  // Baseline already on disk (e.g. after a reload) — offer Verify, not Capture.
+  // Baseline already on disk (e.g. after a reload) - offer Verify, not Capture.
   if(lastState.baseline > 0){
     return '<div class="ob">' + hero
       + '<div class="ob-note muted"><b>'+lastState.baseline+'</b> selector'+(lastState.baseline===1?'':'s')+' have a captured baseline. Run Verify to check them against the live DOM.</div>'
@@ -851,7 +851,7 @@ function onboarding(){
     + '<button class="btn ob-cta" id="run-verify">Verify now</button></div></div>';
 }
 
-/* ---------- Results ---------- */
+/* - Results - */
 function seg(flex,color){ return flex>0 ? '<span style="flex:'+flex+';background:'+color+'"></span>' : ''; }
 function chip(color,count,label){ return '<span class="chip"><span class="dot" style="background:'+color+'"></span>'+count+' '+label+'</span>'; }
 
@@ -872,7 +872,7 @@ function renderResults(){
     + ((c.skipped+c.failed)?chip('var(--skip)',c.skipped+c.failed,'skipped'):'')
     + '</div>';
   if(lastState.phase==='running') html += '<div class="running"><span class="spinner"></span> Verifying…</div>';
-  if(lastState.watch) html += '<div class="watch"><span class="dot"></span><span style="flex:1">Watching — re-verifies test files on save</span><button class="link" id="watch-off">turn off</button></div>';
+  if(lastState.watch) html += '<div class="watch"><span class="dot"></span><span style="flex:1">Watching - re-verifies test files on save</span><button class="link" id="watch-off">turn off</button></div>';
 
   const healable = lastState.items.filter(i => i.status==='broken' && i.suggestion && i.suggestion.pct>=80);
   if(healable.length) html += '<button class="btn primary heal-all" id="apply-all">'+ICON.heal+' Heal '+healable.length+' selector'+(healable.length>1?'s':'')+'</button>';
@@ -889,7 +889,7 @@ function renderResults(){
   const dismissed = lastState.dismissed || [];
   if(dismissed.length){
     html += '<details class="dismissed"><summary>Dismissed ('+dismissed.length+')</summary>'
-      + '<div class="hint" style="margin:4px 2px 8px">Set aside and not counted above — they return if you edit the selector.</div>'
+      + '<div class="hint" style="margin:4px 2px 8px">Set aside and not counted above - they return if you edit the selector.</div>'
       + '<div class="list">' + dismissed.map(dismissedRow).join('') + '</div></details>';
   }
   app.innerHTML = html;
@@ -907,14 +907,14 @@ function filtered(items){
   if(filter==='broken') return items.filter(i=>i.status==='broken');
   if(filter==='ambiguous') return items.filter(i=>i.status==='multiple-matches');
   if(filter==='healthy') return items.filter(i=>i.status==='ok');
-  return items; // 'all' — already sorted with attention first
+  return items; // 'all' - already sorted with attention first
 }
 
 function badgeText(s){ return s==='broken'?'broken':s==='multiple-matches'?'ambiguous':s==='page-load-failed'?'page failed':'no baseline'; }
 function applyAttrs(it,code){ return 'data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-raw="'+esc(it.rawValue)+'" data-code="'+esc(code)+'"'; }
 function dataAttrs(it){ return applyAttrs(it, it.suggestion.code); }
 function openAttrs(it){ return 'data-open data-file="'+esc(it.filePath)+'" data-line="'+it.line+'" data-col="'+it.column+'" data-len="'+it.rawValueLength+'"'; }
-// Expandable "Why NN%?" — the per-rule contributions behind the confidence.
+// Expandable "Why NN%?" - the per-rule contributions behind the confidence.
 function confidenceDetails(sug){
   if(!sug.breakdown || !sug.breakdown.length) return '';
   const rows = sug.breakdown.map(r =>
@@ -931,7 +931,7 @@ function card(it){
   let h = '<div class="card"><div class="chead"><span class="dot" style="background:'+col+'"></span>'
     + '<a class="loc" '+openAttrs(it)+'>'+esc(it.fileName)+':'+it.line+'</a>'
     + '<span class="badge" style="color:'+col+';background:color-mix(in srgb,'+col+' 16%,transparent)">'+badgeText(it.status)+'</span>'
-    + (isAttention(it.status) ? '<button class="skip" data-dismiss data-sel="'+esc(it.selectorId)+'" title="Skip — set aside and stop flagging until you edit this selector">Skip</button>' : '')
+    + (isAttention(it.status) ? '<button class="skip" data-dismiss data-sel="'+esc(it.selectorId)+'" title="Skip - set aside and stop flagging until you edit this selector">Skip</button>' : '')
     + '</div>'
     + '<div class="code mono">'+esc(it.display)+'</div>';
   if(it.reason) h += '<div class="why">'+ICON.why+'<span>'+esc(it.reason)+'</span></div>';
@@ -948,7 +948,7 @@ function card(it){
       + '<button class="btn" data-preview '+dataAttrs(it)+'>'+ICON.diff+' Preview</button>'
       + '<button class="btn icon" title="Open in editor" '+openAttrs(it)+'>'+ICON.open+'</button>'
       + '</div>';
-    // Runner-up candidates — collapsed by default so the top fix stays the focus,
+    // Runner-up candidates - collapsed by default so the top fix stays the focus,
     // but one click away when the best guess isn't the one you want.
     if(it.alternatives && it.alternatives.length){
       const n = it.alternatives.length;
@@ -966,10 +966,10 @@ function card(it){
           }).join('')
         + '</details>';
     }
-  } else if(it.status==='broken'){ if(!it.reason) h += '<div class="hint">No replacement found — the element may be gone, hidden, or only present after a setup step.</div>'; }
-  else if(it.status==='multiple-matches') h += '<div class="hint">Matches '+it.matchCount+' elements — make this selector more specific.</div>';
+  } else if(it.status==='broken'){ if(!it.reason) h += '<div class="hint">No replacement found - the element may be gone, hidden, or only present after a setup step.</div>'; }
+  else if(it.status==='multiple-matches') h += '<div class="hint">Matches '+it.matchCount+' elements - make this selector more specific.</div>';
   else if(it.status==='page-load-failed') h += '<div class="hint">'+esc(it.error || "Couldn't reach this page.")+'</div>';
-  else h += '<div class="hint">No baseline — run Capture, or this element only appears after an interaction.</div>';
+  else h += '<div class="hint">No baseline - run Capture, or this element only appears after an interaction.</div>';
   return h + '</div>';
 }
 
@@ -979,7 +979,7 @@ function compactRow(it){
     + '<span class="csel mono muted">'+esc(it.display)+'</span></div>';
 }
 
-/* ---------- Capture (inline mode) ---------- */
+/* - Capture (inline mode) - */
 function capIcon(s){ if(s==='captured')return '<span style="color:var(--ok)">✓</span>'; if(s==='missed')return '<span style="color:var(--broken)">✗</span>'; if(s==='capturing')return '<span class="spinner"></span>'; return '<span class="muted">○</span>'; }
 function capTag(s){ if(s==='captured')return '<span class="tag pass">PASS</span>'; if(s==='missed')return '<span class="tag fail">FAIL</span>'; if(s==='capturing')return '<span class="muted">capturing…</span>'; return '<span class="muted">waiting</span>'; }
 function capRow(r){
@@ -1020,7 +1020,7 @@ function captureFinishDom(captured, total){
   const bar = document.getElementById('cap-bar'); if(bar){ bar.style.width = '100%'; bar.style.background = captured < total ? 'var(--broken)' : 'var(--ok)'; }
 }
 
-/* ---------- Baseline (inventory) ---------- */
+/* - Baseline (inventory) - */
 function baselineRow(r){
   const icon = r.captured ? '<span style="color:var(--ok)">✓</span>' : '<span class="muted">○</span>';
   const t = r.capturedAt ? new Date(r.capturedAt).getTime() : Number.NaN;
@@ -1037,7 +1037,7 @@ function renderBaseline(){
   let html = '<div class="caphead"><div class="secttl" style="margin:0">Baseline</div><button class="link" id="baseline-back">← Results</button></div>';
   html += '<div class="muted" style="font-size:12px;margin-bottom:10px"><b>' + captured + '</b> of <b>' + rows.length + '</b> selectors captured</div>';
   if(!rows.length){
-    app.innerHTML = html + '<div class="empty muted">No selectors found — check the test directory in your config.</div>';
+    app.innerHTML = html + '<div class="empty muted">No selectors found - check the test directory in your config.</div>';
     return;
   }
   const tabs = [['all','All',rows.length],['captured','Captured',captured],['uncaptured','Uncaptured',uncaptured]];
@@ -1049,7 +1049,7 @@ function renderBaseline(){
   app.innerHTML = html;
 }
 
-/* ---------- History (applied heals) ---------- */
+/* - History (applied heals) - */
 function historyRow(e){
   return '<div class="caprow"><span class="capicon" style="color:var(--ok)">'+ICON.check+'</span>'
     + '<a class="capsel mono loc" data-open data-file="'+esc(e.filePath)+'" data-line="'+e.line+'" data-col="'+e.column+'" data-len="1">'+esc(e.label)+'</a>'

@@ -1,7 +1,7 @@
 {
   "name": "selector-healer-vscode",
   "displayName": "Selector Healer",
-  "description": "Detect broken test selectors, get confidence-scored healing suggestions, and apply AST-based quick fixes — local-first (no LLM, no telemetry). Supports Playwright, Cypress, WebdriverIO, and TestCafe.",
+  "description": "Detect broken test selectors, get confidence-scored healing suggestions, and apply AST-based quick fixes - local-first (no LLM, no telemetry). Supports Playwright, Cypress, WebdriverIO, and TestCafe.",
   "version": "0.1.0",
   "publisher": "YOUR_PUBLISHER_ID",
   "license": "MIT",
@@ -178,12 +178,12 @@
       {
         "id": "selectorHealerGettingStarted",
         "title": "Get Started with Selector Healer",
-        "description": "Catch broken test selectors before CI — capture a baseline, verify against the live DOM, and heal what broke. All local, no telemetry.",
+        "description": "Catch broken test selectors before CI - capture a baseline, verify against the live DOM, and heal what broke. All local, no telemetry.",
         "steps": [
           {
             "id": "createConfig",
             "title": "Create a config",
-            "description": "Point Selector Healer at your app — it auto-detects your framework, base URL, and test directory.\n[Create Config](command:selectorHealer.init)",
+            "description": "Point Selector Healer at your app - it auto-detects your framework, base URL, and test directory.\n[Create Config](command:selectorHealer.init)",
             "media": { "markdown": "media/walkthrough/create-config.md" },
             "completionEvents": ["onCommand:selectorHealer.init"]
           },
@@ -204,7 +204,7 @@
           {
             "id": "heal",
             "title": "Heal what broke",
-            "description": "For each broken selector, apply a ranked, explainable fix — from the dashboard, a Quick Fix (Ctrl+.), or a CodeLens.\n[Open Dashboard](command:selectorHealer.focusDashboard)",
+            "description": "For each broken selector, apply a ranked, explainable fix - from the dashboard, a Quick Fix (Ctrl+.), or a CodeLens.\n[Open Dashboard](command:selectorHealer.focusDashboard)",
             "media": { "markdown": "media/walkthrough/heal.md" },
             "completionEvents": ["onCommand:selectorHealer.focusDashboard"]
           }

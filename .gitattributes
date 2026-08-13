@@ -17,7 +17,7 @@
 *.yaml  text eol=lf
 *.sh    text eol=lf
 
-# Binary assets — never convert.
+# Binary assets - never convert.
 *.png   binary
 *.jpg   binary
 *.jpeg  binary

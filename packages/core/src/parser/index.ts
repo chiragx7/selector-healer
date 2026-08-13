@@ -19,7 +19,7 @@ export interface ParseError {
 
 /**
  * Aggregate result from scanning a directory of test files.
- * Partial success is normal — some files may fail to parse while others succeed.
+ * Partial success is normal - some files may fail to parse while others succeed.
  */
 export interface DirectoryParseResult {
   selectors: SelectorUsage[];

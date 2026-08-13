@@ -9,7 +9,7 @@ import { loadFingerprints } from '../../src/fingerprint/store.js';
 import type { HealerConfig, PageConfig, SelectorUsage } from '../../src/types.js';
 import { startFixtureServer } from '../fixtures/server.js';
 
-describe('captureFingerprints — multi-page (integration)', () => {
+describe('captureFingerprints - multi-page (integration)', () => {
   let server: Server;
   let baseUrl: string;
   let tmpDir: string;
@@ -62,7 +62,7 @@ describe('captureFingerprints — multi-page (integration)', () => {
       id: 'mp_dash_0001',
       selectorType: 'testid',
       rawValue: 'dashboard',
-      contextHint: '/login', // Phase 1 looks on /login — won't find it
+      contextHint: '/login', // Phase 1 looks on /login - won't find it
     });
 
     const pages: PageConfig[] = [{ name: 'Dashboard', url: '/dashboard' }];
@@ -109,7 +109,7 @@ describe('captureFingerprints — multi-page (integration)', () => {
   });
 
   it('does not retry when all captured in Phase 1', async () => {
-    // #submit exists on /login — Phase 1 captures it, Phase 2 is never reached
+    // #submit exists on /login - Phase 1 captures it, Phase 2 is never reached
     const sel = makeSelector({ id: 'mp_skip_0001' });
 
     const pages: PageConfig[] = [{ name: 'Dashboard', url: '/dashboard' }];
@@ -129,7 +129,7 @@ describe('captureFingerprints — multi-page (integration)', () => {
       id: 'mp_mix_dashb',
       selectorType: 'testid',
       rawValue: 'dashboard',
-      contextHint: '/login', // wrong hint — Phase 1 misses, Phase 2 catches
+      contextHint: '/login', // wrong hint - Phase 1 misses, Phase 2 catches
     });
 
     const pages: PageConfig[] = [{ name: 'Dashboard', url: '/dashboard' }];

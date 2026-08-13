@@ -23,7 +23,7 @@ afterEach(() => {
   created.length = 0;
 });
 
-describe('analyzeTestSuite — pages', () => {
+describe('analyzeTestSuite - pages', () => {
   it('collects distinct page.goto paths as named pages', () => {
     const root = suite({
       'a.spec.ts':
@@ -55,7 +55,7 @@ describe('analyzeTestSuite — pages', () => {
   });
 });
 
-describe('analyzeTestSuite — login', () => {
+describe('analyzeTestSuite - login', () => {
   it('lifts an inline login() helper', () => {
     const root = suite({
       'login.spec.ts': `
@@ -113,7 +113,7 @@ describe('analyzeTestSuite — login', () => {
   });
 });
 
-describe('analyzeTestSuite — advanced detection', () => {
+describe('analyzeTestSuite - advanced detection', () => {
   it('collects pages from waitForURL and toHaveURL (globs/queries normalized)', () => {
     const root = suite({
       'a.spec.ts': `

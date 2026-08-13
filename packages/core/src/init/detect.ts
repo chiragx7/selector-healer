@@ -99,8 +99,8 @@ const DEFAULT_TEST_DIR = './tests';
 
 /**
  * Detect a project's framework, base URL, and test directory for `init`.
- * Reads local files only (package.json, framework configs, `.env*`) — no
- * network — and never throws; unreadable sources are skipped.
+ * Reads local files only (package.json, framework configs, `.env*`) - no
+ * network - and never throws; unreadable sources are skipped.
  *
  * @param cwd - absolute path to the project root to inspect
  * @returns the detected shape, with a confidence flag per field

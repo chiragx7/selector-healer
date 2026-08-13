@@ -6,7 +6,7 @@ const BASE = 'http://localhost:3456';
  * Log in using the stable data-test-ids and land on the dashboard.
  *
  * The auth flow deliberately uses test-ids (not labels/role names) so that
- * changing any visible *text* in the app — headings, labels, button captions —
+ * changing any visible *text* in the app - headings, labels, button captions -
  * breaks only the selector under test, never the login that reaches the page.
  * That's what lets you safely "change 2-3 texts at a time" and re-verify.
  */

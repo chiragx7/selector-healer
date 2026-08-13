@@ -65,7 +65,7 @@ export function registerVerify(program: Command): void {
         process.stdout.write(
           `\n${pc.yellow('⚠ Setup hook failed')} for: ${pc.bold(pages.join(', '))}\n` +
             `  ${pc.dim(
-              `${setupFailed.length} selector(s) couldn't be checked. Fix the login/setup step in your config's pages[] — those selectors aren't broken, they were just unreachable.`,
+              `${setupFailed.length} selector(s) couldn't be checked. Fix the login/setup step in your config's pages[] - those selectors aren't broken, they were just unreachable.`,
             )}\n`,
         );
       }

@@ -10,7 +10,7 @@ export interface StoredSuggestion {
   column: number;
   rawValue: string;
   replacementCode: string;
-  /** Nudged confidence — for ranking + display. */
+  /** Nudged confidence - for ranking + display. */
   confidence: number;
   /** Pure structural score, for automated gates (Apply-All). Absent ⇒ = confidence. */
   structuralConfidence?: number;
@@ -172,7 +172,7 @@ export class SelectorHealerCodeActionProvider implements vscode.CodeActionProvid
           action.diagnostics = [diagnostic];
           action.isPreferred = s.confidence >= 0.8;
           // The edit applies directly (no apply command runs), so record the
-          // accept here — otherwise only Skip would be tallied, biasing learning.
+          // accept here - otherwise only Skip would be tallied, biasing learning.
           action.command = {
             command: 'selectorHealer.recordAccept',
             title: 'Record accepted heal',
@@ -181,7 +181,7 @@ export class SelectorHealerCodeActionProvider implements vscode.CodeActionProvid
           actions.push(action);
         }
 
-        // Diff preview for the top suggestion — review the before→after, then apply.
+        // Diff preview for the top suggestion - review the before→after, then apply.
         const top = suggestions[0];
         if (top) {
           const preview = new vscode.CodeAction(

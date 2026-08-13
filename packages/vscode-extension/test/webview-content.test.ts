@@ -52,7 +52,7 @@ function snapshotWith(
   };
 }
 
-describe('serialize — heal candidates', () => {
+describe('serialize - heal candidates', () => {
   it('surfaces the top suggestion and the runner-ups as alternatives', () => {
     const { items } = serialize(
       snapshotWith([
@@ -86,7 +86,7 @@ describe('serialize — heal candidates', () => {
   });
 });
 
-describe('serialize — confidence breakdown', () => {
+describe('serialize - confidence breakdown', () => {
   it('builds the top suggestion breakdown from ruleScores, biggest first, quality>0 only', () => {
     const top = cand("page.getByTestId('x')", 0.88, undefined, [
       { name: 'text similarity', quality: 0.8, weighted: 0.08 },
@@ -107,7 +107,7 @@ describe('serialize — confidence breakdown', () => {
   });
 });
 
-describe('serialize — dismissed (Skip)', () => {
+describe('serialize - dismissed (Skip)', () => {
   const sig = selectorSignature(SEL);
 
   it('moves a dismissed broken selector out of items + counts into the dismissed list', () => {
@@ -136,7 +136,7 @@ describe('serialize — dismissed (Skip)', () => {
   });
 });
 
-describe('buildWebviewHtml — client script integrity', () => {
+describe('buildWebviewHtml - client script integrity', () => {
   const html = buildWebviewHtml('vscode-webview://x', 'panel');
   const script = html.slice(html.indexOf('<script'), html.lastIndexOf('</script>'));
   // Inner JS only (strip the `<script nonce=…>` opening tag) for the parse check.
@@ -150,7 +150,7 @@ describe('buildWebviewHtml — client script integrity', () => {
   });
 
   // The client script is one big string, so tsc/unit tests never parse it. A
-  // duplicate `function foo(){}` silently shadows the earlier one at runtime —
+  // duplicate `function foo(){}` silently shadows the earlier one at runtime -
   // exactly the bug where the Overview's `card()` collided with the result-card
   // `card()` and rendered "undefined:undefined". Guard against the whole class.
   it('declares no duplicate top-level function names', () => {
@@ -169,7 +169,7 @@ describe('buildWebviewHtml — client script integrity', () => {
   });
 });
 
-describe('activeResults — what Heal-All and the status bar count', () => {
+describe('activeResults - what Heal-All and the status bar count', () => {
   const sig = selectorSignature(SEL);
 
   it('drops a dismissed broken selector (so Heal-All + status bar ignore it)', () => {

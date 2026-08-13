@@ -5,7 +5,7 @@ import pc from 'picocolors';
 import { loadConfig } from '../config.js';
 
 /**
- * Fast selector health check — no Playwright, no browser.
+ * Fast selector health check - no Playwright, no browser.
  *
  * Compares parsed selectors against stored fingerprints to detect:
  * 1. New selectors that have never been captured (no baseline).
@@ -18,7 +18,7 @@ import { loadConfig } from '../config.js';
 export function registerCheck(program: Command): void {
   program
     .command('check')
-    .description('Fast pre-commit check — detects selector drift without a browser')
+    .description('Fast pre-commit check - detects selector drift without a browser')
     .option('--strict', 'Exit 1 on any drift (new, changed, or orphaned)')
     .option('--allow-new', 'Do not flag uncaptured selectors')
     .option('-q, --quiet', 'Only output on failure')
@@ -79,7 +79,7 @@ export function registerCheck(program: Command): void {
       if (!hasDrift) {
         if (!opts.quiet) {
           process.stdout.write(
-            `${pc.green('✓')} All ${selectors.length} selectors have baselines — no drift detected\n`,
+            `${pc.green('✓')} All ${selectors.length} selectors have baselines - no drift detected\n`,
           );
         }
         return;
@@ -104,7 +104,7 @@ export function registerCheck(program: Command): void {
       // Orphaned fingerprints
       if (hasOrphans) {
         process.stdout.write(
-          `${pc.yellow('⚠')} ${pc.bold(String(orphanedIds.length))} orphaned fingerprint(s) — selectors removed but baselines remain\n`,
+          `${pc.yellow('⚠')} ${pc.bold(String(orphanedIds.length))} orphaned fingerprint(s) - selectors removed but baselines remain\n`,
         );
         process.stdout.write(
           `  ${pc.dim('Run')} ${pc.bold('selector-healer capture')} ${pc.dim('to refresh baselines')}\n\n`,

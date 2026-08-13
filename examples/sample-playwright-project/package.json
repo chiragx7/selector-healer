@@ -2,7 +2,7 @@
   "name": "sample-playwright-project",
   "version": "0.0.0",
   "private": true,
-  "description": "Demo fixture for Selector Healer — shows capture, verify, and --fix in action.",
+  "description": "Demo fixture for Selector Healer - shows capture, verify, and --fix in action.",
   "type": "module",
   "scripts": {
     "server": "node server.js",

@@ -33,7 +33,7 @@ export function registerLint(program: Command): void {
       }
       const { selectors } = parseResult.value;
 
-      // Fingerprints are optional — when present they enable concrete,
+      // Fingerprints are optional - when present they enable concrete,
       // DOM-backed upgrade suggestions; without them the lint is static.
       const fpResult = loadFingerprints(cwd);
       const fingerprints = fpResult.isOk() ? fpResult.value : undefined;
@@ -45,7 +45,7 @@ export function registerLint(program: Command): void {
 
       if (findings.length === 0) {
         process.stdout.write(
-          `  ${pc.green('No fragile selectors')} — ${selectors.length} checked.\n\n`,
+          `  ${pc.green('No fragile selectors')} - ${selectors.length} checked.\n\n`,
         );
         return;
       }

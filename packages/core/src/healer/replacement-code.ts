@@ -88,7 +88,7 @@ function generatePlaywrightReplacement(fp: DomFingerprint): string {
     return `page.getByTestId('${escapeQuotes(testId)}')`;
   }
 
-  // Prefer a role + accessible-name selector — the most robust and readable
+  // Prefer a role + accessible-name selector - the most robust and readable
   // Playwright locator. Falls back to the implicit ARIA role of the tag (e.g.
   // <button> → "button") so a healed `<button>Login</button>` becomes
   // `getByRole('button', { name: 'Login' })` rather than a brittle text match.
@@ -113,7 +113,7 @@ function generatePlaywrightReplacement(fp: DomFingerprint): string {
     return `page.getByText('${escapeQuotes(fp.textContent)}')`;
   }
 
-  // Explicit role with no usable name — still better than a raw CSS selector.
+  // Explicit role with no usable name - still better than a raw CSS selector.
   if (roleAttr) {
     return `page.getByRole('${roleAttr}')`;
   }

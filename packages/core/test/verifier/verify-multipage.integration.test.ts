@@ -10,7 +10,7 @@ import type { DomFingerprint, HealerConfig, PageConfig, SelectorUsage } from '..
 import { verifySelectors } from '../../src/verifier/verify.js';
 import { startFixtureServer } from '../fixtures/server.js';
 
-describe('verifySelectors — multi-page (integration)', () => {
+describe('verifySelectors - multi-page (integration)', () => {
   let server: Server;
   let baseUrl: string;
   let tmpDir: string;
@@ -76,7 +76,7 @@ describe('verifySelectors — multi-page (integration)', () => {
       id: 'mp_vdash_001',
       selectorType: 'testid',
       rawValue: 'dashboard',
-      contextHint: '/login', // Phase 1 tries /login — element not there → broken
+      contextHint: '/login', // Phase 1 tries /login - element not there → broken
     });
     const fp = makeDashboardFingerprint('mp_vdash_001');
     const store = new Map<string, DomFingerprint>([['mp_vdash_001', fp]]);
@@ -117,7 +117,7 @@ describe('verifySelectors — multi-page (integration)', () => {
     ];
     await captureFingerprints([sel], makeConfig({ pages: capturePages }), tmpDir);
 
-    // Now verify — Phase 1 navigates to /auth-gate but element is hidden → broken
+    // Now verify - Phase 1 navigates to /auth-gate but element is hidden → broken
     // Phase 2 uses setup hook to unlock → ok
     const verifyPages: PageConfig[] = [
       {
@@ -188,11 +188,11 @@ describe('verifySelectors — multi-page (integration)', () => {
       contextHint: '/login', // wrong hint
     });
 
-    // Capture both — login on /login, dashboard via page config
+    // Capture both - login on /login, dashboard via page config
     const pages: PageConfig[] = [{ name: 'Dashboard', url: '/dashboard' }];
     await captureFingerprints([loginSel, dashSel], makeConfig({ pages }), tmpDir);
 
-    // Verify — loginSel ok in Phase 1, dashSel ok in Phase 2
+    // Verify - loginSel ok in Phase 1, dashSel ok in Phase 2
     const results = await verifySelectors([loginSel, dashSel], {
       config: makeConfig({ pages }),
       projectRoot: tmpDir,
@@ -227,7 +227,7 @@ describe('verifySelectors — multi-page (integration)', () => {
     });
 
     expect(results).toHaveLength(1);
-    // Not 'broken' — it couldn't be checked because the page was unreachable.
+    // Not 'broken' - it couldn't be checked because the page was unreachable.
     expect(results[0]?.status).toBe('page-load-failed');
     expect(results[0]?.error).toContain('setup hook failed');
     expect(results[0]?.error).toContain('Dashboard (after login)');
@@ -247,7 +247,7 @@ describe('verifySelectors — multi-page (integration)', () => {
       textContent: 'x',
       parentChain: [],
       siblingIndex: 0,
-      pageUrl: baseUrl, // lives on the default page — always reachable
+      pageUrl: baseUrl, // lives on the default page - always reachable
     };
     saveFingerprints(tmpDir, new Map([['mp_vsetup_02', fp]]));
 
@@ -266,7 +266,7 @@ describe('verifySelectors — multi-page (integration)', () => {
       projectRoot: tmpDir,
     });
 
-    // Stays broken — a default-page break is genuine, not a reachability problem.
+    // Stays broken - a default-page break is genuine, not a reachability problem.
     expect(results[0]?.status).toBe('broken');
   });
 }, 90_000);

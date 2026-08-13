@@ -26,10 +26,10 @@ export function selectorToDiagnostic(
       severity = vscode.DiagnosticSeverity.Error;
       message = `Broken selector: ${selector.rawValue}`;
       if (reason) {
-        message += ` — ${reason}`;
+        message += ` - ${reason}`;
       }
       if (suggestion) {
-        message += ` — try ${suggestion}`;
+        message += ` - try ${suggestion}`;
       }
       break;
     case 'multiple-matches':

@@ -47,7 +47,7 @@ describe('pruneFingerprints', () => {
 
   it('KEEPS a recovery orphan: different id, but its source call site still has a current selector', () => {
     // The renamed-selector case: a current selector sits at login.spec.ts:16:11,
-    // and this orphan's source is the SAME call site — rename recovery needs it.
+    // and this orphan's source is the SAME call site - rename recovery needs it.
     const orphan = fp('old', { file: 'tests/login.spec.ts', line: 16, column: 11 });
     const store = new Map([['old', orphan]]);
     const { kept, removed } = pruneFingerprints(store, [sel({ id: 'live1' })], ROOT);

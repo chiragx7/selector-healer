@@ -161,7 +161,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     // Persist every completed run so a window reload can restore it.
     healerState.onDidChange(() => persistSnapshot(context)),
-    // Keep editor diagnostics (Problems panel + squiggles) in sync with state —
+    // Keep editor diagnostics (Problems panel + squiggles) in sync with state -
     // including Skip/restore, which only mutates the dismissed set. activeResults
     // drops Skipped selectors, so they're silenced in the editor too, not just
     // the dashboard. This one subscription is the single builder of diagnostics.
@@ -247,7 +247,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidSaveTextDocument((doc) => {
       maybeParse(doc);
       // A config edit invalidates the warm watch browser (baseUrl / browser /
-      // globalSetup may have changed) — reopen on the next run.
+      // globalSetup may have changed) - reopen on the next run.
       if (CONFIG_FILES.includes(basename(doc.uri.fsPath))) void closeWatchBrowser();
       if (TS_LANGS.has(doc.languageId)) {
         outputChannel.appendLine(
@@ -257,7 +257,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     vscode.workspace.onDidOpenTextDocument((doc) => maybeParse(doc)),
-    // Scan the file the user switches to — `onDidOpen` does NOT fire for editors
+    // Scan the file the user switches to - `onDidOpen` does NOT fire for editors
     // that were already restored after a window reload.
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       if (editor) maybeParse(editor.document);
@@ -400,7 +400,7 @@ async function runInit(): Promise<void> {
   const configPath = join(root, filename);
   writeFileSync(configPath, content, 'utf8');
   outputChannel.appendLine(
-    `[${time()}] Created ${filename} — framework=${detection.framework}, baseUrl=${detection.baseUrl} (${detection.baseUrlSource}), testDir=${detection.testDir} (${detection.testDirSource})`,
+    `[${time()}] Created ${filename} - framework=${detection.framework}, baseUrl=${detection.baseUrl} (${detection.baseUrlSource}), testDir=${detection.testDir} (${detection.testDirSource})`,
   );
 
   const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(configPath));
@@ -422,7 +422,7 @@ async function runInit(): Promise<void> {
     );
   }
 
-  // Config now exists — refresh the dashboard so onboarding switches to "Get started".
+  // Config now exists - refresh the dashboard so onboarding switches to "Get started".
   dashboard.refresh();
   DashboardPanel.current?.refresh();
 }
@@ -455,10 +455,10 @@ async function runVerify(): Promise<void> {
     healerState.setResults(results, built.suggestionsByKey, built.explanationMap);
 
     // Log the full picture (diagnostic); surface the *actionable* count in the
-    // toast — Skipped selectors are set aside, so they match the dashboard.
+    // toast - Skipped selectors are set aside, so they match the dashboard.
     const c = countResults(results);
     outputChannel.appendLine(
-      `[${time()}] Done — ${c.ok} ok, ${c.broken} broken, ${c.multi} ambiguous, ${c.skipped + c.failed} skipped`,
+      `[${time()}] Done - ${c.ok} ok, ${c.broken} broken, ${c.multi} ambiguous, ${c.skipped + c.failed} skipped`,
     );
     const shown = countResults(activeResults(healerState.snapshot));
     // Record one point per full verify for the Overview health-over-time trend.
@@ -466,7 +466,7 @@ async function runVerify(): Promise<void> {
 
     if (shown.broken > 0) {
       vscode.window.showWarningMessage(
-        `Selector Healer: ${shown.broken} broken selector${shown.broken > 1 ? 's' : ''} — open the dashboard to heal.`,
+        `Selector Healer: ${shown.broken} broken selector${shown.broken > 1 ? 's' : ''} - open the dashboard to heal.`,
       );
     } else {
       vscode.window.showInformationMessage(
@@ -590,7 +590,7 @@ async function runPruneStale(): Promise<void> {
   const { kept, removed } = pruneFingerprints(fpResult.value, parseResult.value.selectors, root);
   if (removed.length === 0) {
     vscode.window.showInformationMessage(
-      'Selector Healer: baseline is already clean — no stale fingerprints.',
+      'Selector Healer: baseline is already clean - no stale fingerprints.',
     );
     return;
   }
@@ -601,13 +601,13 @@ async function runPruneStale(): Promise<void> {
   if (parseResult.value.errors.length > 0) {
     const n = parseResult.value.errors.length;
     vscode.window.showWarningMessage(
-      `Selector Healer: ${n} test file${n === 1 ? '' : 's'} failed to parse, so the selector list is incomplete. Fix ${n === 1 ? 'it' : 'them'} and re-run Prune — otherwise valid baselines could be removed.`,
+      `Selector Healer: ${n} test file${n === 1 ? '' : 's'} failed to parse, so the selector list is incomplete. Fix ${n === 1 ? 'it' : 'them'} and re-run Prune - otherwise valid baselines could be removed.`,
     );
     return;
   }
   if (parseResult.value.selectors.length === 0) {
     vscode.window.showWarningMessage(
-      `Selector Healer: no selectors found in ${config.testDir}. Refusing to prune — this would remove the entire baseline. Check your testDir.`,
+      `Selector Healer: no selectors found in ${config.testDir}. Refusing to prune - this would remove the entire baseline. Check your testDir.`,
     );
     return;
   }
@@ -622,7 +622,7 @@ async function runPruneStale(): Promise<void> {
 
   const saveResult = saveFingerprints(root, kept);
   if (saveResult.isErr()) {
-    vscode.window.showErrorMessage(`Selector Healer: could not save — ${saveResult.error.message}`);
+    vscode.window.showErrorMessage(`Selector Healer: could not save - ${saveResult.error.message}`);
     return;
   }
   outputChannel.appendLine(
@@ -637,7 +637,7 @@ async function runPruneStale(): Promise<void> {
 
 /**
  * Preview a heal from the panel: reconstruct the selector call's range (as the
- * apply path does), then hand off to the shared `previewHeal` command — which
+ * apply path does), then hand off to the shared `previewHeal` command - which
  * opens the before→after diff and, on confirm, applies + records + re-verifies.
  */
 async function previewFixAt(s: StoredSuggestion): Promise<void> {
@@ -710,7 +710,7 @@ function setSelectorDismissed(
   healerState.setDismissed(selectorSignature(result.selector), dismissed);
   void context.workspaceState.update(DISMISSED_KEY, [...healerState.snapshot.dismissedSignatures]);
   // Skipping a broken selector that had a suggestion is a "reject" signal for
-  // that fix's kind (restoring is not — we don't un-learn).
+  // that fix's kind (restoring is not - we don't un-learn).
   if (dismissed) {
     const top = healerState.snapshot.suggestionsByKey.get(
       `${result.selector.filePath}:${result.selector.line}`,
@@ -721,7 +721,7 @@ function setSelectorDismissed(
 
 async function applyAllFixes(): Promise<void> {
   const snap = healerState.snapshot;
-  // Exclude Skipped selectors — the user set them aside, so "Heal all" must not
+  // Exclude Skipped selectors - the user set them aside, so "Heal all" must not
   // silently auto-apply fixes to them (and this matches the dashboard's count).
   const broken = activeResults(snap).filter((r) => r.status === 'broken');
   const threshold = 0.8;
@@ -730,7 +730,7 @@ async function applyAllFixes(): Promise<void> {
   const toApply: StoredSuggestion[] = [];
   for (const r of broken) {
     const cands = snap.suggestionsByKey.get(`${r.selector.filePath}:${r.selector.line}`) ?? [];
-    // Select AND gate the structurally-best candidate — learning reorders the
+    // Select AND gate the structurally-best candidate - learning reorders the
     // displayed list, never which fix is applied unattended in a batch.
     let best: StoredSuggestion | undefined;
     for (const c of cands) {
@@ -747,7 +747,7 @@ async function applyAllFixes(): Promise<void> {
   }
 
   // Resolve config once for the whole batch (avoids reloading/transpiling it per
-  // fix). Best-effort — a failure here just skips learning, never the apply.
+  // fix). Best-effort - a failure here just skips learning, never the apply.
   const learnRoot = getWorkspaceRoot();
   const learnConfig = learnRoot ? await loadConfig(true).catch(() => undefined) : undefined;
 
@@ -776,7 +776,7 @@ async function applyAllFixes(): Promise<void> {
 }
 
 /**
- * Re-verify ONLY the selectors that were just fixed — not the whole suite.
+ * Re-verify ONLY the selectors that were just fixed - not the whole suite.
  * Re-parses each affected file, locates the (now-edited) selector at the fixed
  * line, checks it against the live DOM by match count (no baseline required),
  * and merges that single result into state. Falls back to a full verify if the
@@ -804,7 +804,7 @@ async function verifyTargeted(suggestions: StoredSuggestion[]): Promise<void> {
   }
 
   if (targets.length === 0) {
-    // Couldn't re-locate the fixed selectors — fall back to a full verify.
+    // Couldn't re-locate the fixed selectors - fall back to a full verify.
     await runVerify();
     return;
   }
@@ -826,7 +826,7 @@ async function verifyTargeted(suggestions: StoredSuggestion[]): Promise<void> {
     // Diagnostics rebuild reactively (see the onDidChange subscription in activate).
 
     const okNow = results.filter((r) => r.status === 'ok').length;
-    outputChannel.appendLine(`[${time()}] Re-verify done — ${okNow}/${results.length} now OK`);
+    outputChannel.appendLine(`[${time()}] Re-verify done - ${okNow}/${results.length} now OK`);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     outputChannel.appendLine(`[${time()}] Re-verify error: ${msg}`);
@@ -880,7 +880,7 @@ async function healToSuggestions(
     feedback: feedbackForHeal(config),
   });
   for (const h of healResults) {
-    // The top break reason (why it broke) — shown in the diagnostic message.
+    // The top break reason (why it broke) - shown in the diagnostic message.
     if (h.explanation?.[0]) explanationMap.set(h.selectorId, h.explanation[0].summary);
     const top = h.candidates[0];
     const sel = broken.find((r) => r.selector.id === h.selectorId)?.selector;
@@ -1025,7 +1025,7 @@ async function closeWatchBrowser(): Promise<void> {
   try {
     await session.close();
   } catch {
-    // Already gone — nothing to do.
+    // Already gone - nothing to do.
   }
 }
 
@@ -1042,20 +1042,20 @@ function scheduleWatchVerify(files: string[]): void {
 /**
  * Watch mode's per-save re-verify: parse the saved test file(s), verify + heal
  * just their selectors, and merge into state (updating diagnostics, tree, and
- * status bar) without disturbing other files. Quiet — no dialogs; the watch
+ * status bar) without disturbing other files. Quiet - no dialogs; the watch
  * status item shows a spinner while it runs.
  */
 async function runWatchVerify(files: string[]): Promise<void> {
   outputChannel.appendLine(
     `[${time()}] watch fired for ${files.map((f) => basename(f)).join(', ')}`,
   );
-  // A watch verify is already in flight — requeue and let the current run drain it.
+  // A watch verify is already in flight - requeue and let the current run drain it.
   if (watchRunning) {
     outputChannel.appendLine(`[${time()}] watch skip: a run is already in progress`);
     for (const f of files) pendingWatchFiles.add(f);
     return;
   }
-  // A manual "Verify Now" or an apply re-verify is running — it already covers
+  // A manual "Verify Now" or an apply re-verify is running - it already covers
   // this file, so drop the watch request rather than double-verifying.
   if (healerState.snapshot.phase === 'running') {
     outputChannel.appendLine(`[${time()}] watch skip: a verify is already running`);
@@ -1092,7 +1092,7 @@ async function runWatchVerify(files: string[]): Promise<void> {
   }
 
   // Re-verify ONLY the selectors the user actually changed (see
-  // selectorsChangedSince — full signature, so a getByRole `name` edit counts).
+  // selectorsChangedSince - full signature, so a getByRole `name` edit counts).
   // Unchanged selectors keep their existing results, so watch never re-checks
   // (or wrongly flags) auth-/interaction-gated selectors that weren't touched.
   // A manual "Verify Now" still re-checks the whole suite.
@@ -1150,7 +1150,7 @@ async function runWatchVerify(files: string[]): Promise<void> {
     outputChannel.appendLine(
       `[${time()}] Watch error: ${e instanceof Error ? e.message : String(e)}`,
     );
-    // The warm browser may have crashed or been closed — discard it so the next
+    // The warm browser may have crashed or been closed - discard it so the next
     // save reopens a fresh one rather than failing on a dead context.
     void closeWatchBrowser();
   } finally {
@@ -1177,7 +1177,7 @@ async function toggleWatch(context: vscode.ExtensionContext): Promise<void> {
   DashboardPanel.current?.setWatch(watchEnabled);
   if (watchEnabled) {
     vscode.window.showInformationMessage(
-      'Selector Healer: watch on — saving a test file re-verifies its selectors.',
+      'Selector Healer: watch on - saving a test file re-verifies its selectors.',
     );
   } else {
     watchDebouncer.cancel();
@@ -1217,7 +1217,7 @@ async function undoEntry(entry: HealHistoryEntry, opts: { silent?: boolean } = {
           : res.reason === 'ambiguous'
             ? 'the healed code now appears in more than one place'
             : 'the edit could not be applied';
-    vscode.window.showWarningMessage(`Selector Healer: couldn't undo ${entry.label} — ${detail}.`);
+    vscode.window.showWarningMessage(`Selector Healer: couldn't undo ${entry.label} - ${detail}.`);
     return;
   }
 
@@ -1276,7 +1276,7 @@ async function undoHistoryEntry(id: string): Promise<void> {
 async function clearHealHistory(): Promise<void> {
   if (healHistory.all().length === 0) return;
   const choice = await vscode.window.showWarningMessage(
-    'Clear all heal history? The applied fixes stay in your files — you just lose one-click undo for them.',
+    'Clear all heal history? The applied fixes stay in your files - you just lose one-click undo for them.',
     { modal: true },
     'Clear',
   );
@@ -1316,7 +1316,7 @@ async function showMenu(): Promise<void> {
       cmd: 'selectorHealer.pruneStale',
     },
     {
-      label: watchEnabled ? '$(eye) Watch: On — click to turn off' : '$(eye-closed) Watch: Off',
+      label: watchEnabled ? '$(eye) Watch: On - click to turn off' : '$(eye-closed) Watch: Off',
       detail: 'Auto re-verify a test file when you save it',
       cmd: WATCH_TOGGLE_COMMAND,
     },

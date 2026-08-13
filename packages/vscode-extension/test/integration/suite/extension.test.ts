@@ -1,5 +1,5 @@
 /**
- * VS Code Extension — UI Integration Tests
+ * VS Code Extension - UI Integration Tests
  *
  * These tests run inside a real VS Code instance with the extension loaded.
  * They verify that the extension activates correctly, registers commands,
@@ -138,7 +138,7 @@ suite('Extension Integration Tests', () => {
 
   suite('Dashboard View', () => {
     test('selectorHealerDashboard view is registered', async () => {
-      // Attempt to focus the view — this will throw if not registered
+      // Attempt to focus the view - this will throw if not registered
       try {
         await vscode.commands.executeCommand('selectorHealerDashboard.focus');
         assert.ok(true, 'Dashboard view focus command succeeded');

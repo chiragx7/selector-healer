@@ -9,7 +9,7 @@ import {
   saveFeedback,
 } from '@selector-healer/core';
 
-/** Minimal persistence surface — satisfied by `vscode.Memento` (workspaceState). */
+/** Minimal persistence surface - satisfied by `vscode.Memento` (workspaceState). */
 export interface FeedbackMemento {
   get<T>(key: string, defaultValue: T): T;
   update(key: string, value: unknown): Thenable<void>;
@@ -62,7 +62,7 @@ export function recordLearning(
 }
 
 /**
- * Record many outcomes at once with a single store read+write — used by Apply-All
+ * Record many outcomes at once with a single store read+write - used by Apply-All
  * so a batch of N fixes isn't N read/serialize/write round-trips on the file.
  */
 export function recordLearningBatch(

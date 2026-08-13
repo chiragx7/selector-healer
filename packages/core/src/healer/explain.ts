@@ -12,7 +12,7 @@ const NAMED_ATTRS = ['aria-label', 'placeholder', 'href', 'alt', 'title', 'name'
  * selector. When `current` is undefined (nothing matched), reports the element
  * as removed.
  *
- * Pure and side-effect free — a diagnostic derived entirely from local data.
+ * Pure and side-effect free - a diagnostic derived entirely from local data.
  *
  * @param stored - the baseline fingerprint captured for the selector
  * @param current - the fingerprint of the element the healer now matches, if any
@@ -36,7 +36,7 @@ export function explainBreak(stored: DomFingerprint, current?: DomFingerprint): 
 
   const reasons: BreakReason[] = [];
 
-  // test-id — the highest-signal break for `getByTestId` selectors.
+  // test-id - the highest-signal break for `getByTestId` selectors.
   const storedTid = firstAttr(stored, TESTID_ATTRS);
   const currentTid = firstAttr(current, TESTID_ATTRS);
   if (storedTid !== currentTid) {
@@ -51,7 +51,7 @@ export function explainBreak(stored: DomFingerprint, current?: DomFingerprint): 
     });
   }
 
-  // visible text — the classic "someone renamed the button" break.
+  // visible text - the classic "someone renamed the button" break.
   const storedText = normalizeText(stored.textContent);
   const currentText = normalizeText(current.textContent);
   if (storedText !== currentText) {
@@ -87,7 +87,7 @@ export function explainBreak(stored: DomFingerprint, current?: DomFingerprint): 
     }
   }
 
-  // structural moves — a changed ancestor chain, else a shifted sibling index.
+  // structural moves - a changed ancestor chain, else a shifted sibling index.
   if (parentPath(stored) !== parentPath(current)) {
     reasons.push({ kind: 'moved', summary: 'moved to a different place in the page structure' });
   } else if (stored.siblingIndex !== current.siblingIndex) {

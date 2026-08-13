@@ -7,8 +7,8 @@ import { activeResults } from './webview-content.js';
  * Shows an inline CodeLens above every verified selector:
  * - ✓ OK
  * - ✨ Broken → heal to `<replacement>` (NN%)   [click applies the fix]
- * - ☰ N matches — make it specific
- * - ⊘ No baseline — capture
+ * - ☰ N matches - make it specific
+ * - ⊘ No baseline - capture
  *
  * Driven by {@link healerState}; refreshes whenever a new run completes.
  */
@@ -55,20 +55,20 @@ function buildCommand(r: VerificationResult): vscode.Command {
         };
       }
       return {
-        title: '$(error) Broken — no suggestion (re-verify)',
+        title: '$(error) Broken - no suggestion (re-verify)',
         command: 'selectorHealer.verify',
       };
     }
 
     case 'multiple-matches':
       return {
-        title: `$(list-flat) ${r.matchCount} matches — make it specific`,
+        title: `$(list-flat) ${r.matchCount} matches - make it specific`,
         command: 'selectorHealer.focusDashboard',
       };
 
     default:
       return {
-        title: '$(circle-slash) No baseline — capture',
+        title: '$(circle-slash) No baseline - capture',
         command: 'selectorHealer.capture',
       };
   }

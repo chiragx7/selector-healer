@@ -63,7 +63,7 @@ describe('renderConfigFile', () => {
     expect(content).toMatch(/framework:.*TODO/);
   });
 
-  it('keeps the auth example commented out — no active credentials', () => {
+  it('keeps the auth example commented out - no active credentials', () => {
     const { content } = renderConfigFile(detection());
     const sensitive = content
       .split('\n')

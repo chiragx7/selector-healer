@@ -78,13 +78,13 @@ describe('adjustConfidence', () => {
   it('boosts a well-accepted kind, with an explanatory note', () => {
     const out = adjustConfidence(0.6, 'testid', fbWith('testid', 9, 1));
     expect(out.confidence).toBeGreaterThan(0.6);
-    expect(out.note).toMatch(/^\+\d+% — you usually accept testid fixes \(9\/10\)/);
+    expect(out.note).toMatch(/^\+\d+% - you usually accept testid fixes \(9\/10\)/);
   });
 
   it('penalises a frequently-skipped kind', () => {
     const out = adjustConfidence(0.6, 'text', fbWith('text', 0, 4));
     expect(out.confidence).toBeLessThan(0.6);
-    expect(out.note).toMatch(/^-\d+% — you usually skip text fixes/);
+    expect(out.note).toMatch(/^-\d+% - you usually skip text fixes/);
   });
 
   it('caps the nudge at about ±0.1 and clamps to [0,1]', () => {

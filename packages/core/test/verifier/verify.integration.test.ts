@@ -161,7 +161,7 @@ describe('verifySelectors (integration)', () => {
 
   it('mixes skipped and verified results', async () => {
     const captured = makeSelector({ id: 'cap111cap111', rawValue: '#submit' });
-    // A genuinely different, never-captured selector — distinct call site (line +
+    // A genuinely different, never-captured selector - distinct call site (line +
     // column), so it isn't mistaken for a rename of `captured` at the same spot.
     const uncaptured = makeSelector({
       id: 'unc111unc111',

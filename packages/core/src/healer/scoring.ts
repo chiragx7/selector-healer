@@ -75,7 +75,7 @@ const RULES: ScoringRule[] = [
         checked++;
         if (sVal === c.attributes[key]) matches++;
       }
-      // -1 signals "not applicable" — no aria attrs to compare
+      // -1 signals "not applicable" - no aria attrs to compare
       return checked > 0 ? matches / checked : -1;
     },
   },
@@ -135,7 +135,7 @@ export function scoreCandidate(stored: DomFingerprint, candidate: DomFingerprint
   for (const rule of RULES) {
     const rawQuality = rule.score(stored, candidate);
 
-    // -1 signals "not applicable" — rule has nothing meaningful to compare
+    // -1 signals "not applicable" - rule has nothing meaningful to compare
     if (rawQuality < 0) {
       ruleScores.push({ name: rule.name, quality: 0, weighted: 0 });
       continue;
@@ -274,7 +274,7 @@ function attributeCoverage(
 ): number {
   const skip = new Set(['class', 'id', 'style', 'data-testid', 'data-test-id', 'role']);
   const keys = Object.keys(stored).filter((k) => !skip.has(k));
-  // -1 signals "not applicable" — no semantic attrs to compare
+  // -1 signals "not applicable" - no semantic attrs to compare
   if (keys.length === 0) return -1;
 
   let matches = 0;

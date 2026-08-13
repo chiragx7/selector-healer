@@ -34,7 +34,7 @@ function fp(over: Partial<DomFingerprint> = {}): DomFingerprint {
   };
 }
 
-describe('lintSelectors — static fragility', () => {
+describe('lintSelectors - static fragility', () => {
   it('flags only fragile selectors, leaving sturdy ones alone', () => {
     const selectors = [
       sel('testid', 'submit'),
@@ -62,7 +62,7 @@ describe('lintSelectors — static fragility', () => {
   });
 });
 
-describe('lintSelectors — DOM-backed upgrades', () => {
+describe('lintSelectors - DOM-backed upgrades', () => {
   it('suggests getByTestId when the matched element has a test-id', () => {
     const s = sel('text', 'Login');
     const fingerprints = new Map([

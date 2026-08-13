@@ -3,7 +3,7 @@ import type { HealerConfig } from '@selector-healer/core';
 /**
  * Selector Healer demo against the public OrangeHRM demo site.
  *
- * OrangeHRM is a real app built on the OXD component library — it uses roles,
+ * OrangeHRM is a real app built on the OXD component library - it uses roles,
  * placeholders, visible text and CSS classes, but *no* test-ids. That makes it a
  * good real-world test: after Capture, the dashboard's robustness gauge will show
  * mostly "good/fragile" selectors and no "robust" ones, which is the honest
@@ -15,7 +15,7 @@ const BASE = 'https://opensource-demo.orangehrmlive.com';
 /**
  * Log in once with the public demo credentials. The session cookie then lives in
  * the browser context, so every page the verifier visits afterwards is already
- * authenticated — no per-page login needed.
+ * authenticated - no per-page login needed.
  */
 async function login(context: unknown): Promise<void> {
   const ctx = context as import('@playwright/test').BrowserContext;

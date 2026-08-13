@@ -26,7 +26,7 @@ export interface VerifyOptions {
   /**
    * A pre-opened browser context to reuse (e.g. the extension's warm watch
    * session from {@link openHealerBrowser}). When provided, verify uses it and
-   * does **not** launch/close a browser or re-run `globalSetup` — the caller owns
+   * does **not** launch/close a browser or re-run `globalSetup` - the caller owns
    * that lifecycle. When omitted, a fresh browser is launched and closed per call
    * (the default for the CLI and one-off runs).
    */
@@ -59,7 +59,7 @@ export async function verifySelectors(
   for (const sel of selectors) {
     // Direct baseline first; if the selector was renamed (its id changed), fall
     // back to the baseline captured for the previous value at this same line so
-    // it's verified — and healed — rather than skipped as "unknown".
+    // it's verified - and healed - rather than skipped as "unknown".
     const stored = fingerprints.get(sel.id) ?? findOrphanBaseline(fingerprints, sel, projectRoot);
     if (stored) {
       toVerify.push({ selector: sel, stored });
@@ -70,7 +70,7 @@ export async function verifySelectors(
     } else {
       logger.info(
         { selectorId: sel.id, rawValue: sel.rawValue },
-        'No fingerprint baseline — run `selector-healer capture` to baseline new selectors',
+        'No fingerprint baseline - run `selector-healer capture` to baseline new selectors',
       );
       skippedResults.push({
         selector: sel,
@@ -155,7 +155,7 @@ export async function verifySelectors(
 
     const unverified = toVerify.filter(({ selector }) => !verifiedIds.has(selector.id));
 
-    // Pages whose setup hook threw, keyed by normalized URL — used afterwards to
+    // Pages whose setup hook threw, keyed by normalized URL - used afterwards to
     // reclassify broken selectors that actually live on those unreachable pages.
     const setupFailures = new Map<string, { name: string; error: string }>();
 
@@ -183,7 +183,7 @@ export async function verifySelectors(
         // attributed precisely (not confused with a per-selector error).
         try {
           if (pageConfig.setup) {
-            // Bound setup actions to the configured budget — otherwise a hook
+            // Bound setup actions to the configured budget - otherwise a hook
             // waiting on a missing element hangs for Playwright's 30s default.
             page.setDefaultTimeout(config.timeout ?? 30_000);
             await pageConfig.setup(page);
@@ -226,7 +226,7 @@ export async function verifySelectors(
               verifiedIds.add(selector.id);
             }
           } catch {
-            // Silently skip — other pages may verify this selector
+            // Silently skip - other pages may verify this selector
           }
         }
 
@@ -252,7 +252,7 @@ export async function verifySelectors(
             status: 'page-load-failed',
             matchCount: 0,
             storedFingerprint: r.storedFingerprint,
-            error: `Could not reach page '${failure.name}' — its setup hook failed: ${failure.error}`,
+            error: `Could not reach page '${failure.name}' - its setup hook failed: ${failure.error}`,
           };
         }
       }
@@ -358,7 +358,7 @@ async function verifySingleSelector(
   };
 
   // A single match means the selector still resolves. Structural drift is the
-  // healer's concern, not the verifier's — one match counts as OK either way.
+  // healer's concern, not the verifier's - one match counts as OK either way.
   return {
     selector,
     status: 'ok',

@@ -26,7 +26,7 @@ describe('rateSelectorType', () => {
   });
 });
 
-describe('rateSelectorRobustness — CSS is value-aware', () => {
+describe('rateSelectorRobustness - CSS is value-aware', () => {
   it('rates a test-attribute CSS selector as robust', () => {
     expect(rateSelectorRobustness(sel('css', '[data-testid="submit"]')).tier).toBe('robust');
     expect(rateSelectorRobustness(sel('css', '[data-test="x"]')).tier).toBe('robust');
