@@ -74,6 +74,24 @@ describe('captureFingerprints (integration)', () => {
     expect(fp?.pageUrl).toContain('/login');
   });
 
+  it('stores the final URL after a redirect, not the requested one', async () => {
+    // '/home-redirect' 302s to '/dashboard'. The fingerprint must record where the
+    // element actually lives ('/dashboard'), so heal's same-page reachability check
+    // doesn't later read a benign canonical redirect as a "wrong page".
+    const sel = makeSelector({
+      id: 'redir00fp0001',
+      selectorType: 'testid',
+      rawValue: 'dashboard',
+      contextHint: '/home-redirect',
+    });
+    const result = await captureFingerprints([sel], makeConfig(), tmpDir);
+    expect(result.captured).toBe(1);
+
+    const fp = loadFingerprints(tmpDir)._unsafeUnwrap().get('redir00fp0001');
+    expect(fp?.pageUrl).toContain('/dashboard');
+    expect(fp?.pageUrl).not.toContain('/home-redirect');
+  });
+
   it('captures fingerprint for getByTestId', async () => {
     const selectors = [
       makeSelector({

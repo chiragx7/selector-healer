@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import {
+  type LearningChoice,
   captureFingerprints,
   detectProjectConfig,
   healSelectors,
@@ -393,7 +394,8 @@ async function runInit(): Promise<void> {
   }
 
   const detection = detectProjectConfig(root);
-  const { filename, content } = renderConfigFile(detection);
+  const learning = await pickLearningStore();
+  const { filename, content } = renderConfigFile(detection, learning);
 
   const storeDir = join(root, '.selector-healer');
   if (!existsSync(storeDir)) mkdirSync(storeDir, { recursive: true });
@@ -425,6 +427,24 @@ async function runInit(): Promise<void> {
   // Config now exists - refresh the dashboard so onboarding switches to "Get started".
   dashboard.refresh();
   DashboardPanel.current?.refresh();
+}
+
+/**
+ * Ask, at Create Config time, where accept/reject learning feedback should live.
+ * Returns `'local'` when dismissed - the safe default that writes no committed file.
+ */
+async function pickLearningStore(): Promise<LearningChoice> {
+  const local = 'Local - just this machine (recommended)';
+  const committed = 'Committed - shared with your team';
+  const off = "Off - don't learn from my choices";
+  const pick = await vscode.window.showQuickPick([local, committed, off], {
+    title: 'Selector Healer: learn from the fixes you accept?',
+    placeHolder: 'Where should accept/reject feedback be stored? (change it in the config anytime)',
+    ignoreFocusOut: true,
+  });
+  if (pick === committed) return 'committed';
+  if (pick === off) return 'off';
+  return 'local';
 }
 
 async function runVerify(): Promise<void> {

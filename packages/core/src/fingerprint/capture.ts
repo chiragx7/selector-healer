@@ -199,10 +199,15 @@ export async function captureFingerprints(
       continue;
     }
 
+    // Store the FINAL url (after any redirect), matching Phase 2 below. A
+    // fingerprint's pageUrl must reflect where the element actually lives, so heal's
+    // same-page check treats a benign canonical redirect ('/' → '/home') as reached
+    // rather than a "wrong page". (Identical to `url` when nothing redirects.)
+    const currentUrl = page.url();
     for (const sel of group) {
       onProgress?.({ selectorId: sel.id, status: 'capturing' });
       try {
-        const fp = await captureElementFingerprint(page, sel, url, projectRoot);
+        const fp = await captureElementFingerprint(page, sel, currentUrl, projectRoot);
         if (fp) {
           fingerprints.set(sel.id, fp);
           captured++;

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { detectProjectConfig, renderConfigFile } from '@selector-healer/core';
+import type { LearningChoice } from '@selector-healer/core';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 
@@ -20,10 +21,27 @@ export function registerInit(program: Command): void {
     )
     .option('--force', 'Overwrite an existing configuration')
     .option('--print', 'Print the detected config without writing anything')
-    .action(async (opts: { force?: boolean; print?: boolean }) => {
+    .option(
+      '--learning <store>',
+      "Store for accept/reject learning: 'local' (default) | 'committed' | 'off'",
+    )
+    .action(async (opts: { force?: boolean; print?: boolean; learning?: string }) => {
       const cwd = process.cwd();
+      const validStores = [
+        'local',
+        'committed',
+        'off',
+      ] as const satisfies readonly LearningChoice[];
+      if (opts.learning && !validStores.includes(opts.learning as LearningChoice)) {
+        process.stderr.write(
+          `${pc.red('Error:')} --learning must be one of: ${validStores.join(', ')}\n`,
+        );
+        process.exitCode = 1;
+        return;
+      }
       const detection = detectProjectConfig(cwd);
-      const { filename, content } = renderConfigFile(detection);
+      const learning = validStores.find((v) => v === opts.learning);
+      const { filename, content } = renderConfigFile(detection, learning);
 
       // ── Detection summary ──
       const guess = (confident: boolean, source: string) =>

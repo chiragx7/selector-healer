@@ -33,7 +33,10 @@ export function initLearning(memento: FeedbackMemento): void {
 function mode(config: HealerConfig): { on: boolean; local: boolean } {
   return {
     on: config.learning?.enabled !== false,
-    local: config.learning?.store === 'local',
+    // Default is the per-developer 'local' store (no git-tracked file); the shared
+    // 'committed' store is used only when explicitly opted into. So an unconfigured
+    // project never silently creates .selector-healer/feedback.json.
+    local: config.learning?.store !== 'committed',
   };
 }
 

@@ -42,9 +42,10 @@ export interface HealOptions {
   context?: BrowserContext;
   /**
    * Learned accept/reject feedback used to nudge candidate confidence. When
-   * omitted, heal loads the committed `.selector-healer/feedback.json` (unless
-   * `config.learning` disables it or selects the `'local'` store, which lives in
-   * the editor - the extension passes it in explicitly).
+   * omitted, heal loads the committed `.selector-healer/feedback.json` ONLY if
+   * `config.learning.store` is explicitly `'committed'`. The default store is
+   * `'local'` (per-developer, in the editor), so the extension passes that feedback
+   * in directly; unconfigured heal reads no committed file.
    */
   feedback?: SelectorFeedback;
 }
@@ -119,21 +120,20 @@ export function rankCandidates(candidates: HealCandidate[]): HealCandidate[] {
 /**
  * Decide whether an empty heal result means "couldn't reach the page" rather than
  * "the element is genuinely gone". True only when there IS a baseline to look for,
- * no candidate was found, we never scanned this selector on a page that actually
- * loaded, *and* a page-load failure did occur - so the empty result is a hard
- * reachability failure we should report honestly (and retry), not a removal.
+ * no candidate was found, we never scanned the element on the page it was captured
+ * on (`scannedOk`), *and* we have positive evidence we couldn't get there: a page
+ * load hard-failed (`scanFailed`), or a page loaded but wasn't the element's page
+ * (`wrongPage` - a redirect, e.g. a protected route bouncing to a login screen).
  *
- * Deliberately conservative: it does NOT try to infer reachability from a login
- * failure alone. If a page still "loads" (e.g. a protected route that 200s to a
- * login screen), that counts as scanned - claiming "unreachable" there would risk
- * masking a genuine removal on a public page. See DECISIONS.md for the residual
- * page-load-granularity limitations.
+ * The evidence requirement is what keeps this honest: reaching the element's own
+ * page and finding nothing stays a genuine "removed"; only a demonstrable failure
+ * to reach *that* page (never a blanket "login failed") flips it to "couldn't reach".
  *
  * @param opts - the signals gathered during the heal run
- * @returns true when the empty result is a hard reachability failure, not a removal
+ * @returns true when the empty result is a reachability failure, not a removal
  *
  * @example
- * isUnreachable({ hasCandidate: false, hasBaseline: true, scannedOk: false, scanFailed: true });
+ * isUnreachable({ hasCandidate: false, hasBaseline: true, scannedOk: false, scanFailed: true, wrongPage: false });
  * // → true  (a baseline existed, but every page we tried failed to load)
  */
 export function isUnreachable(opts: {
@@ -141,8 +141,11 @@ export function isUnreachable(opts: {
   hasBaseline: boolean;
   scannedOk: boolean;
   scanFailed: boolean;
+  wrongPage: boolean;
 }): boolean {
-  return !opts.hasCandidate && opts.hasBaseline && !opts.scannedOk && opts.scanFailed;
+  return (
+    !opts.hasCandidate && opts.hasBaseline && !opts.scannedOk && (opts.scanFailed || opts.wrongPage)
+  );
 }
 
 /**
@@ -181,16 +184,18 @@ export async function healSelectors(
   if (toHeal.length === 0) return [];
 
   // Resolve learned feedback. Honor `enabled: false` first - a disabled setting
-  // must win even if the caller passed feedback in. Otherwise an explicit
-  // override wins (the extension's 'local' store), else load the committed file
-  // ('local' has nothing to load here - it lives in the editor).
+  // must win even if the caller passed feedback in. Otherwise an explicit override
+  // wins (the extension's 'local' store), else load the committed file ONLY when the
+  // store is explicitly 'committed'. The default (unset) is 'local', which lives in
+  // the editor and has nothing to load here - so unconfigured heal never creates or
+  // reads a committed feedback file.
   const learningOn = config.learning?.enabled !== false;
   const feedback: SelectorFeedback = !learningOn
     ? emptyFeedback()
     : (options.feedback ??
-      (config.learning?.store === 'local'
-        ? emptyFeedback()
-        : loadFeedback(projectRoot).unwrapOr(emptyFeedback())));
+      (config.learning?.store === 'committed'
+        ? loadFeedback(projectRoot).unwrapOr(emptyFeedback())
+        : emptyFeedback()));
 
   const storedById = new Map<string, DomFingerprint>();
   for (const result of toHeal) {
@@ -234,6 +239,10 @@ export async function healSelectors(
   // (a login/navigation failure - we couldn't check, so don't claim removal).
   const scannedOkIds = new Set<string>();
   const scanFailedIds = new Set<string>();
+  // Loaded a page, but not the one this element was captured on (a redirect, e.g.
+  // a protected route bounced to a login screen) - we visited *something*, just not
+  // where the element lives, so an empty result is "couldn't reach", not "removed".
+  const wrongPageIds = new Set<string>();
 
   const scanPage = async (
     target: string,
@@ -253,8 +262,10 @@ export async function healSelectors(
           waitUntil: 'domcontentloaded',
         });
       }
-      // SPA settle: candidate scanning reads the DOM, so let client-rendered
-      // apps finish rendering before we look for replacements. Non-fatal.
+      // SPA settle: candidate scanning reads the DOM, so let client-rendered apps
+      // finish rendering before we look for replacements. Non-fatal on timeout. Still
+      // best-effort - a very slow app can paint the element after we snapshot, which
+      // is indistinguishable from a real removal (see DECISIONS: SPA-not-rendered).
       await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
     } catch (e) {
       logger.warn({ url: target, error: String(e) }, 'Page load failed during healing');
@@ -276,9 +287,17 @@ export async function healSelectors(
     for (const result of results) {
       const stored = storedById.get(result.selector.id);
       if (!stored) continue;
-      // The page loaded, so this selector was genuinely looked at here - enough to
-      // distinguish "scanned, nothing matched" from "never reached the page".
-      scannedOkIds.add(result.selector.id);
+      // A page loaded - but was it the page this element was captured on? A redirect
+      // (e.g. a protected route bouncing to a 200 login screen) lands elsewhere,
+      // which means we didn't actually get to look. Only a URL match counts as
+      // "reached"; a mismatch is a wrong-page visit, so an empty result reads as
+      // "couldn't reach" rather than a false "removed". We still scan either way -
+      // if the element is somehow present, a found candidate wins regardless.
+      if (samePage(currentUrl, stored.pageUrl)) {
+        scannedOkIds.add(result.selector.id);
+      } else {
+        wrongPageIds.add(result.selector.id);
+      }
       try {
         const found = await collectScoredCandidates(
           page,
@@ -370,6 +389,7 @@ export async function healSelectors(
       hasBaseline: stored !== undefined,
       scannedOk: scannedOkIds.has(id),
       scanFailed: scanFailedIds.has(id),
+      wrongPage: wrongPageIds.has(id),
     });
     // Explain the break. When unreachable, say so honestly instead of diffing to
     // a "removed" verdict we didn't earn - we never got to look. Otherwise diff
@@ -563,6 +583,37 @@ function resolveConfigPageUrl(url: string, config: HealerConfig): string {
 /** Normalize a URL for comparison: drop a single trailing slash. */
 function normalizeUrl(url: string): string {
   return url.replace(/\/$/, '');
+}
+
+/**
+ * Whether two URLs refer to the same page for reachability purposes: same origin
+ * and path (query + hash ignored, trailing slash normalized). A blank or
+ * unparseable input returns `true` - we can't tell, so we never over-claim "wrong
+ * page" (which would risk turning a genuine removal into a false "couldn't reach").
+ *
+ * Compared against the element's *captured* `pageUrl`, not the requested target, so
+ * a benign canonical redirect (`/` → `/home`, where the baseline was also captured
+ * at `/home`) still matches, while a login bounce (`/dashboard` → `/login`, baseline
+ * at `/dashboard`) does not.
+ *
+ * @param current - the page's final URL after navigation (post-redirect)
+ * @param captured - the `pageUrl` stored on the element's fingerprint
+ * @returns true when they resolve to the same origin + path
+ *
+ * @example
+ * samePage('https://app.com/dashboard?tab=1', 'https://app.com/dashboard'); // true
+ * samePage('https://app.com/login', 'https://app.com/dashboard'); // false
+ */
+export function samePage(current: string, captured: string): boolean {
+  if (!current || !captured) return true;
+  try {
+    const a = new URL(current);
+    const b = new URL(captured);
+    const path = (u: URL): string => u.pathname.replace(/\/+$/, '') || '/';
+    return a.origin === b.origin && path(a) === path(b);
+  } catch {
+    return true; // unparseable - don't flag
+  }
 }
 
 function groupByUrl(

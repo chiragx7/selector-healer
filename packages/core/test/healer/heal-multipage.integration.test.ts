@@ -344,4 +344,43 @@ describe('healSelectors - multi-page (integration)', () => {
     expect(suggestions[0]?.candidates).toHaveLength(0);
     expect(suggestions[0]?.unreachable).toBe(true);
   });
+
+  it('reports unreachable when the scan lands on a different page than the baseline', async () => {
+    // The login-bounce / wrong-page case: the page loads fine (200, no hard failure),
+    // but it is NOT the page the element was captured on - here the selector's
+    // contextHint resolves to /login while its baseline lives on /dashboard. The URL
+    // mismatch must read as "couldn't reach", not a false "removed".
+    await captureFingerprints([makeSelector({ id: 'seed_wp' })], makeConfig(), tmpDir);
+
+    const broken: VerificationResult[] = [
+      {
+        selector: makeSelector({
+          id: 'mp_wrongpage_001',
+          rawValue: '#gone',
+          contextHint: '/login',
+        }),
+        status: 'broken',
+        matchCount: 0,
+        storedFingerprint: {
+          selectorId: 'mp_wrongpage_001',
+          capturedAt: '2026-01-01T00:00:00.000Z',
+          tagName: 'h1',
+          attributes: { 'data-testid': 'dashboard-only-heading' },
+          textContent: 'Exists only on the dashboard',
+          parentChain: [],
+          siblingIndex: 71,
+          pageUrl: `${baseUrl}/dashboard`, // element lives here, but heal only sees /login
+        },
+      },
+    ];
+
+    // Real (reachable) baseUrl: /login loads with a 200, so there is no hard failure -
+    // only the URL mismatch tells us we never reached the element's page.
+    const suggestions = await healSelectors(broken, { config: makeConfig(), projectRoot: tmpDir });
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]?.candidates).toHaveLength(0);
+    expect(suggestions[0]?.unreachable).toBe(true);
+    expect(suggestions[0]?.explanation?.[0]?.kind).toBe('unreachable');
+  });
 }, 120_000);

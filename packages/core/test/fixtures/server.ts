@@ -82,6 +82,12 @@ export function startFixtureServer(
         res.end(loginHtml);
       } else if (req.url === '/dashboard') {
         res.end(DASHBOARD_PAGE);
+      } else if (req.url === '/home-redirect') {
+        // A canonical redirect: '/home-redirect' 302s to '/dashboard'. Used to prove
+        // capture stores the FINAL url and heal's same-page check tolerates it.
+        res.statusCode = 302;
+        res.setHeader('Location', '/dashboard');
+        res.end();
       } else if (req.url === '/auth-gate') {
         res.end(AUTH_GATED_PAGE);
       } else {

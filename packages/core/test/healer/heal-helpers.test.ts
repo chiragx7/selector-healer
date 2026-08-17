@@ -8,6 +8,7 @@ import {
   isUnreachable,
   keepCompetitiveCandidates,
   rankCandidates,
+  samePage,
 } from '../../src/healer/heal.js';
 import type { DomFingerprint, HealCandidate, SelectorUsage } from '../../src/types.js';
 
@@ -195,11 +196,23 @@ describe('rankCandidates', () => {
 });
 
 describe('isUnreachable', () => {
-  const base = { hasCandidate: false, hasBaseline: true, scannedOk: false, scanFailed: true };
+  const base = {
+    hasCandidate: false,
+    hasBaseline: true,
+    scannedOk: false,
+    scanFailed: true,
+    wrongPage: false,
+  };
 
   it('is true when a baseline existed but every page we tried failed to load', () => {
     // The reported case: heal's page scan hard-failed (timeout/refused), no candidate.
     expect(isUnreachable(base)).toBe(true);
+  });
+
+  it('is true when a page loaded but was the wrong one (login-redirect, no hard failure)', () => {
+    // The login-bounce case: the protected route 200s to a login screen, so no load
+    // FAILED, but we never reached the element's own page - "couldn't reach", not gone.
+    expect(isUnreachable({ ...base, scanFailed: false, wrongPage: true })).toBe(true);
   });
 
   it('is false once any candidate was found (we clearly reached a page)', () => {
@@ -210,14 +223,40 @@ describe('isUnreachable', () => {
     expect(isUnreachable({ ...base, hasBaseline: false })).toBe(false);
   });
 
-  it('is false when we scanned a loaded page - nothing matched means genuinely gone', () => {
-    // Conservative: a page that loads counts as scanned, so we don't over-claim
-    // "unreachable" (which would mask a real removal on a public page).
-    expect(isUnreachable({ ...base, scannedOk: true })).toBe(false);
+  it("is false when we reached the element's own page - nothing matched means gone", () => {
+    // scannedOk wins over any wrong-page visits: we DID reach where the element lives.
+    expect(isUnreachable({ ...base, scannedOk: true, wrongPage: true })).toBe(false);
   });
 
-  it('is false when no page-load failure occurred (no evidence of a reachability problem)', () => {
-    expect(isUnreachable({ ...base, scanFailed: false })).toBe(false);
+  it('is false with no positive evidence we could not reach (neither failed nor wrong)', () => {
+    expect(isUnreachable({ ...base, scanFailed: false, wrongPage: false })).toBe(false);
+  });
+});
+
+describe('samePage', () => {
+  it('matches identical URLs, and ignores query + hash + trailing slash', () => {
+    expect(samePage('https://app.com/dashboard', 'https://app.com/dashboard')).toBe(true);
+    expect(samePage('https://app.com/dashboard?tab=1#x', 'https://app.com/dashboard')).toBe(true);
+    expect(samePage('https://app.com/dashboard/', 'https://app.com/dashboard')).toBe(true);
+  });
+
+  it('rejects a different path (the login-redirect signal)', () => {
+    expect(samePage('https://app.com/login', 'https://app.com/dashboard')).toBe(false);
+    expect(
+      samePage('https://app.com/auth/login?next=/dashboard', 'https://app.com/dashboard'),
+    ).toBe(false);
+  });
+
+  it('rejects a different origin (host/port/scheme)', () => {
+    expect(samePage('https://evil.com/dashboard', 'https://app.com/dashboard')).toBe(false);
+    expect(samePage('http://app.com:3000/x', 'http://app.com:4000/x')).toBe(false);
+  });
+
+  it('treats blank or unparseable input as a match (never over-claims "wrong page")', () => {
+    // Old baselines can lack a pageUrl; we must not flag those as unreachable.
+    expect(samePage('https://app.com/x', '')).toBe(true);
+    expect(samePage('', 'https://app.com/x')).toBe(true);
+    expect(samePage('not-a-url', 'https://app.com/x')).toBe(true);
   });
 });
 

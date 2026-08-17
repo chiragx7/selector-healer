@@ -50,6 +50,16 @@ describe('learning store routing', () => {
     });
   });
 
+  it('default (no learning config): behaves as local - no committed file appears', () => {
+    // The finding fix: an unconfigured project must NOT silently create a
+    // git-tracked .selector-healer/feedback.json on the first accept.
+    root = mkdtempSync(join(tmpdir(), 'sh-learn-'));
+    initLearning(makeMemento());
+    recordLearning(root, cfg(), "page.getByTestId('x')", 'accepted');
+    expect(existsSync(getFeedbackPath(root))).toBe(false);
+    expect(feedbackForHeal(cfg())?.byType.testid).toEqual({ accepted: 1, rejected: 0 });
+  });
+
   it('disabled: records nothing and offers no feedback', () => {
     root = mkdtempSync(join(tmpdir(), 'sh-learn-'));
     initLearning(makeMemento());

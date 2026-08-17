@@ -89,6 +89,32 @@ describe('renderConfigFile', () => {
     expect(cfg.pages).toBeUndefined();
   });
 
+  it('emits a documented learning comment by default (no active field - stays local)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'sh-gen-'));
+    created.push(root);
+    const { filename, content } = renderConfigFile(detection());
+    // The choice is surfaced as a comment; no active learning field means the
+    // runtime default ('local' - no committed file) applies.
+    expect(content).toContain('Adaptive learning');
+    expect(content).toMatch(/\/\/.*store: 'committed'/); // documented, but commented out
+    const path = join(root, filename);
+    writeFileSync(path, content);
+    expect(createRequire(import.meta.url)(path).learning).toBeUndefined();
+  });
+
+  it.each([
+    ['local', { store: 'local' }],
+    ['committed', { store: 'committed' }],
+    ['off', { enabled: false }],
+  ] as const)('writes an active, loadable learning block for %s', (choice, expected) => {
+    const root = mkdtempSync(join(tmpdir(), 'sh-gen-'));
+    created.push(root);
+    const { filename, content } = renderConfigFile(detection(), choice);
+    const path = join(root, filename);
+    writeFileSync(path, content);
+    expect(createRequire(import.meta.url)(path).learning).toEqual(expected);
+  });
+
   it('escapes single quotes in embedded values', () => {
     const { content } = renderConfigFile(detection({ testDir: "./we're/tests" }));
     expect(content).toContain("testDir: './we\\'re/tests'");

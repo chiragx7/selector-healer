@@ -5,7 +5,7 @@
 ### Added
 
 - **Analytics Overview dashboard** - selector health, a robustness gauge, health-over-time, composition, and per-page breakdowns
-- **Learn from accept/reject** - adaptive suggestion ranking that nudges toward the fix kinds you take, with a "✨ you usually accept X fixes" note (bounded, local, and never enough to change an auto-apply)
+- **Learn from accept/reject** - adaptive suggestion ranking that nudges toward the fix kinds you take, with a "✨ you usually accept X fixes" note (bounded, and never enough to change an auto-apply). Feedback is stored locally by default; Create Config asks whether to keep it local, share it with your team, or turn it off
 - **Heal History + one-click Undo** - every applied fix is reversible
 - **Diff preview before Apply** - peek the before → after change first
 - **"Why NN%?" breakdown** - the per-rule confidence, not just a number
